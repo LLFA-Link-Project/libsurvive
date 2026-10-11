@@ -81,14 +81,16 @@ Orange Piでの次の確認
   mkdir -p "$ARPARA_CONFIG_DIR"
   rm -f "$ARPARA_CONFIG_DIR/config.json"
   export SURVIVE_CONFIGFILE="$ARPARA_CONFIG_DIR/config.json"
-  export SURVIVE_RECORD="$ARPARA_RUN_DIR/monado-survive.rec.gz"
+  export SURVIVE_RECORD="/tmp/mnado-survive.rec.gz"
   export SURVIVE_GLOBALSCENESOLVER=1
   export SURVIVE_LH_GEN=1
   export SURVIVE_PLUGIN_DEBUG=1
   export SURVIVE_V=10
 
   既存のLLFA/DRM起動コマンドを使い、末尾に次を付ける:
-    > "$ARPARA_RUN_DIR/monado.log" 2>&1
+    2>&1 | tee -i /tmp/monado-llfa.log
+  実機記録29で確認された保存先・起動方法に合わせた例。
+  実機の/tmp出力は開発ホストのArparaOpiLog/<番号>/へ転送する。
   最初は健全な局から見える位置で10秒ほど静止し、校正を待つ。
   その後ゆっくり動かし、最後は再び20秒ほど静止して確認する。
   SURVIVE_LOG=traceはMonadoの位置ログが必要な比較で使用する。

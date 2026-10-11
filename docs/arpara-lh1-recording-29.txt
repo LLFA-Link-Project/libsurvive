@@ -1,0 +1,75 @@
+arpara / Lighthouse 1.0: 新規校正後の実機記録29 (2026-10-11)
+
+結論とユーザー確認
+  ユーザー報告: 最初に少し飛ぶ挙動は見たが、かなり安定して動くようになった。
+  記録28での継続的な大発散から、新規設定での実機動作が大幅に改善した。
+  初期校正・収束中の位置変化は残る。動作中の絶対精度は未評価。
+  健全なBS 1.0一局での結果であり、故障局を含む両局追跡の検証ではない。
+
+実機と開発ホストの保存場所
+  今後の案内はユーザーの実機起動方法に合わせる:
+    Orange Piでの記録: /tmp/mnado-survive.rec.gz
+    Orange Piでのログ: /tmp/monado-llfa.log
+    転送先: 開発ホストの ~/ArparaOpiLog/<番号>/
+  実機側にArparaOpiLogのディレクトリがある前提でコマンドを提示しない。
+  Monadoは ~/monado で既存のLLFA/DRM環境変数を付けて起動する。
+  stdout/stderrは 2>&1 | tee -i /tmp/monado-llfa.log で保存する。
+  この調査時点で29にあるのは記録とconfig.jsonのみ。Monadoログは未転送。
+
+入力と校正
+  ~/ArparaOpiLog/29/mnado-survive.rec.gz
+  SHA256: 2f54e036ae07390811e48cf8cf44eae044529544cb9ee451c0846fcb59d77633
+  ~/ArparaOpiLog/29/config.json
+  SHA256: 2078bbbf4e5baf4edbe2cb0ea152f63cac5f0a3f91854a0f053fbed4b2dc11bb
+  元記録とconfigは機器識別子を含むためコミットしない。
+  記録OPTIONで以下を確認:
+    configfile=/home/reina/.config/libsurvive/arpara-lh1/config.json
+    globalscenesolver=1、lighthouse-gen=1、gss-threaded=1
+  最初の局配置出力は4.948595秒、最初の追跡POSEは5.014924秒。
+  保存配置の局加速度方向を世界へ回転したとき、+Zとの角度は約0.9983度。
+  28の起動時配置の約50.36度から、重力方向と整合する配置へ改善している。
+  保存配置と最初のLH_POSEは記録の出力精度の範囲で一致。
+
+実機出力
+  raw lightcap=506651、raw IMU=105006。
+  光の時刻範囲0.662835〜110.439304秒。
+  LH0 X=68225(25センサー)、Y=73293(24センサー)、LH1 X/Y=0。
+  POSE=97182、VELOCITY=97089。
+  記録全体の各座標peak-to-peak: X=0.899088、Y=1.718238、Z=0.894051 m。
+  最大速度4.853741 m/s。動きを含むため、全体幅や速度を誤差とは扱わない。
+  外部正解がなく、動作中の追従精度はこの値から評価できない。
+
+  raw IMUは107秒にも変化し、108秒以降に小さくなる。
+  最後の108〜110.439238秒を静止候補区間として評価:
+    POSE=2338
+    位置peak-to-peak: X=0.144、Y=0.872、Z=0.123 mm
+    区間最初の姿勢からの最大回転差: 0.055499度
+    最大速度: 0.000032955 m/s
+    センサー別角度標準偏差の中央値: X=0.002733度、Y=0.002037度
+  静止開始操作の正確な時刻は未確認。約2.4秒の短い区間であり、長時間の
+  ドリフトや絶対精度の保証ではない。
+
+USBなし再生での確認
+  修正版をホストでplayback-factor=0、GSS=1、GSS/poser非スレッドで再生した。
+  保存設定なしの新規校正と、29/config.jsonを初期設定にした再生を比較。
+  configfile出力先は /tmp/arpara-lh1-investigation/29/ に隔離し、入力を変更しない。
+  両再生の角度列は実機記録とSHA256まで一致:
+    dbefaa336f21043454263372b88d1a145e93b084a39631d8d794ee5527d75cab
+  108秒以降の最大座標幅 / 最大回転差:
+    新規校正再生: 0.876 mm / 0.054100度
+    保存配置再生: 0.807 mm / 0.045023度
+  姿勢列は校正履歴・スレッド実行が違うため実機と完全一致するとは主張しない。
+  新規校正再生はlock=1、confidence reset=0、sync reset=0。
+  sync_time_error=14は残り、すべての入力が正常だったとは扱わない。
+  再生ログ・派生記録・集計JSONは /tmp/arpara-lh1-investigation/29/ にある。
+
+今後の起動
+  実機で提示された起動行を維持し、以下の設定を先頭に付ける:
+    SURVIVE_CONFIGFILE="$HOME/.config/libsurvive/arpara-lh1/config.json"
+    SURVIVE_GLOBALSCENESOLVER=1 SURVIVE_LH_GEN=1
+    SURVIVE_PLUGIN_DEBUG=1 SURVIVE_RECORD="/tmp/mnado-survive.rec.gz" SURVIVE_V=10
+  既存のLLFA_TRACKER_OVERRIDE、LLFA_TRACKER_IN_HMD、SURVIVE_LOG、DRM設定は維持。
+  機器配置が同じなら今回のconfig.jsonを再利用し、毎回削除しない。
+  BSを動かした・変更した場合はMonado停止中に上記の専用configを削除して再校正。
+  初期校正中は健全な局から見える位置で静止し、校正が成立してから動作を確認する。
+  元のデバイスJSONやFW、Monadoの表示・IMU・multi_wrapperに変更は加えていない。
