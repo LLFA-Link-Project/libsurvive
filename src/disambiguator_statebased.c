@@ -181,6 +181,8 @@ typedef struct {
 	int last_sync_count;
 
 	uint32_t first_sync_timestamp;
+	uint32_t latest_sync_timestamp;
+	uint32_t sync_sensor_mask;
 	uint32_t longest_sync_length;
 
 	struct {
@@ -206,8 +208,12 @@ typedef struct {
 	int failures;
 	bool lastWasSync;
 
-#define SYNC_HISTORY_LEN 12
+// Sweep pulses can be as wide as sync pulses. Keep enough candidates to
+// acquire twelve actual syncs even when wide sweeps are interleaved.
+#define SYNC_HISTORY_LEN 24
+#define MIN_SYNC_INLIERS 12
 	LightcapElement sync_history[SYNC_HISTORY_LEN];
+	bool sync_history_broadcast[SYNC_HISTORY_LEN];
 	int sync_offset;
 
 	LightcapElement sweep_data[];
@@ -239,23 +245,17 @@ static int find_acode(uint32_t pulseLen) {
 }
 
 static int32_t overlap_area(const LightcapElement *a, const LightcapElement *b) {
-	if (a->timestamp > b->timestamp)
-		return overlap_area(b, a);
-
-	// a_start must be <= than b_start here
-	uint32_t a_end = a->timestamp + a->length;
-
-	uint32_t b_start = b->timestamp;
-	uint32_t b_end = b->timestamp + b->length;
-
-	uint32_t c_start = 0, c_end = 0;
-
-	if (a_end >= b_start) {
-		c_start = b->timestamp;
-		c_end = b_end > a_end ? a_end : b_end;
+	int32_t delta = b->timestamp - a->timestamp;
+	if (delta < 0) {
+		int32_t remaining = (int32_t)b->length + delta;
+		if (remaining <= 0)
+			return 0;
+		return remaining < a->length ? remaining : a->length;
 	}
-
-	return c_end - c_start;
+	int32_t remaining = (int32_t)a->length - delta;
+	if (remaining <= 0)
+		return 0;
+	return remaining < b->length ? remaining : b->length;
 }
 static bool overlaps(const LightcapElement *a, const LightcapElement *b) {
 	int overlap = overlap_area(a, b);
@@ -305,8 +305,9 @@ static enum LighthouseState SetState(Disambiguator_data_t *d, const LightcapElem
 
 static enum LighthouseState EndSweep(Disambiguator_data_t *d, const LightcapElement *le) { return LS_UNKNOWN; }
 
-static void AddSyncHistory(Disambiguator_data_t *d, LightcapElement sync) {
+static void AddSyncHistory(Disambiguator_data_t *d, LightcapElement sync, bool broadcast) {
 	if (sync.length) {
+		d->sync_history_broadcast[d->sync_offset] = broadcast;
 		d->sync_history[d->sync_offset++] = sync;
 		if (d->sync_offset >= SYNC_HISTORY_LEN)
 			d->sync_offset = 0;
@@ -339,28 +340,25 @@ static uint32_t calculate_error(int target_acode, const LightcapElement *le) {
 #define DEBUG_LOCK DEBUG_TB
 static uint32_t apply_mod_offset(uint32_t timestamp, uint32_t mod_offset, enum LighthouseState end_state) {
 	int mod_group = LSParam_offset_for_state(end_state);
-	if (timestamp > mod_offset)
-		return (timestamp - mod_offset) % mod_group;
-
-	// Indicates mod_offset was from _before_ a 32bit rollover
-	if (mod_offset - timestamp > 0xFFFFFFFF / 2) {
-		return (0xFFFFFFFF - mod_offset + timestamp) % mod_group;
-	}
-
-	timestamp = timestamp % mod_group;
-	mod_offset = mod_offset % mod_group;
-
-	int rtn = ((int32_t)timestamp - (int32_t)mod_offset) % mod_group;
+	// References are recent (less than half the 32-bit clock range away).
+	// Subtract before taking the modulo so rollover is exactly 2^32 ticks,
+	// including when an older candidate precedes a reference after rollover.
+	int rtn = (int32_t)(timestamp - mod_offset) % mod_group;
 	if (rtn < 0)
 		rtn += mod_group;
 	return rtn;
 }
 
-static int find_inliers(Disambiguator_data_t *d, uint32_t guess_mod, bool test60hz) {
+static int find_inliers_window(Disambiguator_data_t *d, uint32_t guess_mod, bool test60hz,
+							   int history_len, bool allow_sweeps) {
 	int inliers = 0;
+	unsigned states = 0;
 	SurviveContext *ctx = d->so->ctx;
-	for (int i = 0; i < SYNC_HISTORY_LEN && d->sync_history[i].length > 0; i++) {
+	for (int age = 0; age < history_len; age++) {
+		int i = (d->sync_offset + SYNC_HISTORY_LEN - 1 - age) % SYNC_HISTORY_LEN;
 		const LightcapElement *le = &d->sync_history[i];
+		if (le->length == 0)
+			break;
 
 		int end_of_mod = test60hz ? LS_WaitLHB_ACode0 : LS_END;
 		int le_offset = apply_mod_offset(le->timestamp, guess_mod, end_of_mod);
@@ -379,17 +377,43 @@ static int find_inliers(Disambiguator_data_t *d, uint32_t guess_mod, bool test60
 				   time_diff, le->length, le->sensor_id, acode, best_acode, LS_Params[this_state].lh, this_state,
 				   ACODE_TIMING(acode), ACODE_TIMING(acode | DATA_BIT), error, offset_error);
 
-		if (LS_Params[this_state].is_sweep)
+		if (LS_Params[this_state].is_sweep) {
+			// A coherent multi-sensor flash cannot be explained as a sweep.
+			// In particular, do not shift the phase by one sync window and
+			// silently discard all of the other station's syncs.
+			if (!allow_sweeps || d->sync_history_broadcast[i])
+				return 0;
 			continue;
+		}
 
 		if (LS_Params[this_state].lh && test60hz)
-			continue;
+			return 0;
 
 		if (error < 500 && offset_error < 500) {
 			inliers++;
+			states |= 1u << this_state;
+		} else {
+			// Only candidates in a sweep window may be ignored. A conflicting
+			// sync width or phase invalidates this hypothesis, rather than
+			// merely reducing its score and permitting a false lock.
+			return 0;
 		}
 	}
+	// Repeated noise at just one phase is not evidence for the full cycle.
+	// Require both axes and, in two-station mode, both skip-bit values from
+	// at least one station. The other station may be completely occluded.
+	unsigned station_a = (1u << LS_WaitLHA_ACode0) | (1u << LS_WaitLHA_ACode1);
+	unsigned station_b = (1u << LS_WaitLHB_ACode0) | (1u << LS_WaitLHB_ACode1) |
+						 (1u << LS_WaitLHA_ACode4) | (1u << LS_WaitLHA_ACode5);
+	if (!test60hz)
+		station_a |= (1u << LS_WaitLHB_ACode4) | (1u << LS_WaitLHB_ACode5);
+	if ((states & station_a) != station_a && (test60hz || (states & station_b) != station_b))
+		return 0;
 	return inliers;
+}
+
+static int find_inliers(Disambiguator_data_t *d, uint32_t guess_mod, bool test60hz) {
+	return find_inliers_window(d, guess_mod, test60hz, SYNC_HISTORY_LEN, true);
 }
 
 static enum LighthouseState find_relative_offset(Disambiguator_data_t *d, uint32_t *mod, bool *single_60hz) {
@@ -402,25 +426,30 @@ static enum LighthouseState find_relative_offset(Disambiguator_data_t *d, uint32
 	int acode = find_acode(re->length) & 0x5;
 
 	DEBUG_LOCK("Starting search... %s %d %d", survive_colorize(d->so->codename), ri, acode);
-	for (enum LighthouseState guess = LS_UNKNOWN + 1; guess != LS_END; guess++) {
-		const LighthouseStateParameters *params = &LS_Params[guess];
-		// if (LSParam_acode(guess) == acode && !params->is_sweep) {
-		if (!params->is_sweep) {
-			uint32_t guess_mod = SolveForMod_Offset(d, guess, re);
-			DEBUG_LOCK("%10u %4u %d %u %u %d", re->timestamp, re->length, acode & 0x5, guess_mod,
-					   re->timestamp - guess_mod, guess);
+	// Preserve acquisition as soon as the latest twelve candidates are all
+	// syncs. Older startup noise must not delay clean Vive/Tracker locking.
+	for (int allow_sweeps = 0; allow_sweeps < 2; allow_sweeps++) {
+		for (enum LighthouseState guess = LS_UNKNOWN + 1; guess != LS_END; guess++) {
+			const LighthouseStateParameters *params = &LS_Params[guess];
+			// if (LSParam_acode(guess) == acode && !params->is_sweep) {
+			if (!params->is_sweep) {
+				uint32_t guess_mod = SolveForMod_Offset(d, guess, re);
+				DEBUG_LOCK("%10u %4u %d %u %u %d", re->timestamp, re->length, acode & 0x5, guess_mod,
+						   re->timestamp - guess_mod, guess);
 
-			for (int test60hz = 0; test60hz < ((guess >= LS_WaitLHB_ACode0) ? 1 : 2); test60hz++) {
-				// We are already locked on one device; so we know if its 60hz mode or not
-				if (best_d && test60hz != g->single_60hz_mode)
-					continue;
+				for (int test60hz = 0; test60hz < ((guess >= LS_WaitLHB_ACode0) ? 1 : 2); test60hz++) {
+					// We are already locked on one device; so we know if its 60hz mode or not
+					if (best_d && test60hz != g->single_60hz_mode)
+						continue;
 
-				int inliers = find_inliers(d, guess_mod, test60hz);
-				DEBUG_LOCK("With 60hz -- %d %d", test60hz, inliers);
-				if (inliers > SYNC_HISTORY_LEN - 1) {
-					*mod = guess_mod;
-					*single_60hz = test60hz == 1;
-					return guess;
+					int inliers = allow_sweeps ? find_inliers(d, guess_mod, test60hz) :
+						find_inliers_window(d, guess_mod, test60hz, MIN_SYNC_INLIERS, false);
+					DEBUG_LOCK("With 60hz -- %d %d", test60hz, inliers);
+					if (inliers >= MIN_SYNC_INLIERS) {
+						*mod = guess_mod;
+						*single_60hz = test60hz == 1;
+						return guess;
+					}
 				}
 			}
 		}
@@ -429,11 +458,20 @@ static enum LighthouseState find_relative_offset(Disambiguator_data_t *d, uint32
 	return LS_UNKNOWN;
 }
 
+static bool sync_is_broadcast(const Disambiguator_data_t *d) {
+	// A flash shares a leading edge across sensors; overlap alone is not
+	// enough. Adjacent sensors can see a wide sweep hundreds of ticks apart.
+	// This is only a veto against discarding a flash, not a requirement for
+	// accepting a sync (single-sensor or more dispersed syncs still qualify).
+	return (d->sync_sensor_mask & (d->sync_sensor_mask - 1)) != 0 &&
+		   (uint32_t)(d->latest_sync_timestamp - d->first_sync_timestamp) < 100;
+}
+
 static enum LighthouseState EndSync(Disambiguator_data_t *d, const LightcapElement *le) {
 	LightcapElement lastSync = get_last_sync(d);
 	Global_Disambiguator_data_t *g = d->so->ctx->disambiguator_data;
 
-	AddSyncHistory(d, lastSync);
+	AddSyncHistory(d, lastSync, sync_is_broadcast(d));
 
 	uint32_t mod = 0;
 	bool is60hz;
@@ -452,8 +490,13 @@ static enum LighthouseState EndSync(Disambiguator_data_t *d, const LightcapEleme
 }
 
 static void RegisterSync(Disambiguator_data_t *d, const LightcapElement *le) {
-	if (le->timestamp < d->first_sync_timestamp || d->longest_sync_length == 0)
+	if (d->last_sync_count == 0) {
+		d->first_sync_timestamp = d->latest_sync_timestamp = le->timestamp;
+	} else if ((int32_t)(le->timestamp - d->first_sync_timestamp) < 0) {
 		d->first_sync_timestamp = le->timestamp;
+	} else if ((int32_t)(le->timestamp - d->latest_sync_timestamp) > 0) {
+		d->latest_sync_timestamp = le->timestamp;
+	}
 
 	if (le->length > d->longest_sync_length) {
 		d->longest_sync_length = le->length;
@@ -462,10 +505,13 @@ static void RegisterSync(Disambiguator_data_t *d, const LightcapElement *le) {
 	d->last_sync_timestamp += le->timestamp;
 	d->last_sync_length += le->length;
 	d->last_sync_count++;
+	if (le->sensor_id < 32)
+		d->sync_sensor_mask |= 1u << le->sensor_id;
 }
 
 static void ResetSync(Disambiguator_data_t *d) {
 	d->first_sync_timestamp = d->longest_sync_length = 0;
+	d->latest_sync_timestamp = d->sync_sensor_mask = 0;
 	d->last_sync_timestamp = d->last_sync_length = d->last_sync_count = 0;
 }
 
@@ -611,7 +657,7 @@ static void ProcessStateChange(Disambiguator_data_t *d, const LightcapElement *l
 										.length = d->longest_sync_length,
 										.sensor_id = -d->last_sync_count};
 
-			AddSyncHistory(d, lastSync);
+			AddSyncHistory(d, lastSync, sync_is_broadcast(d));
 			// Use the average of the captured pulse to adjust where we are modulo against.
 			// This lets us handle drift in any of the timing chararacteristics
 			uint32_t new_offset = SolveForMod_Offset(d, d->state, &lastSync);
@@ -749,9 +795,9 @@ static void PropagateState(Disambiguator_data_t *d, const LightcapElement *le) {
 		// Note we only select the highest length one per sweep. Also, we bundle everything up and send it later all at
 		// once.
 		// so that we can do this filtering. Might not be necessary?
-		if (le->length > 3000) {
-			d->confidence--;
-		}
+		// Width alone cannot invalidate a sweep: near a station it may be
+		// wider than a sync. Penalizing every such sensor hit can discard an
+		// entire valid sweep despite correctly timed, decoded syncs.
 		assert(le->sensor_id < d->so->sensor_ct);
 		d->sweep_data[le->sensor_id] = *le;
 	}

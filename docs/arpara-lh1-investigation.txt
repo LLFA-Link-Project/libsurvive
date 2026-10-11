@@ -1,0 +1,229 @@
+arpara Gaming Kit / Lighthouse 1.0 調査結果 (2026-10-11)
+
+状態
+  libsurvive の光パルス判別を修正し、26・27のUSBなし再生と回帰テストで検証した。
+  開発ホストは x86_64。Orange Piへの適用、実機6DoF、両局の完全な校正は未確認。
+  Monado、arparaの表示/内蔵IMU、multi_wrapper、元JSON、FWは変更していない。
+  ブランチ: arpara-lh1-investigation
+  基点: 23f03665070549f0c13a6e768dfaf7764f75c417
+  修正・回帰テスト・集計ツール・本報告を上記ブランチにコミットする。
+  修正版commitは git rev-parse arpara-lh1-investigation で確認できる。
+
+原因と修正
+  src/disambiguator_statebased.c の naive_classify は幅2250〜6750 ticksの
+  パルスを同期候補とする。しかし走査期間にもこの幅のパルスがある。
+  従来の find_relative_offset / find_inliers は直近12候補をすべて有効な
+  同期と要求するため、候補への走査パルス混入でロックできなかった。
+  26の初期再生で同期として整合するものは最大8/12。同期以外の位相にある
+  候補だけを除く診断再生では、未変更判別機がロックした。
+  入力信号の物理的な起源（距離、反射等）やUSBデコードの完全性は未確定。
+
+  修正は12件の同期という必要な証拠を維持する。履歴を24候補に増やし、
+  同期の位相・ACODE幅に整合する12件を要求する。位相/幅誤差の500 ticks
+  条件、naive_classifyの幅範囲は緩めない。
+  走査窓にある候補だけを無視できる。同期窓で矛盾する候補はモデルを拒否する。
+  両軸とskip-bitの循環も確認し、単一位相の周期ノイズではロックしない。
+  異なる複数センサーの先頭時刻が100 ticks未満の幅に収まる候補は、
+  同時フラッシュとして扱い、走査と説明して捨てる位相モデルを拒否する。
+  100 ticksは候補の除外を防ぐための判定であり、同期を受理する必要条件ではない。
+  27では隣接センサーの走査パルスの先頭が約437 ticks離れていた。これを
+  同時フラッシュと誤認するとロックが約25秒まで遅れたため、先頭の一致を
+  より厳しく判定する。これは回帰テストにも含めた。
+  直近12候補がすべて同期の場合はその判定を優先し、従来の起動時間を保つ。
+  古い起動ノイズを余分に保持して通常Trackerの校正を遅らせる回帰は解消した。
+
+  PropagateStateには、走査窓でも幅3000 ticks超ならセンサーごとにconfidenceを
+  減らす処理があった。28センサーの正常な長い走査を受けるとconfidenceが
+  出力条件を下回り、走査全体が捨てられた。位相が走査に合うパルスを幅だけで
+  減点する処理を除いた。同期幅の矛盾による減点は維持する。
+  26の試験修正途中では11,849測定がこの経路等で捨てられ、最終修正では31。
+
+  時計の周回も検証し、apply_mod_offsetの周回時1 tick誤差と、周回後の参照から
+  周回前の候補を評価する問題を修正した。overlap_area / RegisterSyncも周回を
+  跨ぐ同期グループとセンサーの小さな順序入れ替わりに対応する。
+  27には実際の32bit時計周回が1回ある。再生中のロック解除・同期幅エラーは0。
+
+入力
+  25の2ログと26の2ファイルのSHA256は引き継ぎ資料と一致。
+  26: raw lightcap 227774、raw IMU 26451、光の記録時刻0.757721〜28.343434秒。
+  27: raw lightcap 245518、raw IMU 29488、光の記録時刻0.769508〜31.628328秒。
+  27記録SHA256:
+    a9c1c2dd85fc3ec10d8e5a1e95355745f2a023c65927d5580733bf8fcb664b10
+  27ログSHA256:
+    78ce2ca89622cf00ef82686397e7dc86e00f4e45f39469a47dd0caaeb426e3dc
+  27はユーザーによれば全体が静止、26は概ね半分頃から静止。
+  26のIMUは14〜20秒にも大きな変動があり、20秒以降に小さくなる。
+  26全体の位置/姿勢変動を静止ドリフトとは扱わない。
+
+比較方法と結果
+  全再生で保存設定を新しい絶対パスの --configfile へ隔離した。
+  元のデバイスJSONを含む記録、派生記録、保存された配置はコミットに含めない。
+  driver_playbackは記録中のOPTIONを明示的に無視する。比較ではMPFIT、
+  --no-threaded-posers、GSS使用時は --no-gss-threaded を指定。
+  これらのスレッド設定は比較の再現性を保つため。実機の通常動作の必須条件ではない。
+  GSS=0/1それぞれで元版と修正版を比較。保存済み局配置は持ち込んでいない。
+  基準版は元commitの判別プラグインを別ディレクトリでコンパイルし、同じCLI、
+  同じcore、同じ他プラグインを用いた。LD_LIBRARY_PATHでcoreをその別ディレクトリに
+  固定し、SURVIVE_PLUGIN_DEBUGでプラグインのロード先も確認した。
+  CLIのRUNPATHだけに任せると修正版coreの場所から修正版プラグインを拾うため注意。
+
+                        angle callback    pose callback
+  26 元版 GSS=0/1                 0                0
+  26 修正版 GSS=0             44398                0
+  26 修正版 GSS=1             44398            19470
+  27 元版 GSS=0/1                 0                0
+  27 修正版 GSS=0             47741                0
+  27 修正版 GSS=1             47741            22339
+
+  元版の判別失敗警告: 26は227回、27は245回、lock=0。
+  修正版: 26のlock時刻0.847047秒、27のlock時刻1.027843秒、各lock=1。
+  27の起動中の警告は1回で、その後はlock解除0、confidence reset=0、sync_time_error=0。
+  generation自動判別の起動期間はlightcapが一部消費されるため、元記録のC行数と
+  判別callback数、再記録のC行数は必ずしも一致しない。
+
+  修正版の局/軸別の角度数（局の番号はlibsurvive内部index）:
+                        LH0 X       LH0 Y       LH1 X       LH1 Y
+  26                    12980       13697       17721           0
+  27                    12838       15589       18360         954
+  27のセンサー数           14          17          20           2
+
+  27ではGSSがLH0の配置を推定したが、LH1の配置は未設定のまま。
+  LH1 Yは2センサーしかなく、これを両局の正常な完全校正とは扱わない。
+  GSS=0では、新規配置推定が成立せず、角度は出るが姿勢は出ない。
+  保存済み配置のない同記録を評価するときはGSS=1を使う。
+
+  27のGSS=1で、姿勢が最初に出たのは7.085742秒。
+  最初の姿勢からの最大回転変動は約39.7度で、初期収束を含む。
+  静止の確認された記録について、収束後10〜31.628343秒を別に評価すると:
+    出力姿勢数: 19687
+    各座標のpeak-to-peak: X=0.201 mm、Y=1.348 mm、Z=1.348 mm
+    区間最初の姿勢に対する最大回転差: 0.749166度（quaternionの符号は同一視）
+  これは再生姿勢の変動であり、外部正解に対する絶対精度の評価ではない。
+  20秒以降のpeak-to-peakはX=0.048 mm、Y=0.341 mm、Z=0.311 mm。
+
+  27の角度・姿勢は playback-factor=0 と1で数だけでなく出力列が一致した。
+  記録のホスト時刻を除くA/POSE各行に改行を足してSHA256を計算:
+    angles: 8661f2296ea1f9a54025173a18a5e026f79951e15284ffc3bae9b4f9bde23eaf
+    poses:  702ac07ffdbf3cbdd226c8c96452ac61132ed0e8e82af2b83f61980e36313d95
+  26も速度0/1で角度列が一致した。26のGSS=1姿勢は静止候補区間でも大きく
+  不安定で、未校正LH1をMPFITだけから外す診断では大幅に改善した。
+  この診断オプションを正常な両局追跡の代替としては提供しない。
+
+検証済み
+  survive-cli / driver_vive / driver_playback / driver_global_scene_solver / MPFIT /
+  BaryCentricSVD / StateBased をホストでビルド。
+  CTest 12項目PASS: reproject, check_generated, barycentric_svd, optimizer,
+  rotate_angvel, export_config, watchman, disambiguator_statebased,
+  lh1_test_cal.rec.gz, tracker-bad-tracking.rec.gz, tracker-throw-compare.rec.gz,
+  vive-and-controllers.rec.gz。
+  判別テストの8ケースには長い走査、12同期未満の拒否、単一位相ノイズ、
+  反対のskip-bit、両局の位相/軸/ACODE/走査時刻、片局遮蔽、60Hz単局、
+  起動ノイズの後の通常ロック、時計周回、順序入れ替わり、重複センサーを含む。
+  28センサーの長い走査を含む合成入力で両局両軸の出力を確認。
+  この判別コードとテストをASan/UBSanでも直接ビルドし、8ケースPASS。
+  coreと他プラグインを丸ごとsanitizerで再ビルドした検証ではない。
+  /tmp/arpara-lh1-investigation/install に試験インストールし、そこにあるcoreと
+  プラグインだけをロードする27の初期1.1秒再生も確認（angle=87）。
+
+ホスト上の再現・集計
+  cd ~/libsurvive
+  mkdir -p /tmp/arpara-recheck
+  ./build-replay/survive-cli \
+    --configfile /tmp/arpara-recheck/fresh.json \
+    --playback ~/ArparaOpiLog/27/survive-lh1.rec.gz \
+    --playback-factor 0 --globalscenesolver 1 \
+    --no-gss-threaded --no-threaded-posers \
+    --record /tmp/arpara-recheck/replayed.rec.gz --v 10 \
+    > /tmp/arpara-recheck/replay.log 2>&1
+  python3 tools/lh1_recording_summary.py --stationary-start 10 \
+    /tmp/arpara-recheck/replayed.rec.gz
+  再実行の比較には新しいconfigfile名を使い、前の校正を読ませない。
+  tools/lh1_recording_summary.pyはT20のイベント数、局/軸別角度、姿勢変動を
+  集計する。CONFIGを出力しない。静止開始時刻は自動推定しない。
+  詳細ログと派生記録は /tmp/arpara-lh1-investigation にある。
+
+Orange Piでの適用とビルド（このホストでは実行していない）
+  開発ホストでコミット済みブランチをbundleにし、Piへコピーする。
+  git -C ~/libsurvive bundle create /tmp/arpara-lh1.bundle arpara-lh1-investigation
+  コピー先: Piの ~/ArparaOpiLog/arpara-lh1.bundle
+  既存checkoutと既存installは残し、別worktreeと別prefixにビルドする。
+
+  git -C ~/libsurvive fetch ~/ArparaOpiLog/arpara-lh1.bundle \
+    arpara-lh1-investigation:refs/heads/arpara-lh1-investigation
+  git -C ~/libsurvive worktree add -b arpara-lh1-fix \
+    ~/libsurvive-arpara-lh1 arpara-lh1-investigation
+  cd ~/libsurvive-arpara-lh1
+  FIX_PREFIX="$HOME/opt/libsurvive-arpara-lh1"
+  cmake -S . -B build-arpara \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX="$FIX_PREFIX" \
+    -DDO_CORE_BUILD=ON -DBUILD_STATIC=OFF -DENABLE_TESTS=ON \
+    -DENABLE_survive-cli=ON -DENABLE_driver_vive=ON \
+    -DENABLE_driver_playback=ON -DENABLE_driver_global_scene_solver=ON \
+    -DENABLE_disambiguator_statebased=ON -DENABLE_poser_mpfit=ON \
+    -DENABLE_poser_barycentric_svd=ON -DDOTNET=DOTNET-NOTFOUND
+  cmake --build build-arpara --target survive-cli test-disambiguator_statebased -j2
+  ctest --test-dir build-arpara -R '^disambiguator_statebased$' --output-on-failure
+  cmake --install build-arpara
+  ENABLE_TESTSは既存CMake仕様により初回にextrasの再生データをダウンロードする。
+  全allターゲットのビルドではなく、上の必要なターゲットを指定する。
+
+  Orange Piで27の同条件再生:
+  mkdir -p /tmp/arpara-pi-replay
+  LD_LIBRARY_PATH="$FIX_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  SURVIVE_PLUGIN_DEBUG=1 "$FIX_PREFIX/bin/survive-cli" \
+    --configfile /tmp/arpara-pi-replay/fresh.json \
+    --playback ~/ArparaOpiLog/27/survive-lh1.rec.gz \
+    --playback-factor 0 --globalscenesolver 1 \
+    --no-gss-threaded --no-threaded-posers \
+    --record /tmp/arpara-pi-replay/replayed.rec.gz --v 10 \
+    > /tmp/arpara-pi-replay/replay.log 2>&1
+  python3 tools/lh1_recording_summary.py --stationary-start 10 \
+    /tmp/arpara-pi-replay/replayed.rec.gz
+  CPU/backend差で浮動小数点の完全一致までは要求せず、角度の局/軸数、lock維持、
+  初期収束後の変動を確認する。ロード先がFIX_PREFIX配下であることも確認する。
+
+  実機の単体静止記録（Monadoは停止し、同じ機器を同時に開かない）:
+  CAPTURE_DIR="$HOME/ArparaOpiLog/arpara-lh1-patched"
+  mkdir -p "$CAPTURE_DIR/xdg/libsurvive"
+  LD_LIBRARY_PATH="$FIX_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  SURVIVE_PLUGIN_DEBUG=1 timeout --signal=INT 60s "$FIX_PREFIX/bin/survive-cli" \
+    --configfile "$CAPTURE_DIR/xdg/libsurvive/config.json" \
+    --globalscenesolver 1 --record "$CAPTURE_DIR/static.rec.gz" --v 10 \
+    > "$CAPTURE_DIR/static.log" 2>&1
+  起動前から終了まで静止させる。timeout終了の124は時間制限による正常な終了扱い。
+  動作記録は別ファイル/別runで行い、静止記録と混同しない。
+  修正版でもLH1 Yの有効センサーが2個程度のままなら、配置/遮蔽と生USB入力の
+  切り分けが残る。FWや校正JSONを書き換える前に、この結果を確認する。
+
+Monado LLFAの再確認
+  既存Monadoのソース変更は不要。共有libsurviveのABIは変更していない。
+  LD_LIBRARY_PATH付きで既存monado-serviceのlddを確認し、libsurvive.so.0が
+  FIX_PREFIX/lib配下に解決されることを確認する。静的リンクならこの切替は効かず、
+  FIX_PREFIX/lib/pkgconfigを使ってMonadoを別buildディレクトリに再ビルドする。
+  同じ単体測定の隔離設定を使うにはXDG_CONFIG_HOME="$CAPTURE_DIR/xdg"を指定する。
+
+  cd ~/monado
+  LD_LIBRARY_PATH="$FIX_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  XDG_CONFIG_HOME="$CAPTURE_DIR/xdg" SURVIVE_PLUGIN_DEBUG=1 \
+  SURVIVE_GLOBALSCENESOLVER=1 SURVIVE_LH_GEN=1 SURVIVE_LOG=debug \
+  LLFA_TRACKER_OVERRIDE=1 LLFA_TRACKER_IN_HMD=0,0,0,0,0,0,1 \
+  XRT_TRACKING_ORIGIN_OFFSET_Y=0 XRT_COMPOSITOR_FORCE_DRM=1 \
+  XRT_COMPOSITOR_DRM_DEVICE=/dev/dri/card0 XRT_COMPOSITOR_DRM_CONNECTOR=DP-1 \
+  XRT_COMPOSITOR_DRM_MODE=3840x1920@90.001 XRT_COMPOSITOR_DRM_SYNC_FD=1 \
+  XRT_COMPOSITOR_COMPUTE=0 XRT_COMPOSITOR_SCALE_PERCENTAGE=100 \
+  XRT_COMPOSITOR_DRM_PRE_FRAME_WAIT=1 XRT_COMPOSITOR_DRM_WAKE_BUDGET_US=6000 \
+  XRT_COMPOSITOR_FORCE_GPU_INDEX=0 XRT_COMPOSITOR_LOG=info \
+  ./build/src/xrt/targets/service/monado-service > "$CAPTURE_DIR/monado.log" 2>&1
+  元のruntime manifestとhello_xr -G Vulkanを使う。builder llfa、tracker選択、
+  head assigned to arpara wrapper、実際の並進/回転、静止安定性、90Hz表示、
+  正常終了時のKMS復帰を確認する。単体のsurvive-cliは終了してから起動する。
+  戻すには元のprefixと元の設定で従来のMonado起動コマンドを使う。元の共有ライブラリ、
+  Monado build、実機の保存設定はこの手順では上書きしない。
+
+残る項目
+  実機の修正版適用と6DoF確認。両局の有効なXY測定と配置推定の確認。
+  27は静止の確認に有用だが、LH1 Yの受光センサー数が依然少ない。
+  同期判別失敗の修正と、両局の光学追跡が完全に正常になったことを区別する。
+  現時点で新しいusbmon取得を必須とはしない。修正版での測定と視認性の調整でも
+  同じ欠落が続く場合は、USBデコード済みのC行だけでは入力/デコードを区別できない
+  ため、該当28de:2300の光endpoint 0x83を含むUSBパケットを追加取得して検証する。
