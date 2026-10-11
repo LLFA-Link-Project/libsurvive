@@ -1,0 +1,104 @@
+arpara / Lighthouse 1.0: 実機記録28の発散調査 (2026-10-11)
+
+結論
+  実機の位置発散はlibsurviveのPOSE/VELOCITYにも存在する。
+  Monadoの表示予測だけで発生した問題ではない。
+  起動時に読み込まれたLH0配置を再生へ与えると、位置発散を再現できた。
+  同じ設定・入力で局配置だけを新規推定値へ変更すると、大きな発散が消える。
+  次の実機確認では、局配置を初期化して明示したconfigfileでGSS校正する。
+  Orange Pi上での改善はまだ未確認。絶対精度や正常な動作追従は未保証。
+
+入力
+  ~/ArparaOpiLog/28/mnado-survive.rec.gz (実際のファイル名)
+  SHA256: 37c7537ec715b45586afeea9823f8004039d1c3cb4219f03b427f777c9609fbf
+  ~/ArparaOpiLog/28/monado-llfa.log
+  SHA256: 4ce23ed2749f2b613fff42002666182bf4a64be463fdb9453a6f9952c654dd5e
+  ユーザーによれば最後の方は静止。開始秒は未指定。
+  35秒以降はraw IMUとセンサーごとの角度変動が小さいため、静止候補として評価。
+  35秒がユーザーの静止操作の正確な時刻であるとは断定しない。
+  元記録・デバイスJSON・派生config・機器識別子はコミットしない。
+
+実機出力
+  raw lightcap=214307、raw IMU=42766、光の時刻0.665423〜45.509135秒。
+  LH0 X=32075、Y=32831、各23センサー。LH1 X/Y=0。
+  故障局を停止したという報告と整合する。
+  記録OPTIONでglobalscenesolver=1、lighthouse-gen=1を確認。
+  プラグインは /usr/local/lib/libsurvive/plugins からロードされている。
+  パスだけから実機のビルドcommitは特定できない。
+  libsurvive POSE=41088、VELOCITY=40795。
+  記録全体の各座標のpeak-to-peak: X=2.923337、Y=37.476148、Z=25.518878 m。
+  最大速度=15.510379 m/s。全体には実際の動きがあるため静止ドリフトではない。
+  Monado GET_POSITION=10870件、各座標の幅約2.968、25.676、38.444 m。
+  libsurviveからMonadoへの軸変換(X,Z,-Y)と同程度の発散である。
+  ログには姿勢ごとの時刻がなく、両者をサンプル単位で対応付けた比較ではない。
+  35秒以降: POSE=9549、位置の幅16.176 / 142.862 / 64.478 mm、回転差10.777度。
+  光学角度のセンサー別標準偏差の中央値: X=0.001976度、Y=0.002116度。
+
+局配置の切り分け
+  実機記録の最初のLH_POSE(0.014647秒):
+    Pos=(0, 3.206836, -2.038781)
+    Rot=(w=0.186603, x=-0.321246, y=-0.802993, z=-0.466029)
+  新規設定でGSSが5.386729秒に推定した配置:
+    Pos=(0, 3.133623, 0.180917)
+    Rot=(w=-0.010431927433, x=-0.038469579345,
+         y=-0.709860053806, z=-0.703214028846)
+  局のOOTX加速度方向(2,127,0)を正規化して局配置で回転すると、
+  世界の+Zとの角度は実機の配置で約50.36度、新規配置で約1.48度。
+  IMUフィルターの重力方向と矛盾する配置が発散することと整合する。
+  新規推定値はこの記録・機器配置での診断用。別配置にそのままコピーしない。
+
+  同じraw入力をplayback-factor=0、GSS=1、GSS/poser非スレッドで再生した。
+  まず保存配置なしで新規校正を行い、その保存設定を2コピーした。
+  一方はposeだけを上記の実機起動時値に変更、他方は新規推定値のままとした。
+  他の設定、局の工場校正、実行オプションは同じ。
+  局配置だけを変えた比較:
+                         全体Y幅(m)   最大速度(m/s)   35秒以降Y幅(mm)   最大回転差(度)
+  実機起動時配置の再生       30.017419     11.805080        123.361          11.7592
+  新規推定配置の再生          0.424630      0.830823          0.639           0.0425
+  全体には実際の移動を含む。上記の全体幅は静止精度ではない。
+  実機の全保存設定を受け取っていないため、実機出力列の完全一致は主張しない。
+  誤配置ではGSSの3回の推定がMP_MAXITERで失敗し、配置を修正できなかった。
+  GSS=1の指定だけで、既存の矛盾した配置を必ず修復できるわけではない。
+
+  保存設定なしの再生では、35秒以降のY幅8.093 mm、回転差0.2712度。
+  新規校正の初期収束・状態推定履歴が異なり、事前校正済み再生とは同一ではない。
+  通常のスレッドを有効にした実時間再生(playback-factor=1)でも、
+  35秒以降Y幅7.981 mm、回転差0.2687度、最大速度0.8380 m/s(全体)。
+  IMU無効化、Kalman無効化も診断したが、実機への対策は無効化ではなく再校正。
+  各非スレッド診断の角度列はSHA256まで同一:
+    bb7cb65dc29d746306f533dc41cabea58b5a4d6cdedefca3d6d4372d781b4a06
+  元記録と再生のX角度数の15件差は起動期間にあり、Y数は同一。
+
+Orange Piでの次の確認
+  故障局を停止した現在の配置を維持する。
+  ユーザーはLighthouse関連設定の破棄を許可した。専用の設定ファイルを
+  明示し、初回・配置変更時にはそのファイルを削除してゼロから校正する。
+  Monadoを停止してから、起動に使うシェルで以下を実行する:
+
+  mkdir -p "$HOME/ArparaOpiLog/29"
+  ARPARA_RUN_DIR=$(mktemp -d "$HOME/ArparaOpiLog/29/run.XXXXXX")
+  ARPARA_CONFIG_DIR="$HOME/.config/libsurvive/arpara-lh1"
+  mkdir -p "$ARPARA_CONFIG_DIR"
+  rm -f "$ARPARA_CONFIG_DIR/config.json"
+  export SURVIVE_CONFIGFILE="$ARPARA_CONFIG_DIR/config.json"
+  export SURVIVE_RECORD="$ARPARA_RUN_DIR/monado-survive.rec.gz"
+  export SURVIVE_GLOBALSCENESOLVER=1
+  export SURVIVE_LH_GEN=1
+  export SURVIVE_PLUGIN_DEBUG=1
+  export SURVIVE_V=10
+
+  既存のLLFA/DRM起動コマンドを使い、末尾に次を付ける:
+    > "$ARPARA_RUN_DIR/monado.log" 2>&1
+  最初は健全な局から見える位置で10秒ほど静止し、校正を待つ。
+  その後ゆっくり動かし、最後は再び20秒ほど静止して確認する。
+  SURVIVE_LOG=traceはMonadoの位置ログが必要な比較で使用する。
+  元JSON、FW、Monadoの表示・IMU・multi_wrapperは変更しない。
+  終了後の保存設定はARPARA_CONFIG_DIRにある。既存の既定設定は読み込まない。
+  次回以降、配置を変えていなければrmの行を実行せず、同じCONFIGFILEを使う。
+  シェルを変えた場合もCONFIGFILEとGSS/LH_GENの環境変数を再設定する。
+  元設定へ戻す際は、追加した環境変数を持たない元のシェルで元のコマンドを使う。
+
+開発ホスト上の成果物
+  /tmp/arpara-lh1-investigation/28/ 以下に再生ログ、派生記録、比較設定、summary.json。
+  tools/lh1_recording_summary.pyを拡張し、速度の最大値と静止候補区間の速度も集計する。
+  コアの追跡コードは今回追加変更していない。

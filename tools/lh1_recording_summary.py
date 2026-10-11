@@ -14,6 +14,7 @@ def summarize(path, stationary_start):
     counts = collections.Counter()
     angles = collections.defaultdict(list)
     poses = []
+    velocities = []
     light_times = []
     angle_hash = hashlib.sha256()
     pose_hash = hashlib.sha256()
@@ -34,6 +35,8 @@ def summarize(path, stationary_start):
             elif kind == "POSE":
                 pose_hash.update((" ".join(fields[3:]) + "\n").encode())
                 poses.append((time, list(map(float, fields[3:10]))))
+            elif kind == "VELOCITY":
+                velocities.append((time, list(map(float, fields[3:9]))))
     result = {
         "file": str(path),
         "counts": dict(counts),
@@ -45,6 +48,14 @@ def summarize(path, stationary_start):
         result["raw_light_time_range_s"] = [light_times[0], light_times[-1]]
     if poses:
         result["pose_time_range_s"] = [poses[0][0], poses[-1][0]]
+    def velocity_summary(samples):
+        return {
+            "count": len(samples),
+            "linear_speed_m_s_max": max(math.sqrt(sum(x * x for x in v[:3])) for v in samples),
+            "angular_speed_rad_s_max": max(math.sqrt(sum(x * x for x in v[3:])) for v in samples),
+        }
+    if velocities:
+        result["velocity"] = velocity_summary([v for _, v in velocities])
     for key in ("0.x", "0.y", "1.x", "1.y"):
         values = angles[key]
         entry = {
@@ -65,6 +76,9 @@ def summarize(path, stationary_start):
                 entry["stationary_sensor_std_deg_max"] = max(deviations)
         result["angles"][key] = entry
     if stationary_start is not None:
+        selected_velocities = [v for time, v in velocities if time >= stationary_start]
+        if selected_velocities:
+            result["stationary_velocity"] = velocity_summary(selected_velocities)
         selected = [pose for time, pose in poses if time >= stationary_start]
         result["stationary_start_s"] = stationary_start
         if selected:

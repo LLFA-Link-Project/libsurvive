@@ -1,6 +1,8 @@
 arpara Gaming Kit / Lighthouse 1.0 調査結果 (2026-10-11)
 
 状態
+  実機記録28の追加調査は docs/arpara-lh1-recording-28.txt を参照。
+  矛盾した保存局配置での位置発散を再現し、新規校正で改善することを確認した。
   libsurvive の光パルス判別を修正し、26・27のUSBなし再生と回帰テストで検証した。
   開発ホストは x86_64。Orange Piへの適用、実機6DoF、両局の完全な校正は未確認。
   Monado、arparaの表示/内蔵IMU、multi_wrapper、元JSON、FWは変更していない。
