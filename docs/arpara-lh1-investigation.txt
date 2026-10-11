@@ -114,6 +114,12 @@ arpara Gaming Kit / Lighthouse 1.0 調査結果 (2026-10-11)
   HMDを20〜30秒静止させ、POSE/VELOCITYとMonado出力を比較する。
   まず既存設定で症状を保存し、新規configでの比較はその後に行う。
   この時点ではIMU・予測・保存配置のどれが原因か未確定。
+  提供された起動コマンドにはSURVIVE_GLOBALSCENESOLVERの指定がない。
+  Monadoのsurvive_driverはこの変数の既定値を0としてCLI引数へ渡す。
+  安定した27再生はGSS=1であり、この条件差を先に解消する。
+  次回はSURVIVE_GLOBALSCENESOLVER=1、SURVIVE_LH_GEN=1を明示し、
+  SURVIVE_PLUGIN_DEBUG=1で実際にロードした修正版プラグインも確認する。
+  保存配置の状態と実機での改善はまだ確認していない。
 
   27のGSS=1で、姿勢が最初に出たのは7.085742秒。
   最初の姿勢からの最大回転変動は約39.7度で、初期収束を含む。
