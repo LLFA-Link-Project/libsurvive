@@ -169,3 +169,15 @@ synthetic test compares the shortcut with independent projection at known exact
 poses, and fails before the fix. Optimizer tests pass under ASan/UBSan. All four
 capture pose hashes are unchanged by this correction; it is not the explanation
 for the observed long-capture divergence.
+
+The exported activation-count helper also truncated 64-bit measurement ages and
+its 64-bit tolerance to 32 bits. An unobserved sensor could therefore look fresh
+again after roughly 89.5 seconds. Both quantities now retain their full width.
+A synthetic test fails on the old implementation (two stale readings counted as
+fresh), and also checks a deliberately large 64-bit tolerance. This helper is
+not called by the current default MPFIT path, so this fix does not account for
+the remaining reference disagreement.
+
+Huber loss experiments at 1 and 5 mrad did not remove the long-capture divergence:
+DF24384D remained near 405 mm / 28 degrees. The experimental implementation was
+removed; no loss-function or threshold tuning was adopted.

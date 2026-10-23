@@ -201,7 +201,7 @@ SURVIVE_EXPORT void SurviveSensorActivations_valid_counts(SurviveSensorActivatio
 														  survive_long_timecode tolerance, uint32_t *meas_cnt,
 														  uint32_t *lh_count, uint32_t *axis_cnt,
 														  size_t *meas_for_lhs_axis) {
-	survive_timecode sensor_time_window = tolerance == 0 ? SurviveSensorActivations_default_tolerance : tolerance;
+	survive_long_timecode sensor_time_window = tolerance == 0 ? SurviveSensorActivations_default_tolerance : tolerance;
 	SurviveContext *ctx = self->so->ctx;
 	for (int lh = 0; lh < ctx->activeLighthouses; lh++) {
 		if (!ctx->bsd[lh].PositionSet) {
@@ -211,7 +211,7 @@ SURVIVE_EXPORT void SurviveSensorActivations_valid_counts(SurviveSensorActivatio
 		for (uint8_t sensor = 0; sensor < self->so->sensor_ct; sensor++) {
 			bool seenAxis = false;
 			for (uint8_t axis = 0; axis < 2; axis++) {
-				survive_timecode last_reading =
+				survive_long_timecode last_reading =
 					SurviveSensorActivations_time_since_last_reading(self, sensor, lh, axis);
 				bool isReadingValue = last_reading < sensor_time_window;
 

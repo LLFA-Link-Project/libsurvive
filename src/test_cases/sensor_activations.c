@@ -20,3 +20,29 @@ TEST(SensorActivations, RuntimeClockCanPrecedeDeviceClock) {
 	ASSERT_EQ(SurviveSensorActivations_runtime(&activations, 48048000), 2000);
 	return 0;
 }
+
+TEST(SensorActivations, StaleReadingsDoNotBecomeRecentAfterClockWrap) {
+	SurviveContext ctx = {.activeLighthouses = 1};
+	ctx.bsd[0].PositionSet = true;
+	SurviveObject so = {.ctx = &ctx, .sensor_ct = 1};
+	SurviveSensorActivations activations = {.so = &so, .last_light = (UINT64_C(1) << 32) + 1000};
+	for (int axis = 0; axis < 2; axis++) {
+		activations.lengths[0][0][axis] = 100;
+		activations.timecode[0][0][axis] = 999;
+	}
+	uint32_t count = 0, lighthouses = 0, axes = 0;
+	size_t per_axis[NUM_GEN2_LIGHTHOUSES * 2] = {0};
+	SurviveSensorActivations_valid_counts(&activations, 100, &count, &lighthouses, &axes, per_axis);
+	ASSERT_EQ(count, 0);
+	ASSERT_EQ(lighthouses, 0);
+	ASSERT_EQ(axes, 0);
+	ASSERT_EQ(per_axis[0], 0);
+	ASSERT_EQ(per_axis[1], 0);
+	SurviveSensorActivations_valid_counts(&activations, (UINT64_C(1) << 32) + 100,
+										&count, &lighthouses, &axes, per_axis);
+	ASSERT_EQ(count, 2);
+	ASSERT_EQ(lighthouses, 1);
+	ASSERT_EQ(per_axis[0], 1);
+	ASSERT_EQ(per_axis[1], 1);
+	return 0;
+}
