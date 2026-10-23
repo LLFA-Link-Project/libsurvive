@@ -34,6 +34,7 @@ typedef struct SurviveRecordingData {
 	bool writeIMU;
 	bool writeCalIMU;
 	bool writeAngle;
+	bool writePoseTiming;
 	int writeDataMatrix;
 	gzFile output_file;
 } SurviveRecordingData;
@@ -44,6 +45,7 @@ STRUCT_CONFIG_SECTION(SurviveRecordingData)
     STRUCT_CONFIG_ITEM("record-imu", "Whether or not to output imu data", 1, t->writeIMU)
     STRUCT_CONFIG_ITEM("record-cal-imu", "Whether or not to output calibrated imu data", 0, t->writeCalIMU)
 	STRUCT_CONFIG_ITEM("record-angle", "Whether or not to output angle data", 1, t->writeAngle)
+	STRUCT_CONFIG_ITEM("record-pose-timing", "Record sensor ticks and raw input receive timestamps for offline comparison", 0, t->writePoseTiming)
 	STRUCT_CONFIG_ITEM("record-data-matrices", "Whether or not to output data matrices", 0, t->writeDataMatrix)
 END_STRUCT_CONFIG_SECTION(SurviveRecordingData)
 	// clang-format on
@@ -171,7 +173,7 @@ void survive_recording_velocity_process(SurviveObject *so, uint8_t lighthouse, c
 		so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->AxisAngleRot[0], pose->AxisAngleRot[1],
 		pose->AxisAngleRot[2]);
 }
-void survive_recording_raw_pose_process(SurviveObject *so, uint8_t lighthouse, const SurvivePose *pose) {
+void survive_recording_raw_pose_process(SurviveObject *so, survive_long_timecode timecode, const SurvivePose *pose) {
 	SurviveRecordingData *recordingData = so->ctx->recptr;
 	if (recordingData == 0)
 		return;
@@ -179,6 +181,17 @@ void survive_recording_raw_pose_process(SurviveObject *so, uint8_t lighthouse, c
 	survive_recording_write_to_output(
 		recordingData, "%s POSE " FLT_PRINTF FLT_PRINTF FLT_PRINTF FLT_PRINTF FLT_PRINTF FLT_PRINTF FLT_PRINTF "\r\n",
 		so->codename, pose->Pos[0], pose->Pos[1], pose->Pos[2], pose->Rot[0], pose->Rot[1], pose->Rot[2], pose->Rot[3]);
+	if (recordingData->writePoseTiming)
+		survive_recording_write_to_output(recordingData, "%s POSE_TIMING %" PRIu64 " %d %" PRIu64 " %" PRIu64 "\n",
+										 so->codename, timecode, so->timebase_hz,
+										 so->activations.last_light, so->activations.last_imu);
+}
+
+void survive_recording_input_time(SurviveObject *so, survive_long_timecode timecode, uint64_t receive_us) {
+	SurviveRecordingData *recordingData = so && so->ctx ? so->ctx->recptr : 0;
+	if (recordingData && recordingData->writePoseTiming)
+		survive_recording_write_to_output(recordingData, "%s INPUT_TIME %" PRIu64 " %" PRIu64 "\n",
+										 so->codename, timecode, receive_us);
 }
 
 void survive_recording_external_velocity_process(SurviveContext *ctx, const char *name, const SurviveVelocity *pose) {

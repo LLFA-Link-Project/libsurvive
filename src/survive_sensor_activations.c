@@ -3,6 +3,9 @@
 #include <math.h>
 #include <survive.h>
 #include <variance.h>
+#include "survive_recording.h"
+
+static inline survive_long_timecode make_long_timecode(survive_long_timecode prev, survive_timecode current);
 
 STRUCT_CONFIG_SECTION(SurviveSensorActivations)
 STRUCT_CONFIG_ITEM("move-threshold-gyro", "Threshold to count gyro norms as moving", .075, t->params.moveThresholdGyro)
@@ -52,13 +55,14 @@ survive_long_timecode SurviveSensorActivations_time_since_last_reading(const Sur
 bool SurviveSensorActivations_isPairValid(const SurviveSensorActivations *self, uint32_t tolerance,
 										  uint32_t timecode_now, uint32_t idx, int lh) {
 	const survive_long_timecode *data_timecode = self->timecode[idx][lh];
+	survive_long_timecode now = make_long_timecode(self->last_light, timecode_now);
 	if (self->lh_gen != 1 && (self->lengths[idx][lh][0] == 0 || self->lengths[idx][lh][1] == 0))
 		return false;
 
 	if (isnan(self->angles[idx][lh][0]) || isnan(self->angles[idx][lh][1]))
 		return false;
 
-	return !(timecode_now - data_timecode[0] > tolerance || timecode_now - data_timecode[1] > tolerance);
+	return !(now - data_timecode[0] > tolerance || now - data_timecode[1] > tolerance);
 }
 
 survive_long_timecode SurviveSensorActivations_last_time(const SurviveSensorActivations *self) {
@@ -80,7 +84,8 @@ survive_long_timecode SurviveSensorActivations_stationary_time(const SurviveSens
 
 void SurviveSensorActivations_register_runtime(SurviveSensorActivations *self, survive_long_timecode tc,
 											   uint64_t runtime_clock_us) {
-	double runtime_offset = runtime_clock_us - (uint64_t)(tc * 0.0208333333);
+	survive_recording_input_time(self->so, tc, runtime_clock_us);
+	double runtime_offset = (double)runtime_clock_us - tc / 48.;
 	if (self->runtime_offset == 0)
 		self->runtime_offset = runtime_offset;
 	else {
@@ -89,7 +94,7 @@ void SurviveSensorActivations_register_runtime(SurviveSensorActivations *self, s
 }
 
 survive_us SurviveSensorActivations_runtime(SurviveSensorActivations *self, survive_long_timecode tc) {
-	return self->runtime_offset + (uint64_t)(tc * 0.0208333333);
+	return self->runtime_offset + tc / 48.;
 }
 
 void SurviveSensorActivations_add_imu(SurviveSensorActivations *self, struct PoserDataIMU *imuData) {

@@ -69,11 +69,17 @@ static inline void setup_packet_state(struct survive_config_packet *packet) {
 
 void survive_usb_feature_read(SurviveObject *so, const uint8_t *data, size_t length) {
 	SurviveContext *ctx = so->ctx;
+	if (length == 0)
+		return;
 	switch (data[0]) {
 	case VIVE_REPORT_CHANGE_MODE:
+		if (length < 2)
+			return;
 		SV_VERBOSE(100, "%s new mode %d", survive_colorize_codename(so), data[1]);
 		break;
 	case VIVE_REPORT_IMU_SCALES: {
+		if (length < 3)
+			return;
 		int gyro_scale_mode = data[1];
 		int acc_scale_mode = data[2];
 		survive_default_set_imu_scale_modes(so, gyro_scale_mode, acc_scale_mode);

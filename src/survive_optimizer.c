@@ -1341,7 +1341,9 @@ int survive_optimizer_run(survive_optimizer *optimizer, struct mp_result_struct 
 					optimizer->mp_parameters_info, cfg, optimizer, result);
 	optimizer->parameters = params;
 
-	FLT rchisqr = linmath_max(1, result->bestnorm / nfree);
+	// Residual variance is estimated using measurements minus fitted parameters.
+	int residual_dof = result->nfunc - result->nfree;
+	FLT rchisqr = residual_dof > 0 ? linmath_max(1, result->bestnorm / residual_dof) : 1;
 	if (ctx)
 		survive_recording_write_matrix(ctx->recptr, optimizer->sos[0], 10, "full_cov", &R_aa);
 	assert(sane_covariance(&R_aa));
@@ -1385,7 +1387,8 @@ int survive_optimizer_run(survive_optimizer *optimizer, struct mp_result_struct 
 				for(;cidx < idx;cidx++)
 					cnMatrixSet(&G, cidx, cidx - z, 1);
 
-				gen_axisangle2quat_jac_axis_angle(Gp.data, params + idx);
+				// The covariance uses packed free indices; parameters still use full indices.
+				gen_axisangle2quat_jac_axis_angle(Gp.data, params + quat_idxs[z]);
 				for (int i = 0; i < 4; i++) {
 					for (int j = 0; j < 3; j++) {
 						cnMatrixSet(&G, i + cidx, j + cidx - z, cnMatrixGet(&Gp, i, j));

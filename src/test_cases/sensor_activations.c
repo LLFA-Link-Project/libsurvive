@@ -1,0 +1,22 @@
+#include "test_case.h"
+
+TEST(SensorActivations, PairAfterDeviceClockWrap) {
+	SurviveSensorActivations activations = {0};
+	activations.last_light = (UINT64_C(1) << 32) + 1000;
+	activations.lengths[0][0][0] = activations.lengths[0][0][1] = 100;
+	activations.timecode[0][0][0] = activations.last_light - 100;
+	activations.timecode[0][0][1] = activations.last_light - 50;
+	ASSERT_EQ(SurviveSensorActivations_isPairValid(&activations, 150, 1000, 0, 0), true);
+	ASSERT_EQ(SurviveSensorActivations_isPairValid(&activations, 49, 1000, 0, 0), false);
+	ASSERT_EQ(SurviveSensorActivations_isPairValid(&activations, 150, 2000, 0, 0), false);
+	return 0;
+}
+
+TEST(SensorActivations, RuntimeClockCanPrecedeDeviceClock) {
+	SurviveSensorActivations activations = {0};
+	SurviveSensorActivations_register_runtime(&activations, 48000000, 1000);
+	ASSERT_DOUBLE_EQ(activations.runtime_offset, -999000);
+	ASSERT_EQ(SurviveSensorActivations_runtime(&activations, 48000000), 1000);
+	ASSERT_EQ(SurviveSensorActivations_runtime(&activations, 48048000), 2000);
+	return 0;
+}

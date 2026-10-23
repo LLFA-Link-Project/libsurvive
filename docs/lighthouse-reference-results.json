@@ -1,0 +1,1508 @@
+{
+  "reference_is_ground_truth": false,
+  "method": "See lighthouse-replay.md; independent calibration; held-out common SE3; no time fit",
+  "sessions": [
+    {
+      "session": "2026-10-18_220050_630705468_3165209",
+      "identical_pose_streams": true,
+      "recording_loss": {
+        "pose": {
+          "attempted": 140084,
+          "dropped": 333,
+          "error": "",
+          "pid": 3165209,
+          "queue_capacity": 4096,
+          "schema_version": 1,
+          "stopped": true,
+          "written": 139748
+        },
+        "usb": {
+          "dropped": 0,
+          "interface_dropped": 0,
+          "received": 632840,
+          "schema_version": 1,
+          "stats_available": true,
+          "write_error": false
+        },
+        "usb_incomplete_payloads": 0,
+        "usb_short_headers": 0,
+        "usb_truncated_packets": 0
+      },
+      "runs": [
+        {
+          "wall_time_s": 11.778327682999588,
+          "pose_stream_sha256": "8cdfb0457e171844a7740d5107eae292d00e5254aa64666c295fdc970b935a83",
+          "objects": {
+            "WM3": {
+              "poses": 31481,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.090870867201062e-07,
+              "first_receive_time_s": 13.341834,
+              "last_receive_time_s": 254.748901,
+              "max_receive_gap_s": 0.012052999999998093,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 50590,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.296825678184462e-07,
+              "first_receive_time_s": 22.355315,
+              "last_receive_time_s": 254.756906,
+              "max_receive_gap_s": 0.045998999999994794,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 37477404096825,
+            "alignment_train_samples": 6152,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.39807615185323775,
+                -0.35843087758572156,
+                -3.8047019468541983
+              ],
+              "orientation_wxyz": [
+                0.03039510700885058,
+                -0.03008816745562465,
+                0.6927729513518691,
+                0.7198864337687603
+              ]
+            },
+            "evaluation_samples": 8780,
+            "objects": {
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 2386,
+                  "rmse": 0.40582405694211277,
+                  "median": 0.13900166364238886,
+                  "p95": 0.9720262969172523,
+                  "max": 1.1668760994504275
+                },
+                "orientation_difference_deg": {
+                  "n": 2386,
+                  "rmse": 28.448776877354156,
+                  "median": 25.291967588690927,
+                  "p95": 50.74146984188686,
+                  "max": 53.97775172218533
+                },
+                "coverage": {
+                  "matched_reference_bins": 5630,
+                  "valid_reference_bins": 5630,
+                  "fraction": 1.0,
+                  "first_replay_pose_after_start_s": 20.498816095,
+                  "first_valid_reference_after_start_s": 20.975099648
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 37483080118386,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37483693810972,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37503386458421,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37507794389412,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37509438929817,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37511054581291,
+                      "delay_s": 4.945758137
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37514280583611,
+                      "delay_s": 1.719755817
+                    }
+                  ]
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 6394,
+                  "rmse": 0.042449362951101764,
+                  "median": 0.04030381091913488,
+                  "p95": 0.0510189510875331,
+                  "max": 0.2110752805972912
+                },
+                "orientation_difference_deg": {
+                  "n": 6394,
+                  "rmse": 2.4971395483751215,
+                  "median": 2.431426944478436,
+                  "p95": 2.773620196942489,
+                  "max": 5.706797644535424
+                },
+                "coverage": {
+                  "matched_reference_bins": 9674,
+                  "valid_reference_bins": 9736,
+                  "fraction": 0.993631881676253,
+                  "first_replay_pose_after_start_s": 11.483294198,
+                  "first_valid_reference_after_start_s": 4.013196249
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 37503388489308,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37507205345996,
+                      "delay_s": 3.41231464
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37508772650701,
+                      "delay_s": 1.845009935
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37513854142457,
+                      "delay_s": 1.45322519
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-F39A0C97": {
+                  "lost_tracking": 4,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 4
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 16,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 15
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-DF24384D": [
+                  37414068340153,
+                  37415302688307,
+                  37417594199933,
+                  37422851843457,
+                  37423259525001,
+                  37455527278554,
+                  37458029801804,
+                  37468968496656,
+                  37483080118386,
+                  37483693810972,
+                  37503386458421,
+                  37507794389412,
+                  37509438929817,
+                  37511054581291,
+                  37514280583611
+                ],
+                "LHR-F39A0C97": [
+                  37503388489308,
+                  37507205345996,
+                  37508772650701,
+                  37513854142457
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 37386437303147,
+              "capture_end_monotonic_ns": 37639337684182,
+              "max_clock_mapping_estimate_ns": 1512,
+              "max_local_input_arrival_spread_ns": 13967000
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 9199
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        },
+        {
+          "wall_time_s": 11.377981824999551,
+          "pose_stream_sha256": "8cdfb0457e171844a7740d5107eae292d00e5254aa64666c295fdc970b935a83",
+          "objects": {
+            "WM3": {
+              "poses": 31481,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.090870867201062e-07,
+              "first_receive_time_s": 13.341834,
+              "last_receive_time_s": 254.748901,
+              "max_receive_gap_s": 0.012052999999998093,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 50590,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.296825678184462e-07,
+              "first_receive_time_s": 22.355315,
+              "last_receive_time_s": 254.756906,
+              "max_receive_gap_s": 0.045998999999994794,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 37477404096825,
+            "alignment_train_samples": 6152,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.39807615185323775,
+                -0.35843087758572156,
+                -3.8047019468541983
+              ],
+              "orientation_wxyz": [
+                0.03039510700885058,
+                -0.03008816745562465,
+                0.6927729513518691,
+                0.7198864337687603
+              ]
+            },
+            "evaluation_samples": 8780,
+            "objects": {
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 2386,
+                  "rmse": 0.40582405694211277,
+                  "median": 0.13900166364238886,
+                  "p95": 0.9720262969172523,
+                  "max": 1.1668760994504275
+                },
+                "orientation_difference_deg": {
+                  "n": 2386,
+                  "rmse": 28.448776877354156,
+                  "median": 25.291967588690927,
+                  "p95": 50.74146984188686,
+                  "max": 53.97775172218533
+                },
+                "coverage": {
+                  "matched_reference_bins": 5630,
+                  "valid_reference_bins": 5630,
+                  "fraction": 1.0,
+                  "first_replay_pose_after_start_s": 20.498816095,
+                  "first_valid_reference_after_start_s": 20.975099648
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 37483080118386,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37483693810972,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37503386458421,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37507794389412,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37509438929817,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37511054581291,
+                      "delay_s": 4.945758137
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37514280583611,
+                      "delay_s": 1.719755817
+                    }
+                  ]
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 6394,
+                  "rmse": 0.042449362951101764,
+                  "median": 0.04030381091913488,
+                  "p95": 0.0510189510875331,
+                  "max": 0.2110752805972912
+                },
+                "orientation_difference_deg": {
+                  "n": 6394,
+                  "rmse": 2.4971395483751215,
+                  "median": 2.431426944478436,
+                  "p95": 2.773620196942489,
+                  "max": 5.706797644535424
+                },
+                "coverage": {
+                  "matched_reference_bins": 9674,
+                  "valid_reference_bins": 9736,
+                  "fraction": 0.993631881676253,
+                  "first_replay_pose_after_start_s": 11.483294198,
+                  "first_valid_reference_after_start_s": 4.013196249
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 37503388489308,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37507205345996,
+                      "delay_s": 3.41231464
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37508772650701,
+                      "delay_s": 1.845009935
+                    },
+                    {
+                      "reference_event_monotonic_ns": 37513854142457,
+                      "delay_s": 1.45322519
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-F39A0C97": {
+                  "lost_tracking": 4,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 4
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 16,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 15
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-DF24384D": [
+                  37414068340153,
+                  37415302688307,
+                  37417594199933,
+                  37422851843457,
+                  37423259525001,
+                  37455527278554,
+                  37458029801804,
+                  37468968496656,
+                  37483080118386,
+                  37483693810972,
+                  37503386458421,
+                  37507794389412,
+                  37509438929817,
+                  37511054581291,
+                  37514280583611
+                ],
+                "LHR-F39A0C97": [
+                  37503388489308,
+                  37507205345996,
+                  37508772650701,
+                  37513854142457
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 37386437303147,
+              "capture_end_monotonic_ns": 37639337684182,
+              "max_clock_mapping_estimate_ns": 1512,
+              "max_local_input_arrival_spread_ns": 13967000
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 9199
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        }
+      ]
+    },
+    {
+      "session": "2026-10-18_220701_114777916_3198653",
+      "identical_pose_streams": true,
+      "recording_loss": {
+        "pose": {
+          "attempted": 24005,
+          "dropped": 91,
+          "error": "",
+          "pid": 3198653,
+          "queue_capacity": 4096,
+          "schema_version": 1,
+          "stopped": true,
+          "written": 23911
+        },
+        "usb": {
+          "dropped": 0,
+          "interface_dropped": 0,
+          "received": 100968,
+          "schema_version": 1,
+          "stats_available": true,
+          "write_error": false
+        },
+        "usb_incomplete_payloads": 0,
+        "usb_short_headers": 0,
+        "usb_truncated_packets": 0
+      },
+      "runs": [
+        {
+          "wall_time_s": 1.3652864720006619,
+          "pose_stream_sha256": "1ce19d644b49bf1937c438efc52384332616ed660f012f1073ddd560abd7debf",
+          "objects": {
+            "WM3": {
+              "poses": 2776,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.365952288118649e-07,
+              "first_receive_time_s": 16.248894,
+              "last_receive_time_s": 37.501576,
+              "max_receive_gap_s": 0.01205099999999959,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 4519,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.007208206484151e-07,
+              "first_receive_time_s": 16.242932,
+              "last_receive_time_s": 37.519582,
+              "max_receive_gap_s": 0.012052000000000618,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 37775490322495,
+            "alignment_train_samples": 362,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.5077082628433006,
+                0.12023638278145972,
+                -3.6191633213169125
+              ],
+              "orientation_wxyz": [
+                0.044479187436881056,
+                -0.05383358361889467,
+                0.7079484976501804,
+                0.7028032952644395
+              ]
+            },
+            "evaluation_samples": 1484,
+            "objects": {
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 764,
+                  "rmse": 0.060834868815538005,
+                  "median": 0.0066935956003369955,
+                  "p95": 0.24637018286367413,
+                  "max": 0.24733870129783317
+                },
+                "orientation_difference_deg": {
+                  "n": 764,
+                  "rmse": 0.6828329234429235,
+                  "median": 0.5554594999725688,
+                  "p95": 1.103138753894319,
+                  "max": 1.9282650996432968
+                },
+                "coverage": {
+                  "matched_reference_bins": 1031,
+                  "valid_reference_bins": 1241,
+                  "fraction": 0.830781627719581,
+                  "first_replay_pose_after_start_s": 14.365163834,
+                  "first_valid_reference_after_start_s": 5.314880151
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 720,
+                  "rmse": 0.060001396445322396,
+                  "median": 0.008935894984931175,
+                  "p95": 0.24526297557300147,
+                  "max": 0.2456182404750979
+                },
+                "orientation_difference_deg": {
+                  "n": 720,
+                  "rmse": 0.5396261640109464,
+                  "median": 0.5190883061708222,
+                  "p95": 0.778581806844401,
+                  "max": 1.2616374508532409
+                },
+                "coverage": {
+                  "matched_reference_bins": 888,
+                  "valid_reference_bins": 1070,
+                  "fraction": 0.8299065420560747,
+                  "first_replay_pose_after_start_s": 14.37310521,
+                  "first_valid_reference_after_start_s": 1.70613093
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-F39A0C97": {
+                  "lost_tracking": 0,
+                  "disconnected": 0,
+                  "reconnected": 0
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 0,
+                  "disconnected": 0,
+                  "reconnected": 0
+                }
+              },
+              "reacquisition_capture_times_ns": {}
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 37756942389159,
+              "capture_end_monotonic_ns": 37792586189168,
+              "max_clock_mapping_estimate_ns": 1542,
+              "max_local_input_arrival_spread_ns": 6062667
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 302
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        },
+        {
+          "wall_time_s": 1.465388597999663,
+          "pose_stream_sha256": "1ce19d644b49bf1937c438efc52384332616ed660f012f1073ddd560abd7debf",
+          "objects": {
+            "WM3": {
+              "poses": 2776,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.365952288118649e-07,
+              "first_receive_time_s": 16.248894,
+              "last_receive_time_s": 37.501576,
+              "max_receive_gap_s": 0.01205099999999959,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 4519,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.007208206484151e-07,
+              "first_receive_time_s": 16.242932,
+              "last_receive_time_s": 37.519582,
+              "max_receive_gap_s": 0.012052000000000618,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 37775490322495,
+            "alignment_train_samples": 362,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.5077082628433006,
+                0.12023638278145972,
+                -3.6191633213169125
+              ],
+              "orientation_wxyz": [
+                0.044479187436881056,
+                -0.05383358361889467,
+                0.7079484976501804,
+                0.7028032952644395
+              ]
+            },
+            "evaluation_samples": 1484,
+            "objects": {
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 764,
+                  "rmse": 0.060834868815538005,
+                  "median": 0.0066935956003369955,
+                  "p95": 0.24637018286367413,
+                  "max": 0.24733870129783317
+                },
+                "orientation_difference_deg": {
+                  "n": 764,
+                  "rmse": 0.6828329234429235,
+                  "median": 0.5554594999725688,
+                  "p95": 1.103138753894319,
+                  "max": 1.9282650996432968
+                },
+                "coverage": {
+                  "matched_reference_bins": 1031,
+                  "valid_reference_bins": 1241,
+                  "fraction": 0.830781627719581,
+                  "first_replay_pose_after_start_s": 14.365163834,
+                  "first_valid_reference_after_start_s": 5.314880151
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 720,
+                  "rmse": 0.060001396445322396,
+                  "median": 0.008935894984931175,
+                  "p95": 0.24526297557300147,
+                  "max": 0.2456182404750979
+                },
+                "orientation_difference_deg": {
+                  "n": 720,
+                  "rmse": 0.5396261640109464,
+                  "median": 0.5190883061708222,
+                  "p95": 0.778581806844401,
+                  "max": 1.2616374508532409
+                },
+                "coverage": {
+                  "matched_reference_bins": 888,
+                  "valid_reference_bins": 1070,
+                  "fraction": 0.8299065420560747,
+                  "first_replay_pose_after_start_s": 14.37310521,
+                  "first_valid_reference_after_start_s": 1.70613093
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-F39A0C97": {
+                  "lost_tracking": 0,
+                  "disconnected": 0,
+                  "reconnected": 0
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 0,
+                  "disconnected": 0,
+                  "reconnected": 0
+                }
+              },
+              "reacquisition_capture_times_ns": {}
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 37756942389159,
+              "capture_end_monotonic_ns": 37792586189168,
+              "max_clock_mapping_estimate_ns": 1542,
+              "max_local_input_arrival_spread_ns": 6062667
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 302
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        }
+      ]
+    },
+    {
+      "session": "2026-10-19_185631_769305405_8429",
+      "identical_pose_streams": true,
+      "recording_loss": {
+        "pose": {
+          "attempted": 117940,
+          "dropped": 1,
+          "error": "",
+          "pid": 8429,
+          "queue_capacity": 4096,
+          "schema_version": 1,
+          "stopped": true,
+          "written": 117937
+        },
+        "usb": {
+          "dropped": 0,
+          "interface_dropped": 0,
+          "received": 316488,
+          "schema_version": 1,
+          "stats_available": true,
+          "write_error": false
+        },
+        "usb_incomplete_payloads": 0,
+        "usb_short_headers": 0,
+        "usb_truncated_packets": 0
+      },
+      "runs": [
+        {
+          "wall_time_s": 6.772087330999966,
+          "pose_stream_sha256": "07b5174612fdf58f1b795ada493bcdc6ac0143cb84bf0a8af2582fa4a9e86434",
+          "objects": {
+            "WM3": {
+              "poses": 54561,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 6.151491892536498e-07,
+              "first_receive_time_s": 11.216056,
+              "last_receive_time_s": 336.737477,
+              "max_receive_gap_s": 0.012008000000008678,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-5D3D7A83"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 483978770540,
+            "alignment_train_samples": 4662,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.7575272885188574,
+                -0.3680179226264397,
+                -2.462445414739992
+              ],
+              "orientation_wxyz": [
+                0.10051949976704831,
+                -0.10841119474546382,
+                0.7056891629026472,
+                0.6929254277209089
+              ]
+            },
+            "evaluation_samples": 8619,
+            "objects": {
+              "LHR-5D3D7A83": {
+                "position_difference_m": {
+                  "n": 8619,
+                  "rmse": 0.01825499189074699,
+                  "median": 0.022514039577259285,
+                  "p95": 0.022581565507572617,
+                  "max": 0.022658461932322516
+                },
+                "orientation_difference_deg": {
+                  "n": 8619,
+                  "rmse": 0.4136408513783983,
+                  "median": 0.5017689923431667,
+                  "p95": 0.526965291457605,
+                  "max": 0.5533237821856614
+                },
+                "coverage": {
+                  "matched_reference_bins": 14149,
+                  "valid_reference_bins": 14175,
+                  "fraction": 0.9981657848324516,
+                  "first_replay_pose_after_start_s": 9.920218049,
+                  "first_valid_reference_after_start_s": 2.059465991
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 569869350819,
+                      "delay_s": 0.015751768
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-5D3D7A83": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                },
+                "LHB-BA561AEC": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-5D3D7A83": [
+                  569869350819
+                ],
+                "LHB-BA561AEC": [
+                  569879025752
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 365497557537,
+              "capture_end_monotonic_ns": 700941196548,
+              "ambiguous_sensor_clock": 104,
+              "max_clock_mapping_estimate_ns": 1996,
+              "max_local_input_arrival_spread_ns": 6006333
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 1056
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        },
+        {
+          "wall_time_s": 6.822171740000158,
+          "pose_stream_sha256": "07b5174612fdf58f1b795ada493bcdc6ac0143cb84bf0a8af2582fa4a9e86434",
+          "objects": {
+            "WM3": {
+              "poses": 54561,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 6.151491892536498e-07,
+              "first_receive_time_s": 11.216056,
+              "last_receive_time_s": 336.737477,
+              "max_receive_gap_s": 0.012008000000008678,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-5D3D7A83"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 483978770540,
+            "alignment_train_samples": 4662,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.7575272885188574,
+                -0.3680179226264397,
+                -2.462445414739992
+              ],
+              "orientation_wxyz": [
+                0.10051949976704831,
+                -0.10841119474546382,
+                0.7056891629026472,
+                0.6929254277209089
+              ]
+            },
+            "evaluation_samples": 8619,
+            "objects": {
+              "LHR-5D3D7A83": {
+                "position_difference_m": {
+                  "n": 8619,
+                  "rmse": 0.01825499189074699,
+                  "median": 0.022514039577259285,
+                  "p95": 0.022581565507572617,
+                  "max": 0.022658461932322516
+                },
+                "orientation_difference_deg": {
+                  "n": 8619,
+                  "rmse": 0.4136408513783983,
+                  "median": 0.5017689923431667,
+                  "p95": 0.526965291457605,
+                  "max": 0.5533237821856614
+                },
+                "coverage": {
+                  "matched_reference_bins": 14149,
+                  "valid_reference_bins": 14175,
+                  "fraction": 0.9981657848324516,
+                  "first_replay_pose_after_start_s": 9.920218049,
+                  "first_valid_reference_after_start_s": 2.059465991
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 569869350819,
+                      "delay_s": 0.015751768
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-5D3D7A83": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                },
+                "LHB-BA561AEC": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-5D3D7A83": [
+                  569869350819
+                ],
+                "LHB-BA561AEC": [
+                  569879025752
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 365497557537,
+              "capture_end_monotonic_ns": 700941196548,
+              "ambiguous_sensor_clock": 104,
+              "max_clock_mapping_estimate_ns": 1996,
+              "max_local_input_arrival_spread_ns": 6006333
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 1056
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        }
+      ]
+    },
+    {
+      "session": "2026-10-20_125408_406716137_53614",
+      "identical_pose_streams": true,
+      "recording_loss": {
+        "pose": {
+          "attempted": 128685,
+          "dropped": 586,
+          "error": "",
+          "pid": 53614,
+          "queue_capacity": 4096,
+          "schema_version": 1,
+          "stopped": true,
+          "written": 128095
+        },
+        "usb": {
+          "dropped": 0,
+          "interface_dropped": 0,
+          "received": 442250,
+          "schema_version": 1,
+          "stats_available": true,
+          "write_error": false
+        },
+        "usb_incomplete_payloads": 0,
+        "usb_short_headers": 0,
+        "usb_truncated_packets": 0
+      },
+      "runs": [
+        {
+          "wall_time_s": 7.723288281999885,
+          "pose_stream_sha256": "01c6d4a7df6296f56d7a506811773aaa765c6b32392badd0b378e7b7a0884e32",
+          "objects": {
+            "WM0": {
+              "poses": 19627,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.078617505484885e-07,
+              "first_receive_time_s": 11.879011,
+              "last_receive_time_s": 125.838518,
+              "max_receive_gap_s": 0.012006999999996992,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-5D3D7A83"
+            },
+            "WM3": {
+              "poses": 14818,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.322028463014775e-07,
+              "first_receive_time_s": 11.869051,
+              "last_receive_time_s": 125.832558,
+              "max_receive_gap_s": 0.023997999999998854,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 25653,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.776041149349822e-07,
+              "first_receive_time_s": 12.920973,
+              "last_receive_time_s": 125.838558,
+              "max_receive_gap_s": 0.06000099999999975,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 1771692754562,
+            "alignment_train_samples": 5770,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.6531677194838797,
+                -0.5521329820675969,
+                -3.4921464016201345
+              ],
+              "orientation_wxyz": [
+                0.05579403679223695,
+                -0.0776239696196928,
+                0.7116416875505492,
+                0.6960083716013148
+              ]
+            },
+            "evaluation_samples": 6157,
+            "objects": {
+              "LHR-5D3D7A83": {
+                "position_difference_m": {
+                  "n": 2706,
+                  "rmse": 0.06208341555371166,
+                  "median": 0.026663584776588964,
+                  "p95": 0.08748927900085578,
+                  "max": 0.08782173984883995
+                },
+                "orientation_difference_deg": {
+                  "n": 2706,
+                  "rmse": 1.8744680873364485,
+                  "median": 2.040793652230364,
+                  "p95": 2.088766058516123,
+                  "max": 2.1146462013876715
+                },
+                "coverage": {
+                  "matched_reference_bins": 5265,
+                  "valid_reference_bins": 5354,
+                  "fraction": 0.9833769144564811,
+                  "first_replay_pose_after_start_s": 9.941251757,
+                  "first_valid_reference_after_start_s": 2.083775051
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              },
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 1053,
+                  "rmse": 0.11600536495048733,
+                  "median": 0.0998263025572129,
+                  "p95": 0.17968794950090966,
+                  "max": 0.4816187176036417
+                },
+                "orientation_difference_deg": {
+                  "n": 1053,
+                  "rmse": 2.757009067733974,
+                  "median": 1.8440396245883972,
+                  "p95": 4.599695411828119,
+                  "max": 26.04445175798228
+                },
+                "coverage": {
+                  "matched_reference_bins": 2710,
+                  "valid_reference_bins": 3248,
+                  "fraction": 0.8343596059113301,
+                  "first_replay_pose_after_start_s": 10.983214766,
+                  "first_valid_reference_after_start_s": 11.038327124
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 1803966962489,
+                      "delay_s": 0.356958636
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1805052520786,
+                      "delay_s": 0.413303446
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1824318616002,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1830910268270,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1843387084901,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1853760651143,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1872811402484,
+                      "delay_s": null
+                    }
+                  ]
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 2398,
+                  "rmse": 0.06965982256632627,
+                  "median": 0.0380963628787209,
+                  "p95": 0.1050616093224688,
+                  "max": 0.2060560065166363
+                },
+                "orientation_difference_deg": {
+                  "n": 2398,
+                  "rmse": 2.224718884246085,
+                  "median": 2.140858870363612,
+                  "p95": 2.76731355315084,
+                  "max": 11.62936190649798
+                },
+                "coverage": {
+                  "matched_reference_bins": 4497,
+                  "valid_reference_bins": 5741,
+                  "fraction": 0.7833130116704407,
+                  "first_replay_pose_after_start_s": 9.931285933,
+                  "first_valid_reference_after_start_s": 4.961521874
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 1830518942330,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1843386165997,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1866137619462,
+                      "delay_s": null
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-5D3D7A83": {
+                  "lost_tracking": 1,
+                  "disconnected": 1,
+                  "reconnected": 0
+                },
+                "LHB-BA561AEC": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                },
+                "LHR-F39A0C97": {
+                  "lost_tracking": 3,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 3
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 11,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 11
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-DF24384D": [
+                  1726332636921,
+                  1727198671248,
+                  1731833790874,
+                  1742973151673,
+                  1803966962489,
+                  1805052520786,
+                  1824318616002,
+                  1830910268270,
+                  1843387084901,
+                  1853760651143,
+                  1872811402484
+                ],
+                "LHR-F39A0C97": [
+                  1830518942330,
+                  1843386165997,
+                  1866137619462
+                ],
+                "LHB-BA561AEC": [
+                  1843395509820
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 1710718797887,
+              "capture_end_monotonic_ns": 1873640667914,
+              "ambiguous_sensor_clock": 11,
+              "max_clock_mapping_estimate_ns": 1397,
+              "max_local_input_arrival_spread_ns": 18041333
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 6052
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        },
+        {
+          "wall_time_s": 7.873482963999777,
+          "pose_stream_sha256": "01c6d4a7df6296f56d7a506811773aaa765c6b32392badd0b378e7b7a0884e32",
+          "objects": {
+            "WM0": {
+              "poses": 19627,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.078617505484885e-07,
+              "first_receive_time_s": 11.879011,
+              "last_receive_time_s": 125.838518,
+              "max_receive_gap_s": 0.012006999999996992,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-5D3D7A83"
+            },
+            "WM3": {
+              "poses": 14818,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.322028463014775e-07,
+              "first_receive_time_s": 11.869051,
+              "last_receive_time_s": 125.832558,
+              "max_receive_gap_s": 0.023997999999998854,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 25653,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.776041149349822e-07,
+              "first_receive_time_s": 12.920973,
+              "last_receive_time_s": 125.838558,
+              "max_receive_gap_s": 0.06000099999999975,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "reference_comparison": {
+            "reference_is_ground_truth": false,
+            "fitted_time_lag_s": 0,
+            "time_lag_was_fitted": false,
+            "warmup_s": 10,
+            "alignment_train_end_monotonic_ns": 1771692754562,
+            "alignment_train_samples": 5770,
+            "alignment_method": "common SE3; positions + 0.25m orientation axes",
+            "world_from_survive": {
+              "position_m": [
+                0.6531677194838797,
+                -0.5521329820675969,
+                -3.4921464016201345
+              ],
+              "orientation_wxyz": [
+                0.05579403679223695,
+                -0.0776239696196928,
+                0.7116416875505492,
+                0.6960083716013148
+              ]
+            },
+            "evaluation_samples": 6157,
+            "objects": {
+              "LHR-5D3D7A83": {
+                "position_difference_m": {
+                  "n": 2706,
+                  "rmse": 0.06208341555371166,
+                  "median": 0.026663584776588964,
+                  "p95": 0.08748927900085578,
+                  "max": 0.08782173984883995
+                },
+                "orientation_difference_deg": {
+                  "n": 2706,
+                  "rmse": 1.8744680873364485,
+                  "median": 2.040793652230364,
+                  "p95": 2.088766058516123,
+                  "max": 2.1146462013876715
+                },
+                "coverage": {
+                  "matched_reference_bins": 5265,
+                  "valid_reference_bins": 5354,
+                  "fraction": 0.9833769144564811,
+                  "first_replay_pose_after_start_s": 9.941251757,
+                  "first_valid_reference_after_start_s": 2.083775051
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": []
+                }
+              },
+              "LHR-DF24384D": {
+                "position_difference_m": {
+                  "n": 1053,
+                  "rmse": 0.11600536495048733,
+                  "median": 0.0998263025572129,
+                  "p95": 0.17968794950090966,
+                  "max": 0.4816187176036417
+                },
+                "orientation_difference_deg": {
+                  "n": 1053,
+                  "rmse": 2.757009067733974,
+                  "median": 1.8440396245883972,
+                  "p95": 4.599695411828119,
+                  "max": 26.04445175798228
+                },
+                "coverage": {
+                  "matched_reference_bins": 2710,
+                  "valid_reference_bins": 3248,
+                  "fraction": 0.8343596059113301,
+                  "first_replay_pose_after_start_s": 10.983214766,
+                  "first_valid_reference_after_start_s": 11.038327124
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 1803966962489,
+                      "delay_s": 0.356958636
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1805052520786,
+                      "delay_s": 0.413303446
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1824318616002,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1830910268270,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1843387084901,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1853760651143,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1872811402484,
+                      "delay_s": null
+                    }
+                  ]
+                }
+              },
+              "LHR-F39A0C97": {
+                "position_difference_m": {
+                  "n": 2398,
+                  "rmse": 0.06965982256632627,
+                  "median": 0.0380963628787209,
+                  "p95": 0.1050616093224688,
+                  "max": 0.2060560065166363
+                },
+                "orientation_difference_deg": {
+                  "n": 2398,
+                  "rmse": 2.224718884246085,
+                  "median": 2.140858870363612,
+                  "p95": 2.76731355315084,
+                  "max": 11.62936190649798
+                },
+                "coverage": {
+                  "matched_reference_bins": 4497,
+                  "valid_reference_bins": 5741,
+                  "fraction": 0.7833130116704407,
+                  "first_replay_pose_after_start_s": 9.931285933,
+                  "first_valid_reference_after_start_s": 4.961521874
+                },
+                "association": "matched",
+                "recovery_after_reference_reacquisition": {
+                  "criterion": "3 samples within 50mm and 5deg; gaps <=50ms; search <=5s; diagnostic, not equivalence",
+                  "events": [
+                    {
+                      "reference_event_monotonic_ns": 1830518942330,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1843386165997,
+                      "delay_s": null
+                    },
+                    {
+                      "reference_event_monotonic_ns": 1866137619462,
+                      "delay_s": null
+                    }
+                  ]
+                }
+              }
+            },
+            "reference_state_events": {
+              "counts": {
+                "LHR-5D3D7A83": {
+                  "lost_tracking": 1,
+                  "disconnected": 1,
+                  "reconnected": 0
+                },
+                "LHB-BA561AEC": {
+                  "lost_tracking": 1,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 1
+                },
+                "LHR-F39A0C97": {
+                  "lost_tracking": 3,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 3
+                },
+                "LHR-DF24384D": {
+                  "lost_tracking": 11,
+                  "disconnected": 0,
+                  "reconnected": 0,
+                  "reacquired": 11
+                }
+              },
+              "reacquisition_capture_times_ns": {
+                "LHR-DF24384D": [
+                  1726332636921,
+                  1727198671248,
+                  1731833790874,
+                  1742973151673,
+                  1803966962489,
+                  1805052520786,
+                  1824318616002,
+                  1830910268270,
+                  1843387084901,
+                  1853760651143,
+                  1872811402484
+                ],
+                "LHR-F39A0C97": [
+                  1830518942330,
+                  1843386165997,
+                  1866137619462
+                ],
+                "LHB-BA561AEC": [
+                  1843395509820
+                ]
+              }
+            },
+            "timing": {
+              "capture_start_monotonic_ns": 1710718797887,
+              "capture_end_monotonic_ns": 1873640667914,
+              "ambiguous_sensor_clock": 11,
+              "max_clock_mapping_estimate_ns": 1397,
+              "max_local_input_arrival_spread_ns": 18041333
+            },
+            "reference_rejected": {
+              "invalid_or_not_running_ok": 6052
+            },
+            "timing_caveat": "Input arrival mapping; sensor/driver latency and prediction remain unknown"
+          }
+        }
+      ]
+    }
+  ]
+}

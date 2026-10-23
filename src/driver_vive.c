@@ -646,8 +646,8 @@ void survive_data_on_setup_write(SurviveObject *so, uint8_t bmRequestType, uint8
 								 uint16_t wIndex, const uint8_t *data, size_t length) {
 	SurviveContext *ctx = so->ctx;
 	struct SurviveUSBInfo *driverInfo = so->driver;
-	driverInfo->timeWithoutFlag = 1;
 	if (is_mode_switch_usb(bmRequestType, bRequest, wValue, wIndex, length)) {
+		driverInfo->timeWithoutFlag = 1;
 		enum LightcapMode m = data[1] == 0 ? LightcapMode_raw0 : data[1] == 1 ? LightcapMode_raw1 : LightcapMode_raw2;
 		SV_INFO("LightcapMode usb %s %d -> %d", so->codename, driverInfo->lightcapMode, m);
 		driverInfo->lightcapMode = m;
@@ -655,6 +655,7 @@ void survive_data_on_setup_write(SurviveObject *so, uint8_t bmRequestType, uint8
 	}
 
 	if (is_mode_switch_rf(bmRequestType, bRequest, wValue, wIndex, data, length)) {
+		driverInfo->timeWithoutFlag = 1;
 		enum LightcapMode m = data[4] == 0 ? LightcapMode_raw0 : data[7] == 1 ? LightcapMode_raw2 : LightcapMode_raw1;
 		SV_INFO("LightcapMode rf %s %d -> %d", so->codename, driverInfo->lightcapMode, m);
 		driverInfo->lightcapMode = m;
@@ -1818,7 +1819,7 @@ static bool read_imu_data(SurviveObject *w, uint64_t time_in_us, uint16_t time, 
 	uint8_t *payloadPtr = *readPtr;
 
 	SurviveContext *ctx = w->ctx;
-	if (payloadEndPtr - payloadPtr < 7) {
+	if (payloadEndPtr - payloadPtr < 13) {
 		return false;
 	}
 
@@ -1863,6 +1864,8 @@ static bool read_event(SurviveObject *w, uint64_t time_in_us, uint16_t time, uin
 					   uint8_t *payloadEndPtr) {
 	uint8_t *payloadPtr = *readPtr;
 	SurviveContext *ctx = w->ctx;
+	if (payloadPtr >= payloadEndPtr)
+		return true;
 
 	// If we're looking at light data, return
 	if (!HAS_FLAG(*payloadPtr, 0xE0))
@@ -2031,8 +2034,8 @@ static bool read_event(SurviveObject *w, uint64_t time_in_us, uint16_t time, uin
 	}
 
 	// Read off any IMU data present
-	if (flagIMU)
-		read_imu_data(w, time_in_us, time, &payloadPtr, payloadEndPtr);
+	if (flagIMU && !read_imu_data(w, time_in_us, time, &payloadPtr, payloadEndPtr))
+		return false;
 
 	UPDATE_PTR_AND_RETURN
 }
@@ -2312,6 +2315,8 @@ static void handle_watchman_v2(SurviveObject *w, uint64_t time_in_us, uint16_t t
 		return;
 	}
 
+	if (payloadPtr >= payloadEndPtr)
+		return;
 	uint8_t flags = POP_BYTE(payloadPtr);
 	bool has_errors = false;
 
@@ -2372,25 +2377,29 @@ static void handle_watchman_v2(SurviveObject *w, uint64_t time_in_us, uint16_t t
 		SV_VERBOSE(100, "%s Unknown flag %02x", w->codename, flags);
 	}
 
-	if (flagIMU)
-		read_imu_data(w, time_in_us, time, &payloadPtr, payloadEndPtr);
+	if (flagIMU && !read_imu_data(w, time_in_us, time, &payloadPtr, payloadEndPtr))
+		return;
 
 	// These things happen every 10 seconds
 	if (flagMetaData) {
+		VERIFY_LENGTH_OR_FAIL(payloadPtr, 1);
 		uint8_t marker_byte = POP_BYTE(payloadPtr);
 
 		switch (marker_byte) {
 		case 0x80: {
+			VERIFY_LENGTH_OR_FAIL(payloadPtr, 1);
 			uint8_t battery_byte = POP_BYTE(payloadPtr);
 			handle_battery(w, battery_byte);
 			break;
 		}
 		case 0x20: {
+			VERIFY_LENGTH_OR_FAIL(payloadPtr, 1);
 			// Mode?
 			uint8_t unknown_byte = POP_BYTE(payloadPtr);
 			break;
 		}
 		case 0x30: {
+			VERIFY_LENGTH_OR_FAIL(payloadPtr, 2);
 			// Only have seen zeros here
 			uint8_t unknown_byte1 = POP_BYTE(payloadPtr);
 			uint8_t unknown_byte2 = POP_BYTE(payloadPtr);
@@ -2532,6 +2541,9 @@ void survive_handle_watchman(SurviveObject *w, uint64_t time_in_us, uint8_t *rea
 	 *
 	 */
 
+	// An RF subreport fits in 29 bytes, including its three-byte header.
+	if (readdata[1] < 1 || readdata[1] > 27)
+		return;
 	uint16_t time = AS_SHORT(readdata[0], readdata[2]);
 	uint8_t payloadSize = readdata[1] - 1;
 	uint8_t *payloadPtr = &readdata[3];
@@ -2768,6 +2780,8 @@ struct SurviveUSBInfo *survive_vive_register_driver(SurviveObject *so, uint16_t 
 	so->driver = d;
 	d->so = so;
 	d->lightcapMode = LightcapMode_raw0;
+	// Passive replay has no configuration transfer to complete this state.
+	d->nextCfgSubmitTime = -1;
 	for (const struct DeviceInfo *info = KnownDeviceTypes; info->name; info++) {
 		if (info == 0) {
 			continue;
@@ -2816,6 +2830,8 @@ static void parse_tracker_version_info(SurviveObject *so, const uint8_t *data, s
 		uint64_t k;
 	} version_info;
 #pragma pack(pop)
+	if (size < sizeof(version_info))
+		return;
 	char fw_name[33] = {0};
 	memcpy(&version_info, data, sizeof(version_info));
 	memcpy(fw_name, version_info.fw_name, 32);
@@ -2890,6 +2906,8 @@ dump_data:
 
 void survive_data_cb_locked(uint64_t time_received_us, SurviveUSBInterface *si) {
 	int size = si->actual_len;
+	if (size < 1)
+		return;
 	SurviveContext *ctx = si->ctx;
 	int iface = si->which_interface_am_i;
 	SurviveObject *obj = si->assoc_obj;
@@ -2989,8 +3007,13 @@ void survive_data_cb_locked(uint64_t time_received_us, SurviveUSBInterface *si) 
 	case USB_IF_WATCHMAN2: {
 		SurviveObject *w = obj;
 		if (id == VIVE_REPORT_RF_WATCHMAN) {
+			if (size < 3 || readdata[1] < 1 || readdata[1] > 27 || size < readdata[1] + 2)
+				return;
 			survive_handle_watchman(w, time_received_us, readdata);
 		} else if (id == VIVE_REPORT_RF_WATCHMANx2) {
+			if (size < 32 || readdata[1] < 1 || readdata[1] > 27 ||
+				readdata[30] < 1 || readdata[30] > 27 || size < 31 + readdata[30])
+				return;
 			survive_handle_watchman(w, time_received_us, readdata);
 			survive_handle_watchman(w, time_received_us, readdata + 29);
 		} else if (id == VIVE_REPORT_RF_TURN_OFF) {

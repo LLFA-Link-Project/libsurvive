@@ -207,6 +207,12 @@ static void ingest_config_request(vive_device_inst_t *dev, const struct _usb_hea
 		return;
 	}
 	struct SurviveContext *ctx = dev->so->ctx;
+	if (usbp->data_len < 2 || pktData[1] > usbp->data_len - 2 ||
+		pktData[1] > sizeof(dev->compressed_data) - dev->compressed_data_idx) {
+		SV_WARN("Invalid config chunk for %s", dev->so->codename);
+		dev->compressed_data_idx = 0;
+		return;
+	}
 	uint16_t cnt = pktData[1];
 
 	SV_VERBOSE(500, "Ingesting config data for %s(%p); %d bytes", dev->so->codename, (void *)dev, cnt);
@@ -228,6 +234,8 @@ static void ingest_config_request(vive_device_inst_t *dev, const struct _usb_hea
 
 		if (len <= 0) {
 			SV_WARN("Error: data for config descriptor");
+			free(uncompressed_data);
+			return;
 		} else {
 			SV_INFO("usbmon loaded %d total bytes of config data for %s", len, dev->so->codename);
 		}
@@ -451,8 +459,20 @@ static int setup_usb_devices(SurviveDriverUSBMon *sp) {
 	return rtn;
 }
 
+// memcpy supports both integer fields and libpcap 1.11's aligned ABI wrappers.
+static uint64_t usb_u64(const void *field) {
+	uint64_t value;
+	memcpy(&value, field, sizeof(value));
+	return value;
+}
+static int64_t usb_i64(const void *field) {
+	int64_t value;
+	memcpy(&value, field, sizeof(value));
+	return value;
+}
+
 double make_time(double start, const struct _usb_header_mmapped *pMmapped) {
-	return pMmapped->ts_sec + pMmapped->ts_usec * 1.e-6 - start;
+	return usb_i64(&pMmapped->ts_sec) + pMmapped->ts_usec * 1.e-6 - start;
 }
 
 const char *requestTypeToStr(uint8_t requestType) {
@@ -498,7 +518,7 @@ static double survive_usbmon_playback_run_time(const SurviveContext *ctx, void *
 const uint8_t *fill_usb_header(const void *_hdr, struct pcap_pkthdr *pkthdr, pcap_usb_header_mmapped *usbp) {
 	const USBPCAP_BUFFER_PACKET_HEADER *hdr = _hdr;
 
-	usbp->id = hdr->irpId;
+	memcpy(&usbp->id, &hdr->irpId, sizeof(hdr->irpId));
 	usbp->event_type = 0; // ???
 	usbp->transfer_type = hdr->transfer;
 	usbp->endpoint_number = hdr->endpoint;
@@ -509,7 +529,8 @@ const uint8_t *fill_usb_header(const void *_hdr, struct pcap_pkthdr *pkthdr, pca
 	usbp->urb_len = 0; // ???
 	usbp->data_len = hdr->dataLength;
 	usbp->data_flag = hdr->dataLength == 0;
-	usbp->ts_sec = pkthdr->ts.tv_sec;
+	int64_t ts_sec = pkthdr->ts.tv_sec;
+	memcpy(&usbp->ts_sec, &ts_sec, sizeof(ts_sec));
 	usbp->ts_usec = pkthdr->ts.tv_usec;
 
 	usbp->setup_flag = 1;
@@ -547,6 +568,9 @@ void *pcap_thread_fn(void *_driver) {
 	pcap_usb_header_mmapped usbpcap_translation = {0};
 
 	SV_INFO("Pcap thread started");
+	// Startup holds this lock until keepRunning has been installed by the caller.
+	survive_get_ctx_lock(ctx);
+	survive_release_ctx_lock(ctx);
 	double start_time = 0;
 	double real_time_start = timestamp_in_s();
 	while ((driver->keepRunning == 0 || *driver->keepRunning) && ctx->currentError == SURVIVE_OK) {
@@ -559,18 +583,40 @@ void *pcap_thread_fn(void *_driver) {
 		case 1: {
 			const uint8_t *pktData = 0;
 			if (driver->datalink == DLT_USBPCAP) {
+				if (pkthdr->caplen < sizeof(USBPCAP_BUFFER_PACKET_HEADER))
+					goto continue_loop;
+				const USBPCAP_BUFFER_PACKET_HEADER *usb_hdr = hdr;
+				size_t min_header = usb_hdr->transfer == USBPCAP_TRANSFER_CONTROL
+									? sizeof(USBPCAP_BUFFER_CONTROL_HEADER) : sizeof(*usb_hdr);
+				if (usb_hdr->headerLen < min_header || usb_hdr->headerLen > pkthdr->caplen ||
+					usb_hdr->dataLength > pkthdr->caplen - usb_hdr->headerLen)
+					goto continue_loop;
+				if (usb_hdr->transfer == USBPCAP_TRANSFER_CONTROL &&
+					((const USBPCAP_BUFFER_CONTROL_HEADER *)hdr)->stage == USBPCAP_CONTROL_STAGE_SETUP &&
+					usb_hdr->dataLength != sizeof(pcap_usb_setup))
+					goto continue_loop;
+				memset(&usbpcap_translation, 0, sizeof(usbpcap_translation));
 				pktData = fill_usb_header(hdr, pkthdr, &usbpcap_translation);
 				usbp = &usbpcap_translation;
 			} else {
+				if (pkthdr->caplen < sizeof(*usbp)) {
+					SV_WARN("Short USB header skipped");
+					goto continue_loop;
+				}
 				usbp = hdr;
 				// Packet data is directly after the packet header
 				pktData = (uint8_t *)&usbp[1];
+				if (usbp->data_len > pkthdr->caplen - sizeof(*usbp)) {
+					SV_WARN("Truncated USB payload skipped");
+					goto continue_loop;
+				}
 			}
 
+			uint64_t urb_id = usb_u64(&usbp->id);
 			vive_device_inst_t *dev = find_device_inst(driver, usbp->bus_id, usbp->device_address);
 
 			if (driver->pcapDumper && (dev || driver->record_all)) {
-				pcap_dump((uint8_t *)driver->pcapDumper, pkthdr, (uint8_t *)usbp);
+				pcap_dump((uint8_t *)driver->pcapDumper, pkthdr, hdr);
 			}
 
 			if (dev) {
@@ -584,14 +630,17 @@ void *pcap_thread_fn(void *_driver) {
 				if (start_time == 0) {
 					start_time = make_time(0, usbp);
 				}
-				double this_real_time = timestamp_in_s();
+				double this_real_time = timestamp_in_s() - real_time_start;
 				double this_time = make_time(start_time, usbp);
 				if (driver->playback_factor > 0.) {
 					double next_time_s_scaled = this_time * driver->playback_factor;
-					while (this_real_time < next_time_s_scaled) {
-						int sleep_time_ms = 1 + (next_time_s_scaled - this_real_time) * 1000.;
+					while (this_real_time < next_time_s_scaled &&
+						   (driver->keepRunning == 0 || *driver->keepRunning)) {
+						// Bound waits so shutdown remains responsive across capture gaps.
+						double wait_s = next_time_s_scaled - this_real_time;
+						int sleep_time_ms = wait_s > .05 ? 50 : 1 + wait_s * 1000.;
 						OGUSleep(sleep_time_ms * 1000);
-						this_real_time = timestamp_in_s();
+						this_real_time = timestamp_in_s() - real_time_start;
 					}
 				}
 
@@ -600,10 +649,10 @@ void *pcap_thread_fn(void *_driver) {
 				}
 
 #define COLORIZED_ID_STR SURVIVE_COLORIZED_FORMAT("%016lx")
-#define COLORIZED_ID SURVIVE_COLORIZED_DATA(usbp->id)
+#define COLORIZED_ID SURVIVE_COLORIZED_DATA(urb_id)
 				char color_set[16] = "";
 
-				unsigned hash = ((usbp->id + (usbp->id >> 8) + (usbp->id >> 16) + (usbp->id >> 24)) & 0xFF) % 8;
+				unsigned hash = ((urb_id + (urb_id >> 8) + (urb_id >> 16) + (urb_id >> 24)) & 0xFF) % 8;
 				sprintf(color_set, "\033[0;%dm", (int)(hash + 30));
 				const char *color_reset = "\033[0m";
 				driver->time_now = this_time;
@@ -618,8 +667,9 @@ void *pcap_thread_fn(void *_driver) {
 						dev->compressed_data_idx = 0;
 						SV_VERBOSE(200, "%s start of config", color_dev_name);
 					} else if (is_config_request(usbp)) {
-						dev->last_config_id = usbp->id;
-					} else if (is_command_setup(usbp)) {
+						dev->last_config_id = urb_id;
+					} else if (is_command_setup(usbp) && usbp->data_len >= 3 &&
+							   pktData[2] <= usbp->data_len - 3) {
 						SV_INFO("%s sent command 0x%02x with %u bytes:", color_dev_name, pktData[1], pktData[2]);
 						survive_dump_buffer(ctx, pktData + 3, pktData[2]);
 					}
@@ -629,7 +679,7 @@ void *pcap_thread_fn(void *_driver) {
 											" event_type: %c transfer_type: %d bmRequestType: 0x%02x "
 											"bRequest: 0x%02x (%s) "
 											"wValue: 0x%04x wIndex: 0x%04x wLength: %4d (%4d)\n",
-											this_time, color_dev_name, SURVIVE_COLORIZED_DATA(usbp->id),
+											this_time, color_dev_name, SURVIVE_COLORIZED_DATA(urb_id),
 											usbp->event_type, usbp->transfer_type, usbp->s.setup.bmRequestType,
 											usbp->s.setup.bRequest, requestTypeToStr(usbp->s.setup.bRequest),
 											usbp->s.setup.wValue, usbp->s.setup.wIndex, usbp->s.setup.wLength,
@@ -654,14 +704,14 @@ void *pcap_thread_fn(void *_driver) {
 							SURVIVE_INVOKE_HOOK(printf, ctx,
 												"<-- %10.6f C: %s " COLORIZED_ID_STR
 												" event_type: %c transfer_type: %d 0x%02x (0x%02x):\n",
-												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(usbp->id),
+												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(urb_id),
 												usbp->event_type, usbp->transfer_type, usbp->endpoint_number,
 												usbp->data_len);
 						} else {
 							SURVIVE_INVOKE_HOOK(printf, ctx,
 												"--> %10.6f W: %s " COLORIZED_ID_STR
 												" event_type: %c transfer_type: %d 0x%02x (0x%02x):\n",
-												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(usbp->id),
+												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(urb_id),
 												usbp->event_type, usbp->transfer_type, usbp->endpoint_number,
 												usbp->data_len);
 						}
@@ -680,11 +730,11 @@ void *pcap_thread_fn(void *_driver) {
 							SURVIVE_INVOKE_HOOK(printf, ctx,
 												"<-- %10.6f E: %s " COLORIZED_ID_STR
 												" event_type: %c transfer_type: %d status: %d endpoint: 0x%02x (%s)\n",
-												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(usbp->id),
+												this_time, color_dev_name, SURVIVE_COLORIZED_DATA(urb_id),
 												usbp->event_type, usbp->transfer_type, usbp->status,
 												usbp->endpoint_number, survive_usb_interface_str(interface));
 					}
-					if (usbp->id == dev->last_config_id) {
+					if (urb_id == dev->last_config_id) {
 						dev->last_config_id = 0;
 					}
 					survive_release_ctx_lock(ctx);
@@ -700,17 +750,17 @@ void *pcap_thread_fn(void *_driver) {
 					SURVIVE_INVOKE_HOOK(printf, ctx,
 										"<-- %10.6f R: %s " COLORIZED_ID_STR
 										" event_type: %c transfer_type: %d endpoint: 0x%02x (%s) (0x%02x): \n",
-										this_time, color_dev_name, SURVIVE_COLORIZED_DATA(usbp->id), usbp->event_type,
+										this_time, color_dev_name, SURVIVE_COLORIZED_DATA(urb_id), usbp->event_type,
 										usbp->transfer_type, usbp->endpoint_number,
 										survive_usb_interface_str(interface), usbp->data_len);
 					survive_dump_buffer(ctx, pktData, usbp->data_len);
 				}
 
-				if (usbp->event_type == 'C' && usbp->transfer_type == 2 && dev->so) {
+				if (usbp->event_type == 'C' && usbp->transfer_type == 2 && dev->so && usbp->data_len > 0) {
 					survive_usb_feature_read(dev->so, pktData, usbp->data_len);
 				}
 
-				if (usbp->id == dev->last_config_id && usbp->event_type == 'C' && dev->hasConfiged == false) {
+				if (urb_id == dev->last_config_id && usbp->event_type == 'C' && dev->hasConfiged == false) {
 					ingest_config_request(dev, usbp, pktData);
 					dev->last_config_id = 0;
 					dev->packets_without_config = 0;
@@ -726,6 +776,10 @@ void *pcap_thread_fn(void *_driver) {
 										  usbp->status == 0;
 				survive_release_ctx_lock(ctx);
 				if (forward_to_data_cb) {
+					if (usbp->data_len > INTBUFFSIZE) {
+						SV_WARN("Oversized USB report skipped for %s", dev_name);
+						goto continue_loop;
+					}
 					SurviveUSBInterface si = {.ctx = ctx,
 											  .actual_len = pkthdr->len,
 											  .assoc_obj = dev->so,
@@ -738,7 +792,7 @@ void *pcap_thread_fn(void *_driver) {
 					si.actual_len = usbp->data_len;
 					memset(si.buffer, 0xCA, sizeof(si.swap_buffer));
 					memcpy(si.buffer, pktData, usbp->data_len);
-					uint64_t time = usbp->ts_sec * 1000000 + usbp->ts_usec;
+					uint64_t time = usb_i64(&usbp->ts_sec) * 1000000 + usbp->ts_usec;
 					survive_data_cb(time, &si);
 				} else if (!dev->hasConfiged) {
 					if (driver->allow_fs_read && dev->packets_without_config++ > 1000 &&

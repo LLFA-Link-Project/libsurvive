@@ -99,6 +99,69 @@ survive_optimizer default_optimizer() {
 	return mpfitctx;
 }
 
+TEST(Optimizer, ReducedChiSquareUsesResidualDegreesOfFreedom) {
+	survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .use_quat_model = true,
+												 .disable_filter = true};
+	survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
+							.poseLength = 1, .cameraLength = 1, .disableVelocity = true, .objectUpVectorVariance = -1,
+							.cfg = survive_optimizer_precise_config()};
+	SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+	SurvivePose pose = {.Rot = {1}};
+	survive_optimizer_setup_pose(&opt, &pose, true, 1);
+	survive_optimizer_setup_camera(&opt, 0, &pose, true, 1);
+	opt.mp_parameters_info[0].fixed = false;
+	for (int i = 0; i < 4; i++) {
+		survive_optimizer_measurement *meas =
+			survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+		meas->parameter_bias.parameter_index = 0;
+		meas->parameter_bias.expected_value = i;
+		meas->variance = .1;
+	}
+	CN_CREATE_STACK_MAT(R, 7, 7);
+	mp_result result = {0};
+	ASSERT_GT(survive_optimizer_run(&opt, &result, &R), 0);
+	ASSERT_DOUBLE_EQ(opt.parameters[0], 1.5);
+	ASSERT_EQ(result.nfree, 1);
+	ASSERT_EQ(result.nfunc, 4);
+	// (J^T J)^-1 = .01/4; sum squared residuals = 500; residual DOF = 3.
+	ASSERT_DOUBLE_EQ(cnMatrixGet(&R, 0, 0), (.01 / 4) * result.bestnorm / 3);
+	return 0;
+}
+
+TEST(Optimizer, CameraCovarianceAfterFixedObject) {
+	survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .disable_filter = true};
+	survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
+							.poseLength = 1, .cameraLength = 1, .disableVelocity = true,
+							.objectUpVectorVariance = -1, .dontScaleCov = true,
+							.cfg = survive_optimizer_precise_config()};
+	SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+	SurvivePose object = {.Rot = {.5, .5, .5, .5}};
+	SurvivePose camera = {.Rot = {1}};
+	survive_optimizer_setup_pose(&opt, &object, true, 1);
+	survive_optimizer_setup_camera(&opt, 0, &camera, false, 1);
+	int camera_index = survive_optimizer_get_camera_index(&opt);
+	// Independent zero-valued constraints on the camera translation/axis angle.
+	for (int repeat = 0; repeat < 2; repeat++) {
+		for (int i = 0; i < 6; i++) {
+			survive_optimizer_measurement *meas =
+				survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+			meas->parameter_bias.parameter_index = camera_index + i;
+			meas->parameter_bias.expected_value = 0;
+			meas->variance = .1;
+		}
+	}
+	CN_CREATE_STACK_MAT(R, 14, 14);
+	mp_result result = {0};
+	ASSERT_GT(survive_optimizer_run(&opt, &result, &R), 0);
+	ASSERT_EQ(R.rows, 7);
+	// AA covariance is .1^2/2. At identity dq_xyz/dAA = .5 I, dq_w/dAA = 0.
+	FLT expected[] = {.005, .005, .005, 0, .00125, .00125, .00125};
+	for (int i = 0; i < 7; i++) {
+		ASSERT_DOUBLE_EQ(cnMatrixGet(&R, i, i), expected[i]);
+	}
+	return 0;
+}
+
 bool verify_R(CnMat* R, SurvivePose* gt, SurvivePose* modeled) {
 	FLT v[7];
 	cn_get_diag(R, v, 7);

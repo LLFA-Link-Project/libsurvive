@@ -214,6 +214,16 @@ foreach(executable ${SURVIVE_EXECUTABLES})
   endif()
 endforeach()
 
+if(ENABLE_TESTS AND NOT WIN32 AND TARGET driver_usbmon AND TARGET survive-cli)
+  find_program(USBMON_TEST_PYTHON python3)
+  if(USBMON_TEST_PYTHON)
+    add_test(NAME usbmon_packets COMMAND ${USBMON_TEST_PYTHON}
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/test_cases/usbmon.py $<TARGET_FILE:survive-cli>)
+    add_test(NAME lighthouse_compare COMMAND ${USBMON_TEST_PYTHON}
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/test_cases/lighthouse_compare.py)
+  endif()
+endif()
+
 IF(WIN32)
   # This property needs to be set on a target at the root; doesn't matter which
   set_target_properties( survive-cli PROPERTIES VS_USER_PROPS "$(SolutionDir)\\packages\\OpenBLAS.0.2.14.1\\build\\native\\openblas.targets" )
