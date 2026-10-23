@@ -151,3 +151,21 @@ These pass with AddressSanitizer/UndefinedBehaviorSanitizer (leak detection
 disabled). Existing reproject, generated-math, barycentric SVD, angular-velocity
 and config-export checks also pass. The upstream downloaded replay corpus was
 unavailable and was not evaluated.
+
+## Follow-up investigation
+
+Commit `4df6172` is the baseline for the following experiments. Always starting
+from the IMU pose instead of the previous optical solution changed the long
+capture's DF24384D disagreement only from 405.8 mm / 28.45 degrees to 404.7 mm /
+28.40 degrees, with mixed effects elsewhere; this change was not retained.
+Disabling the optical velocity model gave 405.2 mm / 28.04 degrees, while numeric
+Jacobians gave 405.8 mm / 28.45 degrees. Neither explains the large remaining
+error. These are diagnostic experiments, not additional improvements.
+
+A separate optimizer error was reproduced: the paired-measurement shortcut could
+combine adjacent axes belonging to different objects or lighthouses when sensor
+indices happened to match. It now requires both identities to match. The new
+synthetic test compares the shortcut with independent projection at known exact
+poses, and fails before the fix. Optimizer tests pass under ASan/UBSan. All four
+capture pose hashes are unchanged by this correction; it is not the explanation
+for the observed long-capture divergence.

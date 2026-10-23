@@ -879,6 +879,7 @@ static int mpfunc(int m, int n, FLT *p, FLT *deviates, FLT **derivs, void *priva
 				mea_block_idx + 1 < mpfunc_ctx->measurementsCnt && mpfunc_ctx->disableVelocity == true &&
 				meas[1].meas_type == survive_optimizer_measurement_type_light && meas[0].light.axis == 0 &&
 				meas[1].light.axis == 1 && meas[0].light.sensor_idx == meas[1].light.sensor_idx && !meas[1].invalid &&
+				meas[0].light.object == meas[1].light.object && meas[0].light.lh == meas[1].light.lh &&
 				!mpfunc_ctx->settings->disallow_pair_calc;
 
 			const int lh = meas->light.lh;
