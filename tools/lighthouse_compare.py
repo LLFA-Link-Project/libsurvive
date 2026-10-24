@@ -14,12 +14,12 @@ import pathlib
 import statistics
 
 
-def jsonl(path):
+def jsonl(path, loads=json.loads):
     compressed = pathlib.Path(str(path) + ".gz")
     opener = gzip.open if compressed.exists() else open
-    with opener(compressed if compressed.exists() else path, "rt") as f:
+    with opener(compressed if compressed.exists() else path, "rb") as f:
         for line in f:
-            yield json.loads(line)
+            yield loads(line)
 
 
 def qmul(a, b):
@@ -304,7 +304,7 @@ def load_reference_events(session):
             'reacquisition_capture_times_ns': dict(reacquisitions)}
 
 
-def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, evaluation_hz=None):
+def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, evaluation_hz=None, diagnostic_bin_s=None):
     if bounds:
         start, end = bounds
     else:
@@ -361,6 +361,16 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
                               'orientation_difference_deg': distribution(angles), 'coverage': coverage[serial],
                               'association': ('no_replay_poses' if not replay.get(serial) else
                                               'no_reference_poses' if not reference.get(serial) else 'matched')}
+        if diagnostic_bin_s:
+            groups = collections.defaultdict(list)
+            period = round(diagnostic_bin_s*1e9)
+            for t, pos, ang in errors:
+                groups[(t-start)//period].append((pos,ang))
+            per_object[serial]['heldout_time_bins'] = [
+                {'start_after_input_s': key*diagnostic_bin_s,
+                 'position_difference_m': distribution([v[0] for v in values]),
+                 'orientation_difference_deg': distribution([v[1] for v in values])}
+                for key,values in sorted(groups.items())]
         if events:
             if evaluation_hz is not None and evaluation_hz < 20:
                 per_object[serial]['recovery_after_reference_reacquisition'] = {

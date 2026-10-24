@@ -17,6 +17,15 @@ import time
 import lighthouse_compare as comparison
 
 
+try:
+    import orjson as fast_json
+    JSON_LOADS = fast_json.loads
+    JSON_PARSER = 'orjson '+fast_json.__version__
+except ImportError:
+    JSON_LOADS = json.loads
+    JSON_PARSER = 'Python standard json'
+
+
 class Samples:
     def __init__(self, db, table, serial):
         self.db, self.table, self.serial = db, table, serial
@@ -59,7 +68,7 @@ class Samples:
 def create_db(path):
     if path.exists():
         raise ValueError('Database path must be new')
-    db = sqlite3.connect(path)
+    db = sqlite3.connect(path, uri=True)
     db.execute('PRAGMA journal_mode=OFF')  # Disposable derived index; originals are never written.
     db.execute('PRAGMA synchronous=OFF')
     db.execute('PRAGMA cache_size=-32768')
@@ -168,7 +177,7 @@ def replay_index(db, path, clock, sample_hz=50, allow_unbracketed_span=False):
 def reference_index(db, session, time_field='pose_time_estimate_ns', allow_truncated=False):
     rejected=collections.Counter();batch=[];rows=0;integrity='complete'
     try:
-        for row in comparison.jsonl(session/'poses.jsonl'):
+        for row in comparison.jsonl(session/'poses.jsonl', loads=JSON_LOADS):
             rows+=1
             if row.get('device_class')==4:continue
             t=row.get(time_field)
@@ -194,10 +203,11 @@ def reference_index(db, session, time_field='pose_time_estimate_ns', allow_trunc
         integrity='partial: '+str(error)
     db.executemany('INSERT INTO reference(serial,t,x,y,z,w,qx,qy,qz) VALUES(?,?,?,?,?,?,?,?,?)',batch)
     db.execute('CREATE INDEX reference_times ON reference(serial,t,id)');db.commit()
-    return {'rows_read':rows,'integrity':integrity,'rejected':dict(rejected)}
+    return {'rows_read':rows,'integrity':integrity,'rejected':dict(rejected),'json_parser':JSON_PARSER}
 
 
-def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncated=False):
+def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncated=False,
+        reference_database=None, reference_info=None):
     db=create_db(database)
     started=time.monotonic()
     try:
@@ -209,17 +219,25 @@ def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncate
             clock_integrity='partial: '+str(error)
         clock=comparison.ClockMap(clock_rows)
         timing=replay_index(db,recording,clock,allow_unbracketed_span=allow_truncated)
-        reference=reference_index(db,session,allow_truncated=allow_truncated)
+        reference_table='reference'
+        if reference_database is None:
+            reference=reference_index(db,session,allow_truncated=allow_truncated)
+        else:
+            if reference_info is None or reference_info.get('session')!=session.name:
+                raise ValueError('Matching cached reference metadata required')
+            db.execute('ATTACH DATABASE ? AS native',('file:'+str(reference_database.resolve())+'?mode=ro',))
+            reference_table='native.reference'
+            reference=reference_info
         print(session.name,'indexed',reference['rows_read'],'reference callbacks',flush=True)
         replay={s:Samples(db,'replay',s) for s, in db.execute('SELECT DISTINCT serial FROM replay')}
-        refs={s:Samples(db,'reference',s) for s, in db.execute('SELECT DISTINCT serial FROM reference')}
+        refs={s:Samples(db,reference_table,s) for s, in db.execute(f'SELECT DISTINCT serial FROM {reference_table}')}
         events_integrity='complete'
         try:events=comparison.load_reference_events(session)
         except (EOFError,OSError,json.JSONDecodeError):
             if not allow_truncated:raise
             events=None;events_integrity='partial; event summary unavailable'
         result=comparison.compare(replay,refs,warmup_s=warmup,evaluation_hz=evaluation_hz,
-            bounds=(timing['capture_start_monotonic_ns'],timing['capture_end_monotonic_ns']),events=events)
+            bounds=(timing['capture_start_monotonic_ns'],timing['capture_end_monotonic_ns']),events=events,diagnostic_bin_s=60)
         result.update(timing=timing,reference_index=reference,clock_integrity=clock_integrity,events_integrity=events_integrity,wall_time_s=time.monotonic()-started,
             sampling='Replay sorted by full device ticks; 50Hz mapping/coverage, sampled error evaluation',
             timing_caveat='Input arrival mapping; device/USB/driver latency and prediction remain unknown')

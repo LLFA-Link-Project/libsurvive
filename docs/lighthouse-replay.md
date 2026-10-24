@@ -276,8 +276,9 @@ failures and unavailable comparisons must remain visible in the final ledger.
 The inventory is not a completed evaluation result.
 
 Long replay runs can now checkpoint atomically after each run and resume with
-`--resume`. Resume checks the binary/plugin content hashes and settings before
-reusing results. `--record-timing` records timing without loading reference
+`--resume`. Resume checks the binary/plugin content hashes, replay input hashes and settings
+before reusing results. A changed capture is rejected without overwriting its
+previous checkpoint. `--record-timing` records timing without loading reference
 streams, allowing replay and reference evaluation to run independently.
 
 ```sh
@@ -298,7 +299,8 @@ shift. It sorts by full sensor ticks and segments receiver identity changes.
 Sampling rate and timing assumptions are included in each result. Five-hertz
 errors cannot resolve the existing <=50 ms reacquisition criterion; that recovery
 metric is explicitly unavailable at this rate. Native reference state events
-remain reported. These results are not numerically interchangeable with earlier
+remain reported. Per-minute held-out error bins use the same fitted transform;
+they do not refit each minute to conceal drift or outliers. These results are not numerically interchangeable with earlier
 50 Hz error tables.
 
 A 50 Hz disk-backed comparison of the 71-second BS 2.0 recording exactly matches
@@ -326,3 +328,24 @@ it must not be described as a full validation of this additional fix. A separate
 candidate executable/core copy and plugin directory isolate experiments from that
 baseline. The 71-second BS 2.0 candidate replay has the same pose hash as its
 baseline. This retention fix is not yet evidence of lower full-corpus error.
+
+The disk comparator can reuse an independently indexed reference database through
+its Python API. It attaches that database read-only, so candidate comparisons
+share exactly the same reference validity samples. Standard-library JSON is the
+default parser; an optional installed `orjson` accelerates indexing and is named
+in the metadata. The 71-second BS 2.0 comparison produces identical position and
+angle RMSE with both parsers. No optional dependency is required by the tests.
+
+`tools/lighthouse_corpus_report.py` assembles inventory, integrity, replay and
+comparison checkpoints into a session ledger, object CSV and Markdown table:
+
+```sh
+python3 tools/lighthouse_corpus_report.py /path/to/corpus-work \
+  --output /path/to/corpus-work/report
+```
+
+It keeps pending work and unavailable comparisons visible, excludes incomplete
+captures and integrity failures from pooled metrics, and labels the report in
+progress until all sessions and reference indexes have been assessed. Pooled
+RMSE is weighted by matched held-out samples, so long or mostly static recordings
+can dominate it. Per-session/per-object results must accompany that aggregate.

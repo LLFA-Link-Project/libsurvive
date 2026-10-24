@@ -77,6 +77,15 @@ class Comparison(unittest.TestCase):
         self.assertLess(compare.distance(result['world_from_survive']['position_m'], (0, 0, 0)), 1e-12)
         self.assertAlmostEqual(result['objects']['a']['position_difference_m']['rmse'], 1)
 
+    def test_time_bins_do_not_refit_the_transform(self):
+        rows = [(i*1_000_000_000, ((i/100, 0, 0), (1, 0, 0, 0))) for i in range(10)]
+        refs = [(t, ((p[0]+(i>=3), p[1], p[2]), q)) for i, (t, (p,q)) in enumerate(rows)]
+        result = compare.compare({'a': rows}, {'a': refs}, warmup_s=0, diagnostic_bin_s=1)
+        bins = result['objects']['a']['heldout_time_bins']
+        self.assertEqual([row['start_after_input_s'] for row in bins], list(range(3,10)))
+        for row in bins:
+            self.assertAlmostEqual(row['position_difference_m']['rmse'], 1)
+
     def test_missing_device_is_not_hidden(self):
         pose = ((0, 0, 0), (1, 0, 0, 0))
         rows = [(i*10_000_000, pose) for i in range(100)]
@@ -183,6 +192,22 @@ class DiskComparison(unittest.TestCase):
                 self.assertIsNone(samples.interpolate(0, 20_000_000))
             finally:
                 db.close()
+
+    def test_cached_reference_is_read_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            reference = disk.create_db(root/'reference.sqlite')
+            reference.execute("INSERT INTO reference(serial,t,x,y,z,w,qx,qy,qz) VALUES('a',0,1,2,3,1,0,0,0)")
+            reference.commit(); reference.close()
+            derived = disk.create_db(root/'derived.sqlite')
+            try:
+                derived.execute('ATTACH DATABASE ? AS native', ('file:'+str(root/'reference.sqlite')+'?mode=ro',))
+                sample = disk.Samples(derived, 'native.reference', 'a')
+                self.assertEqual(sample[0], (0, ((1,2,3),(1,0,0,0))))
+                with self.assertRaises(disk.sqlite3.OperationalError):
+                    derived.execute('DELETE FROM native.reference')
+            finally:
+                derived.close()
 
     def test_truncation_is_explicit_and_keeps_valid_prefix(self):
         with tempfile.TemporaryDirectory() as temp:

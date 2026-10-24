@@ -15,6 +15,14 @@ import tempfile
 import time
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as f:
+        for chunk in iter(lambda: f.read(1024*1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def summarize(recording):
     objects = collections.defaultdict(lambda: {
         "poses": 0, "nonfinite_poses": 0, "max_quaternion_norm_error": 0,
@@ -84,6 +92,12 @@ def main():
                 "compare": args.compare, "record_timing": args.record_timing,
                 "include_incomplete": args.include_incomplete, "warmup": args.warmup,
                 "sessions": sorted(str(p) for p in sessions)}
+    source_names = ["manifest.json", "usb.pcap.gz", "usb.pcap.gz.usbdevs"]
+    if args.compare:
+        source_names += ["poses.jsonl.gz", "poses.jsonl", "clock_sync.jsonl.gz", "clock_sync.jsonl",
+                         "events.jsonl.gz", "events.jsonl"]
+    settings["source_sha256"] = {str(path): file_sha256(path) if path.is_file() else None
+        for session in sorted(sessions) for name in source_names for path in [session/name]}
     settings["build_sha256"] = {str(p.relative_to(binary.parent)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted({binary, *binary.parent.glob("libsurvive.so*"), *binary.parent.glob("plugins/*.so")})
         if p.is_file()}
@@ -95,7 +109,7 @@ def main():
     if args.resume and (args.output / "results.json").exists():
         report = json.loads((args.output / "results.json").read_text())
         if report.get("settings") != settings:
-            parser.error("Resume settings or build differ from the recorded run")
+            parser.error("Resume settings or build differ from the recorded run (including source hashes)")
     report["settings"] = settings
 
     def checkpoint():
