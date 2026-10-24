@@ -3,6 +3,7 @@
 #include "../generated/kalman_kinematics.gen.h"
 #include "survive_optimizer.h"
 #include "test_case.h"
+#include "../survive_kalman_tracker.h"
 
 survive_optimizer_settings settings = {
 	.optimize_scale_threshold = -1,
@@ -97,6 +98,25 @@ survive_optimizer default_optimizer() {
 		.user = 0
 	};
 	return mpfitctx;
+}
+
+static void count_pose_without_covariance(SurviveObject *so, survive_long_timecode timecode,
+										  const SurvivePose *pose) {
+	so->OutPoseIMU = *pose;
+}
+
+TEST(Optimizer, DispatchPoseWithoutCovariance) {
+	SurviveContext ctx = {.imuposeproc = count_pose_without_covariance};
+	SurviveObject so = {.ctx = &ctx};
+	SurviveKalmanTracker tracker = {.so = &so, .use_raw_obs = true};
+	so.tracker = &tracker;
+	PoserData pd = {.pt = POSERDATA_SYNC, .timecode = 12345};
+	SurvivePose pose = {.Pos = {1, 2, 3}, .Rot = {1}};
+	PoserData_poser_pose_func(&pd, &so, &pose, -1, 0);
+	ASSERT_EQ(ctx.imupose_call_cnt, 1);
+	ASSERT_DOUBLE_ARRAY_EQ(3, so.OutPoseIMU.Pos, pose.Pos);
+	ASSERT_QUAT_EQ(so.OutPoseIMU.Rot, pose.Rot);
+	return 0;
 }
 
 TEST(Optimizer, PairedMeasurementsMustShareObjectAndLighthouse) {

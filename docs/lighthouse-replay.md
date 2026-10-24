@@ -181,3 +181,11 @@ the remaining reference disagreement.
 Huber loss experiments at 1 and 5 mrad did not remove the long-capture divergence:
 DF24384D remained near 405 mm / 28 degrees. The experimental implementation was
 removed; no loss-function or threshold tuning was adopted.
+
+The BaryCentricSVD comparison exposed a crash in the common pose dispatcher:
+solvers may omit covariance, but the dispatcher unconditionally constructed a
+matrix view of the null pointer. It now passes the missing covariance through to
+the tracker, which supplies its configured observation variance. A synthetic
+dispatch test reproduces the previous segmentation fault and passes under
+ASan/UBSan after the fix. A separate early-initialization problem in the SVD poser
+was then exposed by the real-capture Debug run and is investigated separately.

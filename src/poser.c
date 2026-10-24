@@ -104,11 +104,10 @@ void PoserData_poser_pose_func(PoserData *poser_data, SurviveObject *so, const S
 	if (poser_data->poseproc) {
 		poser_data->poseproc(so, poser_data->timecode, imu2world, poser_data->userdata);
 	} else {
-		//FLT p_e = error;
-		//FLT r_e = error;
-		//FLT R[7] = {p_e, p_e, p_e, r_e, r_e, r_e, r_e };
-		CnMat Rt = cnMatConstView(7, 7, R, 0, 0);
-		survive_kalman_tracker_integrate_observation(poser_data, so->tracker, imu2world, &Rt);
+		CnMat Rt;
+		if (R)
+			Rt = cnMatConstView(7, 7, R, 0, 0);
+		survive_kalman_tracker_integrate_observation(poser_data, so->tracker, imu2world, R ? &Rt : 0);
 	}
 }
 void PoserData_poser_pose_func_with_velocity(PoserData *poser_data, SurviveObject *so, const SurvivePose *imu2world,
