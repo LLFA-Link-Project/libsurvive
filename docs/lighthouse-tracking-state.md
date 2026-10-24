@@ -41,6 +41,11 @@ This recorder is synchronous. Its extra work is confined to explicitly enabled
 recording; it has no asynchronous writer/drop accounting. Retain the library and
 plugin revisions, configuration, source data and write/integrity results, and
 measure logging overhead when drawing conclusions about a live application.
+Since `612629c`, output uses a recorder-owned mutex: timestamps and payloads,
+CONFIG, matrices and covariance records are serialized across worker/API writers.
+Gzip EOF/CRC validity alone does not establish native record integrity: concurrent
+writes in an older recording can leave NUL-bearing/interleaved records inside an
+otherwise valid gzip stream. The calibration audit reports these lines explicitly.
 See [the WiVRn measurement handoff](libsurvive-micro-motion-handoff.md).
 
 With `record-tracking-state=1`, global scene optimization also emits `INFO LOG`

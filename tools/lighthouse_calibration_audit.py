@@ -31,8 +31,19 @@ def native(path):
     first, last = {}, {}
     digest = hashlib.sha256()
     logs = []
+    nul_bytes = 0
+    malformed_lines = 0
+    malformed_examples = []
     with gzip.open(path, "rt") as stream:
-        for line in stream:
+        for line_number, line in enumerate(stream, 1):
+            if "\0" in line:
+                nul_bytes += line.count("\0")
+                malformed_lines += 1
+                if len(malformed_examples) < 8:
+                    malformed_examples.append(dict(line=line_number, text_repr=repr(line[:450])))
+                # The record boundary/object cannot be trusted at this point.
+                previous.clear()
+                continue
             fields = line.split()
             if len(fields) < 4:
                 continue
@@ -67,6 +78,8 @@ def native(path):
         adjacent_pairs_dt_positive_at_most_20ms=dict(pairs),
         jumps_over_100mm=dict(jumps), maximum_step_m=dict(maxstep),
         pose_stream_sha256=digest.hexdigest(),
+        nul_byte_count=nul_bytes, malformed_line_count=malformed_lines,
+        malformed_examples=malformed_examples,
         gss_quality=[line for line in logs if "GSS_QUALITY " in line or "GSS_LIGHTHOUSE_GRAVITY " in line],
         gss_success=[line for line in logs if "MPFIT success" in line and " iters, up err " in line],
         gss_failures=sum("MPFIT status failure" in line for line in logs),
@@ -126,7 +139,7 @@ def main():
         builds["baseline"] = json.loads(args.baseline_build_proof.read_text())
     output = dict(
         schema_version=1,
-        method="Complete native recordings, no ground truth. Jump pairs use positive native receive-time gaps <=20 ms and steps >100 mm; nonfinite/zero-quaternion poses break adjacency. Finite nonzero quaternions do not certify tracking quality. Distances from origin depend on the world frame. Callback gaps are split by the logger's pose_is_valid flag, which does not certify calibration accuracy.",
+        method="Complete native recordings, no ground truth. NUL-bearing lines are reported and excluded, breaking adjacency; this is not a complete format validator. Jump pairs use positive native receive-time gaps <=20 ms and steps >100 mm; nonfinite/zero-quaternion poses break adjacency. Finite nonzero quaternions do not certify tracking quality. Distances from origin depend on the world frame. Callback gaps are split by the logger's pose_is_valid flag, which does not certify calibration accuracy.",
         sources=sources, runs=results, builds=builds,
     )
     if args.prior_corpus_gravity_audit:
