@@ -1,7 +1,7 @@
 SET(SURVIVE_TESTS
         reproject
         check_generated barycentric_svd optimizer
-        rotate_angvel export_config sensor_activations cli_buttons)
+        rotate_angvel export_config sensor_activations cli_buttons kalman_reporting)
 
 set(barycentric_svd_ADDITIONAL_SRCS ../barycentric_svd/barycentric_svd.c)
 if(TARGET poser_barycentric_svd)
