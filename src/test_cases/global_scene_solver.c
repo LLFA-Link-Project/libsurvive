@@ -43,7 +43,7 @@ TEST(GlobalScenes, DeferredSolveDiscardsDisconnectedObjects) {
 	return 0;
 }
 
-TEST(GlobalScenes, RejectedCandidatePreservesAcceptedScene) {
+TEST(GlobalScenes, SparseCandidatePreservesAcceptedScene) {
 	SurviveContext ctx = {.activeLighthouses = 1};
 	SurviveObject so = {.ctx = &ctx, .sensor_ct = 6, .OutPoseIMU = {.Rot = {1}}};
 	so.activations.so = &so;
@@ -67,6 +67,7 @@ TEST(GlobalScenes, RejectedCandidatePreservesAcceptedScene) {
 	for (int axis = 0; axis < 2; axis++)
 		for (int bin = 0; bin < NUM_BINS; bin++)
 			gss.coverage[0][axis][bin] = gss.desired_coverage;
+	so.sensor_ct = 4;
 	ASSERT_EQ(add_scenes(&gss, &so), 0);
 	ASSERT_EQ(gss.scenes_cnt, GSS_NUM_STORED_SCENES);
 	ASSERT_DOUBLE_EQ(gss.scenes[0].pose.Pos[0], 123.);
@@ -74,12 +75,22 @@ TEST(GlobalScenes, RejectedCandidatePreservesAcceptedScene) {
 	ASSERT_DOUBLE_EQ(gss.scenes[0].meas[0].value, .75);
 	// Useful but insufficient data is another rejection, with the same guarantee.
 	memset(gss.coverage, 0, sizeof(gss.coverage));
-	so.sensor_ct = 4;
 	ASSERT_EQ(add_scenes(&gss, &so), 0);
 	ASSERT_DOUBLE_EQ(gss.scenes[0].pose.Pos[0], 123.);
 	ASSERT_EQ(gss.scenes[0].meas_cnt, 1);
 	ASSERT_DOUBLE_EQ(gss.scenes[0].meas[0].value, .75);
 	so.sensor_ct = 6;
+
+	// Complete redundant data refreshes the next full-ring slot without claiming
+	// new coverage. Keeping old scenes indefinitely regressed long BS 2.0 replays.
+	for (int axis = 0; axis < 2; axis++)
+		for (int bin = 0; bin < NUM_BINS; bin++)
+			gss.coverage[0][axis][bin] = gss.desired_coverage;
+	ASSERT_EQ(add_scenes(&gss, &so), 0);
+	ASSERT_EQ(gss.scenes_cnt, GSS_NUM_STORED_SCENES);
+	ASSERT_DOUBLE_EQ(gss.scenes[0].pose.Pos[0], 0.);
+	ASSERT_EQ(gss.scenes[0].meas_cnt, 12);
+	ASSERT_DOUBLE_EQ(gss.scenes[0].meas[0].value, .1);
 
 	// An accepted candidate must replace the next ring slot and own its measurements.
 	memset(gss.coverage, 0, sizeof(gss.coverage));

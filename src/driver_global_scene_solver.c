@@ -100,7 +100,8 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 
 	discard_dead_scenes(gss, so);
 
-	// Build separately: a rejected candidate must not overwrite a retained scene.
+	// Validate before changing retained data. A complete redundant scene can refresh
+	// a full ring, but sparse candidates must not destroy an accepted scene.
 	struct PoserDataGlobalScene candidate = {0};
 	struct PoserDataGlobalScene *scene = &candidate;
 
@@ -148,11 +149,16 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 		}
 	}
 
-	if (useful && scene->meas_cnt > 10) {
+	bool refresh = gss->scenes_cnt >= GSS_NUM_STORED_SCENES && !quatiszero(scene->pose.Rot);
+	if (scene->meas_cnt > 10 && (useful || refresh)) {
 		struct PoserDataGlobalScene *stored_scene = &gss->scenes[gss->scenes_cnt % GSS_NUM_STORED_SCENES];
 		free(stored_scene->meas);
 		*stored_scene = *scene;
 		scene->meas = NULL;
+	}
+
+	// Only increased coverage advances the ring and requests a new solve.
+	if (useful && scene->meas_cnt > 10) {
 		gss->scenes_cnt++;
 		rtn++;
 
@@ -167,6 +173,8 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 		for (int i = 0; i < ctx->activeLighthouses; i++) {
 			SV_VERBOSE(100, "Scene %s %d for lh %d", survive_colorize_codename(so), (int)lh_meas[i], i);
 		}
+	} else if (refresh && scene->meas_cnt > 10) {
+		SV_VERBOSE(100, "Scene refreshed without new coverage; meas %d", (int)scene->meas_cnt);
 	} else {
 		SV_VERBOSE(100, "Scene rejected; meas %d", (int)scene->meas_cnt);
 	}

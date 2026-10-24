@@ -337,22 +337,29 @@ captures and records partial-stream status; it does not certify their integrity.
 The alignment/error working set and coverage timestamps still scale with the
 downsampled duration. SQLite files and replay recordings need disk space.
 
-### Retaining accepted global-calibration scenes
+### Refreshing global-calibration scenes safely
 
-A rejected candidate could overwrite a previously accepted scene after the
-32-scene ring filled. The candidate was built directly in the next retained
-slot, even when coverage was already saturated or measurements were too sparse
-to accept it. A deferred optimization could then consume the rejected data.
-Candidates are now built separately and transferred into the ring only after
-acceptance. Synthetic tests cover both rejection reasons and successful slot
-replacement; the previous implementation fails the retention assertion. The
-corrected test passes normally and under ASan/UBSan.
+The original collector wrote candidates directly into the next retained slot,
+even when fewer than 11 measurements made the candidate unusable. Once the
+32-scene ring filled, a deferred optimization could consume that sparse data.
+Candidates are now validated separately before replacing retained data.
 
-The ongoing entire-corpus run uses its frozen pre-change binary/plugin hashes;
-it must not be described as a full validation of this additional fix. A separate
-candidate executable/core copy and plugin directory isolate experiments from that
-baseline. The 71-second BS 2.0 candidate replay has the same pose hash as its
-baseline. This retention fix is not yet evidence of lower full-corpus error.
+An initial implementation also preserved the old slot when a complete candidate
+added no new coverage. The entire 9839-second three-station BS 2.0 replay showed
+that this discarded a useful freshness update: DF24384D reference disagreement
+rose from 487.6 to 821.5 mm, and F39A0C97 from 391.3 to 617.8 mm. Both streams
+contain no MENU events, and the baseline/frozen candidate differ in the scene
+collector plugin, so this regression cannot be dismissed as a CLI reset effect.
+The first collector candidate is not a demonstrated tracking improvement.
+
+The revised collector protects sparse candidates while allowing a complete
+candidate with a valid current pose to refresh a full ring. A redundant refresh
+does not claim new coverage or advance the ring; it supplies current complete
+data to a pending solve. This retains the previous freshness behavior without
+letting insufficient data erase an accepted scene. Synthetic rejection,
+refresh, replacement and ownership checks pass normally and under ASan/UBSan.
+A separate full BS 2.0 replay evaluates this revision; the original entire-corpus
+baseline retains its frozen pre-change hashes.
 
 The disk comparator can reuse an independently indexed reference database through
 its Python API. It attaches that database read-only, so candidate comparisons
