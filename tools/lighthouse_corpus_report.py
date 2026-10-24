@@ -129,7 +129,7 @@ def assemble(root):
         'summary':{'sessions':len(sessions),'source_bytes':sum(s['bytes'] for s in sessions),
             'manifest_states':dict(collections.Counter(s.get('status') for s in sessions)),
             'replay_states':dict(counts),'comparison_states':dict(comp_counts),'emitted_poses':pose_total,
-            'reference_callbacks_indexed':reference_callbacks,'reference_index_states':dict(index_counts),'comparison_window_states':dict(window_counts),'source_bytes_hashed':source.get('bytes_read',0),
+            'reference_callbacks_read':reference_callbacks,'reference_index_states':dict(index_counts),'comparison_window_states':dict(window_counts),'source_bytes_hashed':source.get('bytes_read',0),
             'menu_audited_sessions':len(button_audit),'sessions_with_cli_menu_reset_events':sum(bool(s['menu_events']) for s in button_audit.values()),
             'qualified_reference_coverage':{'matched_reference_bins':coverage_good,'valid_reference_bins':coverage_total,'fraction':coverage_good/coverage_total if coverage_total else None},
             'gzip_sessions_checked':len(gzip_by_name),

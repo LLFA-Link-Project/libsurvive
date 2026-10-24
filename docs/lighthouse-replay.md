@@ -397,3 +397,8 @@ The complete current build passes 13 targeted CTest cases. Full 256-second BS 1.
 and 71-second BS 2.0 captures also replay twice with identical pose stream hashes
 in that build. These short repeats include both global-scene fixes and the CLI
 change; they do not extend the frozen whole-corpus build's validation scope.
+
+The corpus callback total counts every parsed reference callback, including
+rejected/missing-time rows and base-station callbacks. The pose index keeps
+tracked-object validity samples; base-station poses are excluded from the
+reference fit. This count is labelled callbacks read, not matched error samples.
