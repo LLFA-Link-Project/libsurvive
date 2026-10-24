@@ -3,6 +3,26 @@
 #include "test_case.h"
 #include <stddef.h>
 
+TEST(KalmanBias, AccelerationCorrectionInvertsMeasurementModel) {
+	SurviveKalmanTracker tracker = {0};
+	const FLT acceleration[] = {.31, -.45, .85};
+	const FLT scale[] = {.8, 1.2, 1.05};
+	const FLT bias[] = {.03, -.02, .05};
+	FLT measured[3], corrected[3];
+	for (int i = 0; i < 3; i++) {
+		tracker.state.IMUBias.AccScale[i] = scale[i];
+		tracker.state.IMUBias.AccBias[i] = bias[i];
+		// IMUMeasurementModel predicts measured = scale * acceleration + bias.
+		measured[i] = scale[i] * acceleration[i] + bias[i];
+	}
+	survive_kalman_tracker_correct_imu(&tracker, corrected, measured);
+	ASSERT_DOUBLE_ARRAY_EQ(3, corrected, acceleration);
+	// Callers may correct their observation in place.
+	survive_kalman_tracker_correct_imu(&tracker, measured, measured);
+	ASSERT_DOUBLE_ARRAY_EQ(3, measured, acceleration);
+	return 0;
+}
+
 static int bias_random_walk(int noise_model) {
 	SurviveContext ctx = {0};
 	config_group temporary = {.write_lock = OGCreateMutex(), .ctx = &ctx};

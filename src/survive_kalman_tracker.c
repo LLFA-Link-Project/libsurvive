@@ -522,8 +522,9 @@ struct map_imu_data_ctx {
 };
 
 SURVIVE_EXPORT void survive_kalman_tracker_correct_imu(SurviveKalmanTracker *tracker, LinmathVec3d out, const LinmathVec3d accel) {
+    // IMUMeasurementModel predicts scale * acceleration + bias.
     for(int i = 0;i < 3;i++) {
-        out[i] = accel[i] / tracker->state.IMUBias.AccScale[i] - tracker->state.IMUBias.AccBias[i];
+        out[i] = (accel[i] - tracker->state.IMUBias.AccBias[i]) / tracker->state.IMUBias.AccScale[i];
     }
 }
 /**
