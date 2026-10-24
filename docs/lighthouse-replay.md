@@ -309,3 +309,20 @@ build rejection. `--allow-truncated` is only for explicitly unqualified source
 captures and records partial-stream status; it does not certify their integrity.
 The alignment/error working set and coverage timestamps still scale with the
 downsampled duration. SQLite files and replay recordings need disk space.
+
+### Retaining accepted global-calibration scenes
+
+A rejected candidate could overwrite a previously accepted scene after the
+32-scene ring filled. The candidate was built directly in the next retained
+slot, even when coverage was already saturated or measurements were too sparse
+to accept it. A deferred optimization could then consume the rejected data.
+Candidates are now built separately and transferred into the ring only after
+acceptance. Synthetic tests cover both rejection reasons and successful slot
+replacement; the previous implementation fails the retention assertion. The
+corrected test passes normally and under ASan/UBSan.
+
+The ongoing entire-corpus run uses its frozen pre-change binary/plugin hashes;
+it must not be described as a full validation of this additional fix. A separate
+candidate executable/core copy and plugin directory isolate experiments from that
+baseline. The 71-second BS 2.0 candidate replay has the same pose hash as its
+baseline. This retention fix is not yet evidence of lower full-corpus error.

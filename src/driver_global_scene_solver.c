@@ -95,7 +95,9 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 	if (kept != stored)
 		gss->scenes_cnt = kept;
 
-	struct PoserDataGlobalScene *scene = &gss->scenes[gss->scenes_cnt % GSS_NUM_STORED_SCENES];
+	// Build separately: a rejected candidate must not overwrite a retained scene.
+	struct PoserDataGlobalScene candidate = {0};
+	struct PoserDataGlobalScene *scene = &candidate;
 
 	scene->pose = so->OutPoseIMU;
 
@@ -142,6 +144,10 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 	}
 
 	if (useful && scene->meas_cnt > 10) {
+		struct PoserDataGlobalScene *stored_scene = &gss->scenes[gss->scenes_cnt % GSS_NUM_STORED_SCENES];
+		free(stored_scene->meas);
+		*stored_scene = *scene;
+		scene->meas = NULL;
 		gss->scenes_cnt++;
 		rtn++;
 
@@ -160,6 +166,7 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 		SV_VERBOSE(100, "Scene rejected; meas %d", (int)scene->meas_cnt);
 	}
 
+	free(scene->meas);
 	return rtn;
 }
 
