@@ -355,6 +355,11 @@ captures and integrity failures from pooled metrics, and labels the report in
 progress until all sessions and reference indexes have been assessed. Pooled
 RMSE is weighted by matched held-out samples, so long or mostly static recordings
 can dominate it. Per-session/per-object results must accompany that aggregate.
+Qualified reference coverage is pooled from matched/valid reference bins,
+including zero-output comparisons, independently of the error sample count.
+A corpus can therefore have low matched error and poor coverage.
+`evaluation-settings.json` can pin the ledger to a specific replay binary,
+keeping controlled variants out of the frozen baseline.
 
 ### Disconnects before deferred global calibration
 
@@ -387,3 +392,8 @@ remain identifiable by their frozen binary hashes. MENU events in the recorded
 replays are audited, and affected captures require a separate controlled replay
 with the new CLI and the same frozen core/plugins before drawing tracking-quality
 conclusions. The later global-scene fixes are evaluated separately.
+
+The complete current build passes 13 targeted CTest cases. Full 256-second BS 1.0
+and 71-second BS 2.0 captures also replay twice with identical pose stream hashes
+in that build. These short repeats include both global-scene fixes and the CLI
+change; they do not extend the frozen whole-corpus build's validation scope.

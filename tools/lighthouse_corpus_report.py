@@ -30,7 +30,7 @@ def assemble(root):
             continue
         builds[path.parent.name]=report.get('settings',{})
         for entry in report['sessions']:replay[entry['session']]=(path.parent,entry)
-    sessions=[];pose_total=0;reference_callbacks=0
+    sessions=[];pose_total=0;reference_callbacks=0;coverage_good=coverage_total=0
     sums={'position_difference_m':[0.,0], 'orientation_difference_deg':[0.,0]}
     for row in inventory:
         name=row['session'];item=dict(row)
@@ -103,6 +103,9 @@ def assemble(root):
                 item['reference_rows_read']=max(item['reference_rows_read'],comp['comparison'].get('reference_index',{}).get('rows_read',0))
                 if item['eligible_for_summary']:
                     for obj in comp['comparison']['objects'].values():
+                        cov=obj.get('coverage',{})
+                        coverage_good+=cov.get('matched_reference_bins',0)
+                        coverage_total+=cov.get('valid_reference_bins',0)
                         for metric,(sum_sq,n) in list(sums.items()):
                             value=obj.get(metric)
                             if value:
@@ -128,6 +131,7 @@ def assemble(root):
             'replay_states':dict(counts),'comparison_states':dict(comp_counts),'emitted_poses':pose_total,
             'reference_callbacks_indexed':reference_callbacks,'reference_index_states':dict(index_counts),'comparison_window_states':dict(window_counts),'source_bytes_hashed':source.get('bytes_read',0),
             'menu_audited_sessions':len(button_audit),'sessions_with_cli_menu_reset_events':sum(bool(s['menu_events']) for s in button_audit.values()),
+            'qualified_reference_coverage':{'matched_reference_bins':coverage_good,'valid_reference_bins':coverage_total,'fraction':coverage_good/coverage_total if coverage_total else None},
             'gzip_sessions_checked':len(gzip_by_name),
             'pooled_heldout_disagreement_qualified_only':{metric:{'n':n,'rmse':math.sqrt(ss/n) if n else None} for metric,(ss,n) in sums.items()},
             'pooling_note':'Weighted by matched error samples; each recording fits its own training transform; long/static recordings can dominate'},
