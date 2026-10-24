@@ -499,3 +499,8 @@ did not survive full-duration evaluation; neither prototype changes defaults.
 The subsequent [IMU reporting-cadence fix](lighthouse-cadence-results.md)
 restores nominal-rate output in the supplied WiVRn static record. Its targeted
 BS 1.0/2.0 checks are separate from the earlier entire-corpus assessment.
+
+The [handheld jitter trials](lighthouse-jitter-trials.md) investigate stationary
+classification and IMU bias adaptation without importing reference calibration.
+The [WiVRn measurement handoff](libsurvive-micro-motion-handoff.md) provides a
+controlled live A/B procedure and optional native tracking-state diagnostics.

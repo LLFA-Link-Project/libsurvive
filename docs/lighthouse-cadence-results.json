@@ -2636,5 +2636,30 @@
       }
     ]
   },
-  "full_corpus_includes_this_commit": false
+  "full_corpus_includes_this_commit": false,
+  "verified_library_binding_recheck": {
+    "library_search_environment": {
+      "LD_LIBRARY_PATH": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final"
+    },
+    "resolved_dependencies": "\tlinux-vdso.so.1 (0x00007f41a28a5000)\n\tlibsurvive.so.0 => /home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/libsurvive.so.0 (0x00007f41a26f5000)\n\tlibz.so.1 => /usr/lib/libz.so.1 (0x00007f41a26da000)\n\tlibstdc++.so.6 => /usr/lib/libstdc++.so.6 (0x00007f41a2400000)\n\tlibm.so.6 => /usr/lib/libm.so.6 (0x00007f41a22c9000)\n\tlibgcc_s.so.1 => /usr/lib/libgcc_s.so.1 (0x00007f41a229c000)\n\tlibc.so.6 => /usr/lib/libc.so.6 (0x00007f41a2000000)\n\t/lib64/ld-linux-x86-64.so.2 => /usr/lib64/ld-linux-x86-64.so.2 (0x00007f41a28a7000)\n",
+    "verified_sessions": [
+      {
+        "session": "2026-10-18_220050_630705468_3165209",
+        "pose_stream_sha256": "20e3b4e1e0e3ae1a82f1afd3e178dc95028789ed1ebafe5f3aeae9315f3bbbcf"
+      },
+      {
+        "session": "2026-10-20_125408_406716137_53614",
+        "pose_stream_sha256": "2e3c18bf0f92c3a0f0358471f0866969d073a896ec493a2f649522e564f9ebf0"
+      },
+      {
+        "session": "2026-10-23_222834_994990818_234361",
+        "pose_stream_sha256": "d505c70e3be1c1c5cce0543c432cb3d822459526b1443f6f9e47f2e65b98b766"
+      },
+      {
+        "session": "2026-10-23_223843_281852543_236227",
+        "pose_stream_sha256": "5edbb4029ccb91009839f20b2d17a9b28c88684dc87d9571aca5383219ab8bdd"
+      }
+    ]
+  },
+  "build_provenance_note": "Early copied CLI retains a /tmp/lh-final RUNPATH; adjacent-file hashes alone did not establish the loaded core. A new run explicitly binds the immutable adjacent core and verifies it with ldd; all four pose streams exactly reproduce the published hashes."
 }

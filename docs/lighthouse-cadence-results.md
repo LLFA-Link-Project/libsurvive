@@ -54,3 +54,8 @@ retain original live analysis, replay RMS and fixed-prediction diagnostics,
 per-device coverage/error distributions, commands and repeat hashes. Source
 recordings remain untouched. This is a reporting-frequency fix; large tracking
 outliers and slow static variation remain separate investigation targets.
+
+A subsequent provenance check found a retained build-directory RUNPATH in the
+copied CLI. All four published streams have now been reproduced with an explicit
+frozen-library binding verified by `ldd`; proof is included in JSON. Adjacent-file
+hashes alone should not be used to infer the loaded shared library.
