@@ -15,8 +15,10 @@
 #include <string.h>
 
 #include <inttypes.h>
+#include <stddef.h>
 
 #include "survive_recording.h"
+#include "survive_kalman_tracker.h"
 
 #include "survive_config.h"
 #include "survive_default_devices.h"
@@ -35,6 +37,7 @@ typedef struct SurviveRecordingData {
 	bool writeCalIMU;
 	bool writeAngle;
 	bool writePoseTiming;
+	bool writeTrackingState;
 	int writeDataMatrix;
 	gzFile output_file;
 } SurviveRecordingData;
@@ -46,6 +49,7 @@ STRUCT_CONFIG_SECTION(SurviveRecordingData)
     STRUCT_CONFIG_ITEM("record-cal-imu", "Whether or not to output calibrated imu data", 0, t->writeCalIMU)
 	STRUCT_CONFIG_ITEM("record-angle", "Whether or not to output angle data", 1, t->writeAngle)
 	STRUCT_CONFIG_ITEM("record-pose-timing", "Record sensor ticks and raw input receive timestamps for offline comparison", 0, t->writePoseTiming)
+	STRUCT_CONFIG_ITEM("record-tracking-state", "Record raw IMU pose, floor offset and stationarity for jitter diagnostics", 0, t->writeTrackingState)
 	STRUCT_CONFIG_ITEM("record-data-matrices", "Whether or not to output data matrices", 0, t->writeDataMatrix)
 END_STRUCT_CONFIG_SECTION(SurviveRecordingData)
 	// clang-format on
@@ -185,6 +189,38 @@ void survive_recording_raw_pose_process(SurviveObject *so, survive_long_timecode
 		survive_recording_write_to_output(recordingData, "%s POSE_TIMING %" PRIu64 " %d %" PRIu64 " %" PRIu64 "\n",
 										 so->codename, timecode, so->timebase_hz,
 										 so->activations.last_light, so->activations.last_imu);
+	if (recordingData->writeTrackingState) {
+		survive_recording_write_to_output(recordingData,
+			"%s POSE_STATE %" PRIu64 " %d %" PRIu64 " %" PRIu64 " %.17g "
+			"%.17g %.17g %.17g %.17g %.17g %.17g %.17g\n",
+			so->codename, timecode, so->timebase_hz, so->activations.last_movement,
+			SurviveSensorActivations_stationary_time(&so->activations), (double)so->ctx->floor_offset,
+			(double)so->OutPoseIMU.Pos[0], (double)so->OutPoseIMU.Pos[1], (double)so->OutPoseIMU.Pos[2],
+			(double)so->OutPoseIMU.Rot[0], (double)so->OutPoseIMU.Rot[1],
+			(double)so->OutPoseIMU.Rot[2], (double)so->OutPoseIMU.Rot[3]);
+		if (so->tracker) {
+			const SurviveIMUBiasModel *bias = &so->tracker->state.IMUBias;
+			survive_recording_write_to_output(recordingData,
+				"%s POSE_BIAS %" PRIu64 " %d %.17g %.17g %.17g %.17g %.17g %.17g "
+				"%.17g %.17g %.17g %.17g %.17g %.17g %.17g\n",
+				so->codename, timecode, so->tracker->imu_bias_model.error_state_size,
+				(double)bias->GyroBias[0], (double)bias->GyroBias[1], (double)bias->GyroBias[2],
+				(double)bias->AccBias[0], (double)bias->AccBias[1], (double)bias->AccBias[2],
+				(double)bias->AccScale[0], (double)bias->AccScale[1], (double)bias->AccScale[2],
+				(double)bias->IMUCorrection[0], (double)bias->IMUCorrection[1],
+				(double)bias->IMUCorrection[2], (double)bias->IMUCorrection[3]);
+			const CnMat *P = &so->tracker->imu_bias_model.P;
+			int gyro = offsetof(SurviveIMUBiasErrorModel, GyroBias) / sizeof(FLT);
+			int accel = offsetof(SurviveIMUBiasErrorModel, AccBias) / sizeof(FLT);
+			if (P->rows >= gyro + 3)
+				survive_recording_write_to_output(recordingData,
+					"%s POSE_BIAS_VAR %" PRIu64 " %.17g %.17g %.17g %.17g %.17g %.17g\n",
+					so->codename, timecode, (double)cnMatrixGet(P, gyro, gyro),
+					(double)cnMatrixGet(P, gyro + 1, gyro + 1), (double)cnMatrixGet(P, gyro + 2, gyro + 2),
+					(double)cnMatrixGet(P, accel, accel), (double)cnMatrixGet(P, accel + 1, accel + 1),
+					(double)cnMatrixGet(P, accel + 2, accel + 2));
+		}
+	}
 }
 
 void survive_recording_input_time(SurviveObject *so, survive_long_timecode timecode, uint64_t receive_us) {
