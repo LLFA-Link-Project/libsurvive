@@ -267,13 +267,33 @@ manifest errors. Every file was read for SHA-256 verification; all 378 declared
 hashes match, no declared file is missing, and no file changed during reading.
 Hash verification is separate from tracking evaluation.
 
-The full replay/reference evaluation was started without prefix limits, with one
-replay per session and fresh configuration. One run does not establish
-reproducibility. Incomplete/error-marked sessions are attempted explicitly with
+The frozen original-CLI baseline completed every capture without prefix limits,
+with fresh configuration. It emitted 48,573,129 finite poses across 48 captures;
+25 captures emitted no poses. No nonfinite poses were recorded. All 73 reference
+streams were assessed, parsing 123,522,379 callbacks. The native reader observed
+318,291,080 recognized-device USB packets; all 42 available manifest packet
+counters match the native counters. Initial and final SHA-256 audits agree,
+with no source/build changes or added/missing sessions. One selected run per
+capture does not establish whole-corpus reproducibility. Incomplete/error-marked sessions are attempted explicitly with
 `--include-incomplete`; their results remain unqualified even when they emit
 finite poses. Empty captures, missing configuration, truncated streams, solver
 failures and unavailable comparisons must remain visible in the final ledger.
-The inventory is not a completed evaluation result.
+The inventory and the completed baseline ledger are separate artifacts. See
+`lighthouse-full-results.md`, `lighthouse-full-results.csv` and
+`lighthouse-full-results.json`; `lighthouse-full-source-hashes.json` retains the
+source hash audit. All gzip streams were checked: 30 recording-marked sessions
+have truncated streams, while complete/abnormal sessions passed their gzip checks.
+
+For the 25 complete, integrity-checked captures, pooled matched held-out
+reference disagreement is **239.51 mm / 8.837 degrees RMSE** across 704,693
+samples. Qualified reference coverage is **91.212%** (10,846,565 / 11,891,626
+reference bins). This is an original-CLI baseline: 22 captures contain MENU
+reset events, including the late reset described below. It is not a clean
+tracking-engine equivalence result. The 35 captures without held-out error
+samples retain their output/coverage/qualification states; empty references,
+short captures and insufficient alignment are not silently removed. In
+particular, two complete captures emit no native poses, and four complete
+captures have no held-out error samples.
 
 Long replay runs can now checkpoint atomically after each run and resume with
 `--resume`. Resume checks the binary/plugin content hashes, replay input hashes and settings

@@ -942,5 +942,5 @@
       "changed_while_reading": []
     }
   ],
-  "evaluation_status": "Full replay and reference comparison in progress; inventory/hash verification complete"
+  "evaluation_status": "Frozen original-CLI baseline complete; see lighthouse-full-results.json and lighthouse-full-results.csv. Controlled CLI and later GSS variants are separate."
 }
