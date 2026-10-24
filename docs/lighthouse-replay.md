@@ -350,3 +350,18 @@ captures and integrity failures from pooled metrics, and labels the report in
 progress until all sessions and reference indexes have been assessed. Pooled
 RMSE is weighted by matched held-out samples, so long or mostly static recordings
 can dominate it. Per-session/per-object results must accompany that aggregate.
+
+### Disconnects before deferred global calibration
+
+Scenes were pruned when adding a new scene, but a pending solve could run after
+an object had already been removed and freed. It could pass that stale object to
+the optimizer, or read `objs[0]` after the last object disappeared. The solver now
+prunes again under its scene lock immediately before solving, and skips an empty
+scene or object list. A regression captures three scenes, removes one object,
+checks that only the surviving object's scene reaches the poser, then removes
+the last object and checks that no solve occurs. The previous code fails this
+regression; the fix passes normally and with ASan/UBSan.
+
+This lifecycle fix was made after freezing both the full-corpus baseline and the
+separate long BS 2.0 scene-retention candidate. Those artifacts retain their
+original hashes and do not validate this later fix.

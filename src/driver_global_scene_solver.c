@@ -55,6 +55,8 @@ STRUCT_CONFIG_SECTION(global_scene_solver)
 END_STRUCT_CONFIG_SECTION(global_scene_solver)
 
 static bool scene_object_alive(SurviveContext *ctx, const SurviveObject *so, const SurviveObject *candidate) {
+	if (!candidate)
+		return false;
 	if (candidate == so)
 		return true;
 	for (int i = 0; i < ctx->objs_ct; i++) {
@@ -64,19 +66,13 @@ static bool scene_object_alive(SurviveContext *ctx, const SurviveObject *so, con
 	return false;
 }
 
-static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
-	size_t rtn = 0;
-	SurviveContext *ctx = so->ctx;
-
-	survive_long_timecode sensor_time_window = SurviveSensorActivations_stationary_time(&so->activations) / 2;
-
-	SurviveSensorActivations *activations = &so->activations;
-
+static void discard_dead_scenes(struct global_scene_solver *gss, const SurviveObject *current) {
+	SurviveContext *ctx = gss->ctx;
 	// Drop stored scenes whose SurviveObject no longer exists (e.g. a tracker that was turned off and on again).
 	size_t stored = gss->scenes_cnt < GSS_NUM_STORED_SCENES ? gss->scenes_cnt : GSS_NUM_STORED_SCENES;
 	size_t kept = 0;
 	for (size_t i = 0; i < stored; i++) {
-		bool invalid = !scene_object_alive(ctx, so, gss->scenes[i].so);
+		bool invalid = !scene_object_alive(ctx, current, gss->scenes[i].so);
 
 		if (invalid) {
 			SV_WARN("in GlobalSceneSolver: deleted scene %d with SurviveObject at address %p", (int)i,
@@ -94,6 +90,15 @@ static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
 	// Only touch the ring position when something was actually removed
 	if (kept != stored)
 		gss->scenes_cnt = kept;
+}
+
+static size_t add_scenes(struct global_scene_solver *gss, SurviveObject *so) {
+	size_t rtn = 0;
+	SurviveContext *ctx = so->ctx;
+	survive_long_timecode sensor_time_window = SurviveSensorActivations_stationary_time(&so->activations) / 2;
+	SurviveSensorActivations *activations = &so->activations;
+
+	discard_dead_scenes(gss, so);
 
 	// Build separately: a rejected candidate must not overwrite a retained scene.
 	struct PoserDataGlobalScene candidate = {0};
@@ -175,6 +180,12 @@ static bool run_optimization(global_scene_solver *gss) {
 		return false;
 
 	OGLockMutex(gss->scenes_lock);
+	// Objects can disappear after capture, before a deferred/threaded solve starts.
+	discard_dead_scenes(gss, NULL);
+	if (!gss->scenes_cnt || !gss->ctx->objs_ct) {
+		OGUnlockMutex(gss->scenes_lock);
+		return false;
+	}
 
 	PoserDataGlobalScenes pgss = {
 		.hdr = {.pt = POSERDATA_GLOBAL_SCENES}, .scenes_cnt = gss->scenes_cnt, .scenes = gss->scenes};
