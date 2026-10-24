@@ -1,5 +1,7 @@
 #include <survive.h>
 
+STATIC_CONFIG_ITEM(CLI_MENU_RESET, "cli-menu-reset", 'b', "Reset lighthouse calibration on a MENU button press", 0)
+
 static volatile int keepRunning = 1;
 
 #ifdef __linux__
@@ -18,7 +20,8 @@ void intHandler(int dummy) {
 
 SURVIVE_EXPORT void button_process(SurviveObject *so, enum SurviveInputEvent eventType, enum SurviveButton buttonId,
 								   const enum SurviveAxis *axisIds, const SurviveAxisVal_t *axisVals) {
-	if (buttonId == SURVIVE_BUTTON_MENU) {
+	if (eventType == SURVIVE_INPUT_EVENT_BUTTON_DOWN && buttonId == SURVIVE_BUTTON_MENU &&
+		survive_configb(so->ctx, CLI_MENU_RESET_TAG, SC_GET, 0)) {
 		survive_reset_lighthouse_positions(so->ctx);
 	}
 }
