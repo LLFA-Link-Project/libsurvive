@@ -63,6 +63,9 @@ def main():
     parser.add_argument("--seconds", type=float, default=0, help="Replay prefix; zero means entire capture")
     parser.add_argument("--timeout", type=float, default=300, help="Wall time limit per run")
     parser.add_argument("--repeat", type=int, default=2)
+    parser.add_argument("--record-timing", action="store_true", help="Record timing for a later disk-backed comparison")
+    parser.add_argument("--include-incomplete", action="store_true", help="Also attempt unqualified captures, preserving their status")
+    parser.add_argument("--resume", action="store_true", help="Resume completed runs from an existing output directory")
     parser.add_argument("--compare", action="store_true", help="Compare against timed Valve reference estimates")
     parser.add_argument("--warmup", type=float, default=10, help="Comparison warmup in seconds from first input")
     args = parser.parse_args()
@@ -77,23 +80,49 @@ def main():
             sessions.update(p.parent.resolve() for p in path.glob("*/manifest.json"))
     if not sessions:
         parser.error("No session manifests found")
-    args.output.mkdir(parents=True, exist_ok=False)
+    settings = {"binary": str(binary), "seconds": args.seconds, "repeat": args.repeat,
+                "compare": args.compare, "record_timing": args.record_timing,
+                "include_incomplete": args.include_incomplete, "warmup": args.warmup,
+                "sessions": sorted(str(p) for p in sessions)}
+    settings["build_sha256"] = {str(p.relative_to(binary.parent)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted({binary, *binary.parent.glob("libsurvive.so*"), *binary.parent.glob("plugins/*.so")})
+        if p.is_file()}
+    args.output.mkdir(parents=True, exist_ok=args.resume)
     report = {"metric_basis": "libsurvive replay receive clock; not sensor measurement time",
               "accuracy_against_reference": ("held-out disagreement with reference estimates; not ground truth"
                                              if args.compare else "not computed; use --compare"),
               "sessions": []}
+    if args.resume and (args.output / "results.json").exists():
+        report = json.loads((args.output / "results.json").read_text())
+        if report.get("settings") != settings:
+            parser.error("Resume settings or build differ from the recorded run")
+    report["settings"] = settings
+
+    def checkpoint():
+        temporary = args.output / "results.json.tmp"
+        temporary.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+        temporary.replace(args.output / "results.json")
+
+    previous = {entry["session"]: entry for entry in report["sessions"]}
     failed = False
+    checkpoint()
     for session in sorted(sessions):
         manifest = json.loads((session / "manifest.json").read_text())
-        entry = {"session": session.name, "manifest_status": manifest.get("status"),
+        entry = previous.get(session.name) or {"session": session.name, "manifest_status": manifest.get("status"),
                  "recording_loss": manifest.get("loss"), "runs": []}
-        report["sessions"].append(entry)
-        if manifest.get("status") != "complete" or manifest.get("errors"):
+        if session.name not in previous:
+            report["sessions"].append(entry)
+        entry["qualified_capture"] = manifest.get("status") == "complete" and not manifest.get("errors")
+        entry["manifest_errors"] = manifest.get("errors", [])
+        entry["source_bytes"] = sum(p.stat().st_size for p in session.iterdir() if p.is_file())
+        if not entry["qualified_capture"] and not args.include_incomplete:
             entry["skipped"] = "Session is incomplete or reports recording errors"
+            checkpoint()
             continue
         capture = session / "usb.pcap.gz"
         if not capture.is_file() or not pathlib.Path(str(capture) + ".usbdevs").is_file():
             entry["skipped"] = "Replay capture or device listing is missing"
+            checkpoint()
             continue
         if args.compare:
             import lighthouse_compare as comparison
@@ -101,6 +130,9 @@ def main():
             reference, rejected = comparison.load_reference(session, 'pose_time_estimate_ns')
             events = comparison.load_reference_events(session)
         for repetition in range(args.repeat):
+            if repetition < len(entry["runs"]) and "ok" in entry["runs"][repetition]:
+                failed |= not entry["runs"][repetition]["ok"]
+                continue
             stem = args.output / (session.name + "-" + str(repetition))
             record = pathlib.Path(str(stem) + ".rec.gz")
             # A fresh config per run prevents a previous solve from seeding the next run.
@@ -111,7 +143,7 @@ def main():
                            "--no-record-rawlight", "--no-record-imu", "--no-record-angle"]
                 if args.seconds > 0:
                     command += ["--run-time", str(args.seconds)]
-                if args.compare:
+                if args.compare or args.record_timing:
                     command += ["--record-pose-timing"]
                 start = time.monotonic()
                 result = {"command": command}
@@ -138,10 +170,13 @@ def main():
                             and not any(obj["nonfinite_poses"] for obj in result.get("objects", {}).values()))
             failed |= not result["ok"]
             entry["runs"].append(result)
+            checkpoint()
             print(session.name, repetition, "ok" if result["ok"] else "FAILED", flush=True)
-        entry["identical_pose_streams"] = (all(run["ok"] for run in entry["runs"])
+        entry["reproducibility_checked"] = args.repeat >= 2
+        entry["identical_pose_streams"] = None if args.repeat < 2 else (all(run["ok"] for run in entry["runs"])
                                             and len({run["pose_stream_sha256"] for run in entry["runs"]}) == 1)
-    (args.output / "results.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+        checkpoint()
+    checkpoint()
     return int(failed)
 
 

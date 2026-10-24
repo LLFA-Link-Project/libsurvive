@@ -8,6 +8,7 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]/'tools'))
 import lighthouse_compare as compare
+import lighthouse_compare_disk as disk
 
 
 def sample(real, mono, uncertainty=100):
@@ -96,6 +97,113 @@ class Comparison(unittest.TestCase):
             self.assertEqual(result['counts']['a'], dict(lost_tracking=1, disconnected=1,
                                                        reconnected=1, reacquired=1))
             self.assertEqual(result['reacquisition_capture_times_ns']['a'], [4])
+
+    def test_sparse_evaluation_does_not_claim_recovery_failures(self):
+        pose = ((0, 0, 0), (1, 0, 0, 0))
+        rows = [(i*200_000_000, pose) for i in range(30)]
+        events = {'reacquisition_capture_times_ns': {'a': [4_000_000_000]}}
+        result = compare.compare({'a': rows}, {'a': rows}, warmup_s=0,
+                                 evaluation_hz=5, events=events)
+        self.assertIn('unavailable', result['objects']['a']['recovery_after_reference_reacquisition'])
+
+
+class DiskComparison(unittest.TestCase):
+    def test_disk_clock_mapping_matches_memory_implementation(self):
+        start = 1_700_000_000_000_000_000
+        tick_base = 1 << 40
+        clock = compare.ClockMap([sample(start, 1_000_000_000),
+                                  sample(start+2_000_000_000, 3_000_000_000)])
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            path = root/'input.gz'
+            with gzip.open(path, 'wt') as f:
+                f.write('999 a CONFIG '+json.dumps({'device_serial_number': 'object'})+'\n')
+                for i in range(1000):
+                    tick = tick_base+i*48000
+                    receive_us = start//1000+100000+i*1000+(i%3-1)*50
+                    f.write(f'999 a INPUT_TIME {tick} {receive_us}\n')
+                    if i%2 == 0:
+                        f.write('999 a POSE 1 2 3 1 0 0 0\n')
+                        f.write(f'999 a POSE_TIMING {tick+43000} 48000000\n')
+            expected, timing = compare.load_replay(path, clock)
+            db = disk.create_db(root/'index.sqlite')
+            try:
+                actual_timing = disk.replay_index(db, path, clock)
+                actual = list(disk.Samples(db, 'replay', 'object'))
+                self.assertEqual(actual, expected['object'])
+                self.assertEqual(actual_timing['capture_start_monotonic_ns'], timing['capture_start_monotonic_ns'])
+                self.assertEqual(actual_timing['max_local_input_arrival_spread_ns'], timing['max_local_input_arrival_spread_ns'])
+            finally:
+                db.close()
+
+    def test_receiver_identity_changes_are_segmented(self):
+        start = 1_700_000_000_000_000_000
+        clock = compare.ClockMap([sample(start, 1_000_000_000),
+                                  sample(start+1_000_000_000, 2_000_000_000)])
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            path = root/'input.gz'
+            with gzip.open(path, 'wt') as f:
+                for i, serial in enumerate(['first', 'second']):
+                    tick = (1 << 40)+i*4800000
+                    f.write('0 a CONFIG '+json.dumps({'device_serial_number':serial})+'\n')
+                    f.write(f'0 a INPUT_TIME {tick} {start//1000+100000+i*100000}\n')
+                    f.write('0 a POSE 1 2 3 1 0 0 0\n')
+                    f.write(f'0 a POSE_TIMING {tick} 48000000\n')
+            db = disk.create_db(root/'index.sqlite')
+            try:
+                timing = disk.replay_index(db, path, clock)
+                self.assertEqual(timing['receiver_identity_changes'], 1)
+                self.assertEqual(list(disk.Samples(db, 'replay', 'first'))[0][0], 1_100_000_000)
+                self.assertEqual(list(disk.Samples(db, 'replay', 'second'))[0][0], 1_200_000_000)
+            finally:
+                db.close()
+
+    def test_disk_interpolation_and_heldout_fit(self):
+        replay, refs = [], []
+        with tempfile.TemporaryDirectory() as temp:
+            db = disk.create_db(pathlib.Path(temp)/'index.sqlite')
+            try:
+                for i in range(10):
+                    t = i*1_000_000_000
+                    p = (i/100, 0, 0)
+                    r = (i/100+(i >= 3), 0, 0)
+                    replay.append((t, (p, (1, 0, 0, 0))))
+                    refs.append((t, (r, (1, 0, 0, 0))))
+                    for table, position in [('replay', p), ('reference', r)]:
+                        db.execute(f'INSERT INTO {table}(serial,t,x,y,z,w,qx,qy,qz) VALUES(?,?,?,?,?,?,?,?,?)',
+                                   ('a',t,*position,1,0,0,0))
+                actual = compare.compare({'a': disk.Samples(db, 'replay', 'a')},
+                                         {'a': disk.Samples(db, 'reference', 'a')}, warmup_s=0, evaluation_hz=5)
+                expected = compare.compare({'a': replay}, {'a': refs}, warmup_s=0, evaluation_hz=5)
+                self.assertEqual(actual, expected)
+                samples = disk.Samples(db, 'reference', 'a')
+                self.assertIsNone(samples.interpolate(500_000_000, 20_000_000))
+                db.execute('UPDATE reference SET x=NULL WHERE t=0')
+                self.assertIsNone(samples.interpolate(0, 20_000_000))
+            finally:
+                db.close()
+
+    def test_truncation_is_explicit_and_keeps_valid_prefix(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            row = dict(device_class=2, device_id='a', pose_time_estimate_ns=123,
+                       pose_is_valid=False, device_is_connected=True, tracking_result=101)
+            path = root/'poses.jsonl.gz'
+            with gzip.open(path, 'wt') as f:
+                f.write(json.dumps(row)+'\n')
+            path.write_bytes(path.read_bytes()[:-8])
+            strict = disk.create_db(root/'strict.sqlite')
+            partial = disk.create_db(root/'partial.sqlite')
+            try:
+                with self.assertRaises(EOFError):
+                    disk.reference_index(strict, root)
+                result = disk.reference_index(partial, root, allow_truncated=True)
+                self.assertTrue(result['integrity'].startswith('partial:'))
+                self.assertEqual(result['rows_read'], 1)
+                self.assertEqual(list(disk.Samples(partial, 'reference', 'a')), [(123, None)])
+            finally:
+                strict.close(); partial.close()
 
 
 if __name__ == '__main__':

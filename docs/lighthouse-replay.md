@@ -256,3 +256,56 @@ The entire 71-second three-station BS 2.0 capture also completed in a Debug buil
 under ASan/UBSan with no reported sanitizer errors, using fresh configuration and
 no physical USB devices. This is one complete capture validation, not proof of
 multi-hour stability or accuracy equivalence.
+
+## Entire-corpus evaluation
+
+The 2026-10-24 snapshot contains 73 sessions and 46,400,284,364 stored bytes:
+25 complete, 31 still marked recording, and 17 abnormal. It includes data added
+after the earlier approximately 25 GB description. `lighthouse-full-inventory.json`
+records every session, recorded duration where available, source sizes, and
+manifest errors. Every file was read for SHA-256 verification; all 378 declared
+hashes match, no declared file is missing, and no file changed during reading.
+Hash verification is separate from tracking evaluation.
+
+The full replay/reference evaluation was started without prefix limits, with one
+replay per session and fresh configuration. One run does not establish
+reproducibility. Incomplete/error-marked sessions are attempted explicitly with
+`--include-incomplete`; their results remain unqualified even when they emit
+finite poses. Empty captures, missing configuration, truncated streams, solver
+failures and unavailable comparisons must remain visible in the final ledger.
+The inventory is not a completed evaluation result.
+
+Long replay runs can now checkpoint atomically after each run and resume with
+`--resume`. Resume checks the binary/plugin content hashes and settings before
+reusing results. `--record-timing` records timing without loading reference
+streams, allowing replay and reference evaluation to run independently.
+
+```sh
+python3 tools/lighthouse_replay.py /path/to/survive-cli ~/LH-Dump \
+  --include-incomplete --record-timing --repeat 1 --timeout 14400 \
+  --output /path/to/full-replay --resume
+python3 tools/lighthouse_compare_disk.py /path/to/session /path/to/session-0.rec.gz \
+  --database /path/to/new-index.sqlite --output /path/to/new-comparison.json
+```
+
+The disk comparator indexes all input timing anchors and all reference validity
+states in SQLite, with a 32 MiB SQLite page cache. Raw samples are streamed into
+the index; the full reference/input streams are not held in Python lists. It
+maps a 50 Hz replay stream for coverage, then samples pose error at 5 Hz to bound
+the alignment/error working set for multi-hour captures. Training remains the
+first third after warmup, evaluation the last two thirds, with no fitted time
+shift. It sorts by full sensor ticks and segments receiver identity changes.
+Sampling rate and timing assumptions are included in each result. Five-hertz
+errors cannot resolve the existing <=50 ms reacquisition criterion; that recovery
+metric is explicitly unavailable at this rate. Native reference state events
+remain reported. These results are not numerically interchangeable with earlier
+50 Hz error tables.
+
+A 50 Hz disk-backed comparison of the 71-second BS 2.0 recording exactly matches
+the earlier in-memory position RMSE and coverage. Synthetic tests also check
+clock-anchor equivalence, receiver identity changes, invalid interpolation,
+held-out fitting, explicit truncation handling, checkpoint/resume, and changed
+build rejection. `--allow-truncated` is only for explicitly unqualified source
+captures and records partial-stream status; it does not certify their integrity.
+The alignment/error working set and coverage timestamps still scale with the
+downsampled duration. SQLite files and replay recordings need disk space.

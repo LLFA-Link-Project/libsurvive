@@ -152,6 +152,8 @@ def fit(pairs, orientation_scale=.25):
 
 
 def interpolate(samples, times, t, max_gap_ns=20_000_000):
+    if hasattr(samples, "interpolate"):
+        return samples.interpolate(t, max_gap_ns)
     i = bisect.bisect_left(times, t)
     if i < len(times) and times[i] == t:
         return samples[i][1]
@@ -302,7 +304,7 @@ def load_reference_events(session):
             'reacquisition_capture_times_ns': dict(reacquisitions)}
 
 
-def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None):
+def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, evaluation_hz=None):
     if bounds:
         start, end = bounds
     else:
@@ -314,10 +316,14 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None):
     for serial in sorted(set(replay) | set(reference)):
         samples = replay.get(serial, [])
         refs = reference.get(serial, [])
-        times = [row[0] for row in refs]
+        times = None if hasattr(refs, "interpolate") else [row[0] for row in refs]
+        previous_evaluation = None
         for t, pose in samples:
             if t < begin:
                 continue
+            if evaluation_hz and previous_evaluation is not None and t-previous_evaluation < 1e9/evaluation_hz:
+                continue
+            previous_evaluation = t
             ref = interpolate(refs, times, t+round(lag_s*1e9))
             if ref:
                 pairs.append((serial, pose, ref, t))
@@ -356,6 +362,10 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None):
                               'association': ('no_replay_poses' if not replay.get(serial) else
                                               'no_reference_poses' if not reference.get(serial) else 'matched')}
         if events:
+            if evaluation_hz is not None and evaluation_hz < 20:
+                per_object[serial]['recovery_after_reference_reacquisition'] = {
+                    'unavailable': 'Error sampling below 20Hz cannot resolve the <=50ms recovery criterion'}
+                continue
             recovery = []
             for event_ns in events['reacquisition_capture_times_ns'].get(serial, []):
                 if not split <= event_ns <= end:
@@ -385,7 +395,7 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None):
             'alignment_train_samples': len(training), 'alignment_method': 'common SE3; positions + 0.25m orientation axes',
             'world_from_survive': {'position_m': transform[0], 'orientation_wxyz': transform[1]},
             'evaluation_samples': sum(row[3] >= split for row in pairs), 'objects': per_object,
-            'reference_state_events': events}
+            'reference_state_events': events, 'evaluation_sample_hz': evaluation_hz}
 
 
 def main():
