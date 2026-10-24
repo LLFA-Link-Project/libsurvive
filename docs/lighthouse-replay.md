@@ -196,3 +196,52 @@ model then permanently captured zero sensors, leading to an out-of-range
 correspondence assertion (and invalid access without assertions). A dedicated
 regression covers IMU-before-config, subsequent initialization and cleanup. The
 previously failing 20-second native BS 1.0 prefix now completes under ASan/UBSan.
+
+## BS 2.0 captures, 2026-10-24
+
+Four newly supplied complete captures were evaluated at commit `59eed6c`. Each
+was replayed twice with fresh configuration; all four pairs have identical pose
+hashes and no nonfinite components. The three-station captures include radio
+channels 0, 1 and 14; all three OOTX identities are decoded. One capture reports
+only a single observed base station. This is the reference benchmark after the
+stability fixes, not a demonstrated BS 2.0 accuracy improvement.
+
+| Capture | Duration | Object | Position RMSE, mm | Orientation RMSE, degrees |
+| --- | ---: | --- | ---: | ---: |
+| `2026-10-23_222834` | 71 s | DF24384D | 16.72 | 3.405 |
+| same | | F39A0C97 | 24.33 | 1.579 |
+| `2026-10-23_223404` | 114 s | DF24384D | 8.97 | 0.581 |
+| same | | F39A0C97 | 18.89 | 1.472 |
+| `2026-10-23_223623` | 84 s | DF24384D | 70.88 | 5.216 |
+| same | | F39A0C97 | 53.18 | 2.347 |
+| `2026-10-23_223843` | 347 s | DF24384D | 8.86 | 2.347 |
+| same | | F39A0C97 | 8.45 | 1.997 |
+
+Full measurements, source loss counters, reference state events and hashes are in
+`lighthouse-bs2-results.json`. Coverage after the ten-second warmup ranges from
+about 89.6% to 96.6%; first output occurs later than the reference while captured
+calibration is acquired. Coverage is output availability, not correctness.
+Results retain the earlier timing, calibration and ground-truth limitations.
+The short 10/26/31-second recordings were not used as accuracy benchmarks.
+
+Additional experiments did not establish a consistently better default:
+
+* Raw optical observations and lower observation covariance did not remove the
+  orientation discrepancy. Disabling global calibration worsened the 71-second
+  recording substantially despite lower position differences in the 347-second
+  recording.
+* Accumulating small optical angle changes detects slow motion missed by the
+  consecutive-sample detector. However, the candidate altered static scene
+  selection and worsened the 347-second recording's F39A0C97 disagreement from
+  8.45 mm / 1.997 degrees to 11.77 mm / 3.291 degrees. The candidate and its
+  public-structure change were removed.
+* Relaxing the calibration gravity prior improved the 71-second recording but
+  slightly worsened the 347-second recording. No default was changed on that
+  evidence alone.
+
+The optical pairing regression now covers both lighthouse generations with
+unequal, nonzero per-plane calibration and points in front of the stations.
+Eleven targeted tests pass; six decoder/optimizer/timing/poser/comparator tests
+also pass under ASan/UBSan (leak detection disabled). The interrupted 30-minute
+replay from the previous temporary environment did not produce a completed
+result and is not reported as a pass.

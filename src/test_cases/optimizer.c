@@ -2,6 +2,7 @@
 
 #include "../generated/kalman_kinematics.gen.h"
 #include "survive_optimizer.h"
+#include "survive_reproject_gen2.h"
 #include "test_case.h"
 #include "../survive_kalman_tracker.h"
 
@@ -120,47 +121,54 @@ TEST(Optimizer, DispatchPoseWithoutCovariance) {
 }
 
 TEST(Optimizer, PairedMeasurementsMustShareObjectAndLighthouse) {
-	for (int different_object = 0; different_object < 2; different_object++) {
-		survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .use_quat_model = true,
-												 .disable_filter = true};
-		survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
-			.poseLength = 2, .cameraLength = 2, .ptsLength = 1, .disableVelocity = true,
-			.objectUpVectorVariance = -1};
-		SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
-		SurvivePose objects[2] = {{.Rot = {1}}, {.Pos = {.4, .7, .2}, .Rot = {1}}};
-		SurvivePose lighthouses[2] = {{.Pos = {0, 0, 5}, .Rot = {1}},
-			{.Pos = {1, 2, 4}, .Rot = {1}}};
-		for (int i = 0; i < 2; i++) {
-			survive_optimizer_setup_pose_n(&opt, &objects[i], i, true, 1);
-			SurvivePose inverse = InvertPoseRtn(&lighthouses[i]);
-			survive_optimizer_setup_camera(&opt, i, &inverse, true, 1);
+	for (int gen2 = 0; gen2 < 2; gen2++) {
+		for (int different_object = 0; different_object < 2; different_object++) {
+			survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .use_quat_model = true,
+													 .disable_filter = true};
+			survive_optimizer opt = {.settings = &local_settings, .reprojectModel = gen2 ? &survive_reproject_gen2_model : &survive_reproject_gen1_model,
+				.poseLength = 2, .cameraLength = 2, .ptsLength = 1, .disableVelocity = true,
+				.objectUpVectorVariance = -1};
+			SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+			SurvivePose objects[2] = {{.Rot = {1}}, {.Pos = {.4, .7, .2}, .Rot = {1}}};
+			SurvivePose world2lh_poses[2] = {{.Pos = {0, 0, -5}, .Rot = {1}},
+				{.Pos = {-1, -2, -4}, .Rot = {1}}};
+			for (int i = 0; i < 2; i++) {
+				survive_optimizer_setup_pose_n(&opt, &objects[i], i, true, 1);
+				SurvivePose inverse = InvertPoseRtn(&world2lh_poses[i]);
+				survive_optimizer_setup_camera(&opt, i, &inverse, true, 1);
+			}
+			FLT point[3] = {.03, .07, .02};
+			survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt,
+				survive_optimizer_parameter_obj_points, 1);
+			memcpy(pts->p, point, sizeof(point));
+			survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt,
+				survive_optimizer_parameter_camera_parameters, 2);
+			memset(cal->p, 0, cal->size * sizeof(FLT));
+			BaseStationCal bcal[2] = {{.phase = .01, .tilt = .002}, {.phase = -.02, .tilt = -.003}};
+			for (int lh = 0; lh < 2; lh++)
+				memcpy((BaseStationCal *)cal->p + 2 * lh, bcal, sizeof(bcal));
+			for (int axis = 0; axis < 2; axis++) {
+				int object = different_object ? axis : 0;
+				int lh = different_object ? 0 : axis;
+				FLT angles[2];
+				LinmathPoint3d world_point, lighthouse_point;
+				ApplyPoseToPoint(world_point, &objects[object], point);
+				ApplyPoseToPoint(lighthouse_point, &world2lh_poses[lh], world_point);
+				opt.reprojectModel->reprojectXY(bcal, lighthouse_point, angles);
+				survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt,
+					survive_optimizer_measurement_type_light);
+				meas->light.axis = axis;
+				meas->light.lh = lh;
+				meas->light.object = object;
+				meas->light.value = angles[axis];
+				meas->variance = .01;
+			}
+			local_settings.disallow_pair_calc = true;
+			FLT separate_norm = survive_optimizer_current_norm(&opt);
+			ASSERT_DOUBLE_EQ(separate_norm, 0.);
+			local_settings.disallow_pair_calc = false;
+			ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), separate_norm);
 		}
-		FLT point[3] = {.03, .07, .02};
-		survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt,
-			survive_optimizer_parameter_obj_points, 1);
-		memcpy(pts->p, point, sizeof(point));
-		survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt,
-			survive_optimizer_parameter_camera_parameters, 2);
-		memset(cal->p, 0, cal->size * sizeof(FLT));
-		BaseStationCal bcal[2] = {0};
-		for (int axis = 0; axis < 2; axis++) {
-			int object = different_object ? axis : 0;
-			int lh = different_object ? 0 : axis;
-			FLT angles[2];
-			survive_reproject_full(bcal, &lighthouses[lh], &objects[object], point, angles);
-			survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt,
-				survive_optimizer_measurement_type_light);
-			meas->light.axis = axis;
-			meas->light.lh = lh;
-			meas->light.object = object;
-			meas->light.value = angles[axis];
-			meas->variance = .01;
-		}
-		local_settings.disallow_pair_calc = true;
-		FLT separate_norm = survive_optimizer_current_norm(&opt);
-		ASSERT_DOUBLE_EQ(separate_norm, 0.);
-		local_settings.disallow_pair_calc = false;
-		ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), separate_norm);
 	}
 	return 0;
 }
