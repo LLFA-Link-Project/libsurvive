@@ -5,6 +5,7 @@
 #include "survive_reproject_gen2.h"
 #include "test_case.h"
 #include "../survive_kalman_tracker.h"
+#include "../survive_calibration.h"
 
 survive_optimizer_settings settings = {
 	.optimize_scale_threshold = -1,
@@ -199,6 +200,59 @@ TEST(Optimizer, ReducedChiSquareUsesResidualDegreesOfFreedom) {
 	ASSERT_EQ(result.nfunc, 4);
 	// (J^T J)^-1 = .01/4; sum squared residuals = 500; residual DOF = 3.
 	ASSERT_DOUBLE_EQ(cnMatrixGet(&R, 0, 0), (.01 / 4) * result.bestnorm / 3);
+	return 0;
+}
+
+TEST(Optimizer, GravityResidualDoesNotCancelBetweenAxes) {
+	for (int camera = 0; camera < 2; camera++) {
+		survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .disable_filter = true};
+		survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
+			.poseLength = 1, .cameraLength = 1, .disableVelocity = true, .objectUpVectorVariance = -1};
+		SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+		SurvivePose pose = {.Rot = {1}};
+		survive_optimizer_setup_pose(&opt, &pose, true, 1);
+		survive_optimizer_setup_camera(&opt, 0, &pose, true, 1);
+		const FLT up[] = {0, 0, 1};
+		if (camera)
+			survive_optimizer_set_cam_up_vector(&opt, 0, .1, up);
+		else
+			survive_optimizer_set_obj_up_vector(&opt, 0, .1, up);
+		// current_norm evaluates the optimizer's axis-angle representation.
+		SurvivePose *rotated = camera ? survive_optimizer_get_camera(&opt) : survive_optimizer_get_pose(&opt);
+		memset(rotated->Rot, 0, sizeof(rotated->Rot));
+		rotated->Rot[1] = LINMATHPI / 2;
+		// R_y(90) * up - up = {1, 0, -1}. Its sum is zero, but its squared norm is two.
+		ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 200.);
+		ASSERT_DOUBLE_EQ(opt.stats.object_up_error, 2.);
+		ASSERT_EQ(opt.stats.object_up_error_cnt, 1);
+		opt.measurements[0].invalid = true;
+		ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 0.);
+	}
+	return 0;
+}
+
+TEST(Optimizer, CalibrationGravityIsIndependentOfMountingAngle) {
+	const FLT world_up[] = {0, 0, 1};
+	// Include upright, inverted and steeply tilted installations. The expected
+	// accelerometer is world gravity expressed in each base station's frame.
+	for (int degrees = 0; degrees <= 180; degrees += 15) {
+		FLT euler[] = {degrees * LINMATHPI / 180, .37, -.81};
+		SurvivePose pose = {0};
+		quatfromeuler(pose.Rot, euler);
+		LinmathQuat inverse;
+		quatgetconjugate(inverse, pose.Rot);
+		LinmathPoint3d local_up;
+		quatrotatevector(local_up, inverse, world_up);
+		scalend(local_up, local_up, 127, 3);
+		ASSERT_DOUBLE_EQ(survive_calibration_up_error(&pose, local_up), 0.);
+		scalend(local_up, local_up, -1, 3);
+		ASSERT_DOUBLE_EQ(survive_calibration_up_error(&pose, local_up), LINMATHPI);
+	}
+	SurvivePose identity = {.Rot = {1}};
+	const FLT missing[] = {0, 0, 0};
+	ASSERT_EQ(isnan(survive_calibration_up_error(&identity, missing)), true);
+	identity.Rot[0] = NAN;
+	ASSERT_EQ(isnan(survive_calibration_up_error(&identity, world_up)), true);
 	return 0;
 }
 

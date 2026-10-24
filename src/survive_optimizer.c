@@ -807,7 +807,7 @@ static void handle_accel_meas(survive_optimizer *mpfunc_ctx, survive_optimizer_m
 	for (int i = 0; i < 3; i++) {
 		FLT e = predicted[i] - expected[i];
 		deviates[meas_idx + i] = e / meas->variance;
-		error += e;
+		error += e * e;
 
 		for (int j = 0; j < ang_size && derivs; j++) {
 			if (derivs[deriv_idx + j]) {
@@ -816,7 +816,9 @@ static void handle_accel_meas(survive_optimizer *mpfunc_ctx, survive_optimizer_m
 		}
 	}
 
-	mpfunc_ctx->stats.object_up_error += error * error;
+	// Accumulate the squared vector norm. Squaring the sum lets errors on
+	// different axes cancel, hiding even a 90-degree gravity disagreement.
+	mpfunc_ctx->stats.object_up_error += error;
 	mpfunc_ctx->stats.object_up_error_cnt++;
 }
 
@@ -1598,11 +1600,11 @@ survive_optimizer *survive_optimizer_load(const char *fn) {
 }
 
 SURVIVE_EXPORT FLT survive_optimizer_current_norm(const survive_optimizer *opt) {
-	int m = opt->measurementsCnt;
+	int m = survive_optimizer_get_meas_size(opt);
 	int npar = survive_optimizer_get_parameters_count(opt);
 	FLT *p = opt->parameters;
 	FLT *deviates = alloca(sizeof(FLT) * m);
-	FLT **derivs = 0;
+	memset(deviates, 0, sizeof(FLT) * m);
 	mpfunc(m, npar, p, deviates, 0, (void *)opt);
 
 	FLT fnorm = 0;

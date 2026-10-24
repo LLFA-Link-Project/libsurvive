@@ -15,6 +15,7 @@
 #include "poser_general_optimizer.h"
 #include "string.h"
 #include "survive_async_optimizer.h"
+#include "survive_calibration.h"
 #include "survive_config.h"
 #include "survive_kalman_tracker.h"
 #include "survive_recording.h"
@@ -1003,6 +1004,27 @@ bool solve_global_scene(struct SurviveContext *ctx, MPFITData *d, PoserDataGloba
 	bool status_failure = res <= 0 || res == MP_MAXITER;
 	FLT sensor_covariance = d->sensor_variance * d->sensor_variance;
 	FLT sensor_error = sqrtf(mpfitctx.stats.sensor_error / mpfitctx.stats.sensor_error_cnt);
+	if (survive_configi(ctx, "record-tracking-state", SC_GET, 0)) {
+		FLT sum_squared_angles = 0;
+		size_t gravity_count = 0;
+		for (int i = 0; i < scenes_cnt; i++) {
+			FLT angle = survive_calibration_up_error(&survive_optimizer_get_pose(&mpfitctx)[i], gss->scenes[i].accel);
+			if (isfinite(angle)) {
+				sum_squared_angles += angle * angle;
+				gravity_count++;
+			}
+		}
+		SV_INFO("GSS_QUALITY status=%d scenes=%d optical_rms_rad=%.9g optical_count=%d object_gravity_rms_deg=%.9g object_gravity_count=%d",
+				res, (int)scenes_cnt, sensor_error, mpfitctx.stats.sensor_error_cnt,
+				gravity_count ? sqrt(sum_squared_angles / gravity_count) * 180 / LINMATHPI : NAN, (int)gravity_count);
+		for (int i = 0; i < ctx->activeLighthouses; i++) {
+			if (lh_meas[i][0] == 0 || lh_meas[i][1] == 0)
+				continue;
+			SurvivePose lh_pose = InvertPoseRtn(&survive_optimizer_get_camera(&mpfitctx)[i]);
+			FLT angle = survive_calibration_up_error(&lh_pose, ctx->bsd[i].accel);
+			SV_INFO("GSS_LIGHTHOUSE_GRAVITY index=%d channel=%d angle_deg=%.9g", i, ctx->bsd[i].mode, angle * 180 / LINMATHPI);
+		}
+	}
 	if (status_failure || sensor_error > d->opt.max_cal_error) {
 		SV_WARN("MPFIT status failure %f/%f/%f (%d measurements, %d, %s)", result.orignorm, result.bestnorm,
 				sensor_error, (int)mpfitctx.measurementsCnt, res, survive_optimizer_error(res));
