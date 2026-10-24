@@ -2458,6 +2458,244 @@
           "artifact_sha256": "37f0be1a52058308740a8c54605abbea692fb21ff4953037a09d233315f47cf6"
         }
       ]
+    },
+    {
+      "name": "Reject iteration-limit results from per-object MPFIT, first 600 seconds of long BS 2.0 capture",
+      "decision": "Not adopted: 15 iteration-limit events occur; 9BB5412D position RMSE increases from 320.48 to 329.80 mm while orientation RMSE improves from 8.53 to 8.01 degrees. No demonstrated net stability gain; other devices almost unchanged. This is a prefix trial only.",
+      "baseline": {
+        "LHR-9338C3A6": {
+          "position_difference_m": {
+            "n": 1828,
+            "rmse": 0.01275186690507822,
+            "median": 0.009513568406249886,
+            "p95": 0.017569869837790266,
+            "max": 0.1513240293693183
+          },
+          "orientation_difference_deg": {
+            "n": 1828,
+            "rmse": 3.1675007700711455,
+            "median": 1.6190028718388414,
+            "p95": 7.332792862741194,
+            "max": 14.418901663018211
+          },
+          "coverage": {
+            "matched_reference_bins": 26110,
+            "valid_reference_bins": 26708,
+            "fraction": 0.9776097049573161,
+            "first_replay_pose_after_start_s": 24.256259354,
+            "first_valid_reference_after_start_s": 10.89324691
+          }
+        },
+        "LHR-9BB5412D": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.320484775533032,
+            "median": 0.012083022223225272,
+            "p95": 0.026806458169981784,
+            "max": 10.030441830633118
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 8.534275789885909,
+            "median": 1.5275782327621623,
+            "p95": 6.770817191245877,
+            "max": 140.37300956037907
+          },
+          "coverage": {
+            "matched_reference_bins": 24158,
+            "valid_reference_bins": 24720,
+            "fraction": 0.9772653721682848,
+            "first_replay_pose_after_start_s": 24.318259226,
+            "first_valid_reference_after_start_s": 10.897372131
+          }
+        },
+        "LHR-D8CCD0C5": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.032082777703122185,
+            "median": 0.015368060281970722,
+            "p95": 0.03185644594088552,
+            "max": 0.7737228517476898
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 3.0036230933107317,
+            "median": 1.571849568447577,
+            "p95": 5.871817323294378,
+            "max": 31.054639382121064
+          },
+          "coverage": {
+            "matched_reference_bins": 24970,
+            "valid_reference_bins": 25543,
+            "fraction": 0.9775672395568258,
+            "first_replay_pose_after_start_s": 24.264293402,
+            "first_valid_reference_after_start_s": 10.899370908
+          }
+        },
+        "LHR-DF24384D": {
+          "position_difference_m": {
+            "n": 1846,
+            "rmse": 0.03433263595201432,
+            "median": 0.018499497855735417,
+            "p95": 0.07069659237295155,
+            "max": 0.19195348587916503
+          },
+          "orientation_difference_deg": {
+            "n": 1846,
+            "rmse": 4.983711608902035,
+            "median": 3.117746385563413,
+            "p95": 9.135613224543329,
+            "max": 33.02948771666467
+          },
+          "coverage": {
+            "matched_reference_bins": 27936,
+            "valid_reference_bins": 28612,
+            "fraction": 0.9763735495596253,
+            "first_replay_pose_after_start_s": 24.204287258,
+            "first_valid_reference_after_start_s": 10.893535868
+          }
+        },
+        "LHR-F39A0C97": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.028133361189123293,
+            "median": 0.012260588735433944,
+            "p95": 0.03525206794300666,
+            "max": 0.9089439466473888
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 3.2770863507723296,
+            "median": 2.0090498527880714,
+            "p95": 5.745551854826169,
+            "max": 58.77353770340426
+          },
+          "coverage": {
+            "matched_reference_bins": 24006,
+            "valid_reference_bins": 24580,
+            "fraction": 0.9766476810414971,
+            "first_replay_pose_after_start_s": 24.114748955,
+            "first_valid_reference_after_start_s": 10.893519974
+          }
+        }
+      },
+      "candidate": {
+        "LHR-9338C3A6": {
+          "position_difference_m": {
+            "n": 1828,
+            "rmse": 0.012747855767295828,
+            "median": 0.009506103668683388,
+            "p95": 0.017567178029419185,
+            "max": 0.15133419145951718
+          },
+          "orientation_difference_deg": {
+            "n": 1828,
+            "rmse": 3.167317496248245,
+            "median": 1.6186313508671013,
+            "p95": 7.33244997916259,
+            "max": 14.418204417242297
+          },
+          "coverage": {
+            "matched_reference_bins": 26110,
+            "valid_reference_bins": 26708,
+            "fraction": 0.9776097049573161,
+            "first_replay_pose_after_start_s": 24.256259354,
+            "first_valid_reference_after_start_s": 10.89324691
+          }
+        },
+        "LHR-9BB5412D": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.329796108470635,
+            "median": 0.01175910437507807,
+            "p95": 0.027812315276040167,
+            "max": 10.030426850497754
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 8.007992323260273,
+            "median": 1.5336993654054447,
+            "p95": 6.72444400738716,
+            "max": 121.266377450157
+          },
+          "coverage": {
+            "matched_reference_bins": 24158,
+            "valid_reference_bins": 24720,
+            "fraction": 0.9772653721682848,
+            "first_replay_pose_after_start_s": 24.318259226,
+            "first_valid_reference_after_start_s": 10.897372131
+          }
+        },
+        "LHR-D8CCD0C5": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.032083684680624544,
+            "median": 0.015364365437003842,
+            "p95": 0.031852446041793325,
+            "max": 0.7737102050660355
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 3.003153766937605,
+            "median": 1.5710976815527407,
+            "p95": 5.871334159709969,
+            "max": 31.05279401990946
+          },
+          "coverage": {
+            "matched_reference_bins": 24970,
+            "valid_reference_bins": 25543,
+            "fraction": 0.9775672395568258,
+            "first_replay_pose_after_start_s": 24.264293402,
+            "first_valid_reference_after_start_s": 10.899370908
+          }
+        },
+        "LHR-DF24384D": {
+          "position_difference_m": {
+            "n": 1846,
+            "rmse": 0.03432788863806651,
+            "median": 0.01848560240436236,
+            "p95": 0.07068720492966504,
+            "max": 0.19194041889861577
+          },
+          "orientation_difference_deg": {
+            "n": 1846,
+            "rmse": 4.983565157335181,
+            "median": 3.117241678103392,
+            "p95": 9.136000100205486,
+            "max": 33.02876330849209
+          },
+          "coverage": {
+            "matched_reference_bins": 27936,
+            "valid_reference_bins": 28612,
+            "fraction": 0.9763735495596253,
+            "first_replay_pose_after_start_s": 24.204287258,
+            "first_valid_reference_after_start_s": 10.893535868
+          }
+        },
+        "LHR-F39A0C97": {
+          "position_difference_m": {
+            "n": 1823,
+            "rmse": 0.02812982585092082,
+            "median": 0.012247858402535412,
+            "p95": 0.03525050637830407,
+            "max": 0.9089376466118735
+          },
+          "orientation_difference_deg": {
+            "n": 1823,
+            "rmse": 3.277104473521392,
+            "median": 2.0089899501112374,
+            "p95": 5.746097141584729,
+            "max": 58.773346461959264
+          },
+          "coverage": {
+            "matched_reference_bins": 24006,
+            "valid_reference_bins": 24580,
+            "fraction": 0.9766476810414971,
+            "first_replay_pose_after_start_s": 24.114748955,
+            "first_valid_reference_after_start_s": 10.893519974
+          }
+        }
+      }
     }
   ],
   "invalid_experiments": {

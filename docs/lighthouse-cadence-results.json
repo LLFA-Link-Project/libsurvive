@@ -1,0 +1,2640 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-24T06:13:34.118112+00:00",
+  "commit": "b13c3b3",
+  "purpose": "Fix unintentional halving of nominal IMU pose reporting; no claim of static jitter or ground-truth accuracy improvement.",
+  "change": {
+    "default": "Negative min-report-time follows nominal IMU cadence with 1% period tolerance, without overwriting the attached setting.",
+    "explicit": "Nonnegative min-report-time retains its requested interval, quantized to the nearest sensor tick; no default clock tolerance.",
+    "clock": "Compare integer sensor tick differences, suppress non-increasing timestamps, keep a report limit for intervening optical updates. Report-variance statistics also use tick differences."
+  },
+  "validation": {
+    "native_reporting_regressions": 5,
+    "asan_ubsan_reporting": "pass",
+    "negative_control": "Frozen old library emits 500 of 1000 3.989333-ms samples; new library emits all 1000. Tests also cover 4.000/4.005333 ms, 32-bit wrap, day/large epochs, explicit limits, optical interleaving, faster-than-nominal events and sub-ULP tick deltas.",
+    "targeted_ctest_tests": 14
+  },
+  "static_protocol": {
+    "window_s": [
+      20,
+      45
+    ],
+    "uniform_resample_hz": 200,
+    "position": "Linear interpolation at the IMU origin; 3D RMS about the time mean.",
+    "orientation": "Normalized, sign-aligned quaternion interpolation; rotation vector about midpoint reference, RMS about its mean.",
+    "velocity": "Nearest receive-clock velocity; alignment spreads retained in the analysis.",
+    "fixed_prediction": "0/10/50/100 ms diagnostic extrapolations, not actual Monado prediction horizon.",
+    "limitation": "Fresh serial replay does not reproduce the original live filter/calibration trajectory: approximately 2.98 mm position RMS versus original live sub-mm stability. Only baseline/candidate replay comparison isolates the reporting change. Static replay alone does not measure movement or end-to-end latency."
+  },
+  "original_live_analysis": {
+    "file": "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+    "duration_s": 47.92913,
+    "pose_frame": "1",
+    "options": {
+      "center-on-lh0": "0",
+      "haptic-on-calibrate": "0",
+      "normalize-lighthouse-angle": "0.000000",
+      "max-error": "0.100000",
+      "max-cal-error": "0.050000",
+      "failures-to-reset": "-1",
+      "successes-to-reset": "-1",
+      "seed-poser": "BaryCentricSVD",
+      "required-meas": "8",
+      "time-window": "1613200",
+      "v": "0",
+      "blacklist-devs": "",
+      "configfile": "survive-jitter-raw-20261024-A.txt.json",
+      "init-configfile": "(null)",
+      "disable-calibrate": "0",
+      "force-calibrate": "0",
+      "force-ootx": "0",
+      "lighthousecount": "0",
+      "lighthouse-gen": "0",
+      "output-callback-stats": "0.000000",
+      "threaded-posers": "1",
+      "lighthouse-0-disable": "0",
+      "lighthouse-1-disable": "0",
+      "lighthouse-2-disable": "0",
+      "lighthouse-3-disable": "0",
+      "lighthouse-max-update": "0.010000",
+      "lighthouse-max-nudge-distance": "0.100000",
+      "lighthouse-update-velocity": "0.100000",
+      "ignore-config-imu-bias": "0",
+      "light-error-threshold": "-1.000000",
+      "min-report-time": "-1.000000",
+      "report-covariance": "-1",
+      "report-sampled-cloud": "0.000000",
+      "report-ignore-start": "0",
+      "report-ignore-threshold": "0.100000",
+      "light-ignore-threshold": "1.000000",
+      "light-required-obs": "16",
+      "light-max-error": "-1.000000",
+      "kalman-light-variance": "0.010000",
+      "obs-cov-scale": "1.000000",
+      "kalman-obs-axisangle": "0",
+      "obs-pos-variance": "1.000000e-06",
+      "obs-rot-variance": "1.000000e-07",
+      "use-raw-obs": "0",
+      "show-raw-obs": "0",
+      "light-error-for-lh-confidence": "0",
+      "process-weight-jerk": "1874161.000000",
+      "process-weight-acc": "0.000000",
+      "process-weight-ang-vel": "60.000000",
+      "process-weight-vel": "0.000000",
+      "process-weight-pos": "0.000000",
+      "process-weight-rot": "0.000000",
+      "process-weight-acc-bias": "1.000000e-08",
+      "process-weight-gyro-bias": "1.000000e-08",
+      "kalman-minimize-state-space": "1",
+      "kalman-use-error-space": "1",
+      "kalman-joint-model-lightcap": "-1.000000",
+      "kalman-joint-lightcap-minimum-sensors": "5",
+      "kalman-lightcap-minimum-sensors": "5",
+      "kalman-initial-imu-variance": "0.000000",
+      "kalman-initial-acc-scale-variance": "1.000000e-06",
+      "kalman-initial-acc-bias-variance": "1.000000e-06",
+      "kalman-initial-gyro-variance": "1.000000e-06",
+      "kalman-zvu-moving": "-1.000000",
+      "kalman-zvu-stationary": "1.000000e-05",
+      "kalman-zvu-no-light": "1.000000e-04",
+      "kalman-zvu-no-light-time": "0.100000",
+      "kalman-noise-model": "0",
+      "imu-acc-norm-penalty": "0.000000",
+      "imu-acc-variance": "1.000000e-03",
+      "imu-gyro-variance": "3.046170e-05",
+      "light-batch-size": "32",
+      "kalman-obj-obs-adaptive": "0",
+      "kalman-obj-obs-max-error": "-1.000000",
+      "kalman-obj-obs-iterations": "10",
+      "kalman-obj-obs-step-size": "-1.000000",
+      "kalman-obj-obs-error-state-model": "1",
+      "kalman-obj-imu-adaptive": "0",
+      "kalman-obj-imu-max-error": "-1.000000",
+      "kalman-obj-imu-iterations": "0",
+      "kalman-obj-imu-step-size": "-1.000000",
+      "kalman-obj-imu-error-state-model": "1",
+      "kalman-obj-zvu-adaptive": "0",
+      "kalman-obj-zvu-max-error": "0.000000",
+      "kalman-obj-zvu-iterations": "0",
+      "kalman-obj-zvu-step-size": "-1.000000",
+      "kalman-obj-zvu-error-state-model": "1",
+      "kalman-obj-lightcap-adaptive": "0",
+      "kalman-obj-lightcap-max-error": "0.100000",
+      "kalman-obj-lightcap-iterations": "10",
+      "kalman-obj-lightcap-step-size": "-1.000000",
+      "kalman-obj-lightcap-error-state-model": "1",
+      "kalman-joint-lightcap-adaptive": "0",
+      "kalman-joint-lightcap-max-error": "0.100000",
+      "kalman-joint-lightcap-iterations": "10",
+      "kalman-joint-lightcap-step-size": "-1.000000",
+      "kalman-joint-lightcap-error-state-model": "1",
+      "optimizer-ftol": "0.000000",
+      "optimizer-xtol": "1.000000e-04",
+      "optimizer-gtol": "0.000000",
+      "optimizer-covtol": "0.000000",
+      "optimizer-epsfcn": "0.000000",
+      "optimizer-stepfactor": "0.000000",
+      "optimizer-douserscale": "0",
+      "optimizer-maxiter": "0",
+      "optimizer-maxfev": "0",
+      "optimizer-normtol": "5.000000e-05",
+      "optimizer-nprint": "0",
+      "mpfit-disable-filter": "0",
+      "mpfit-quat-model": "0",
+      "mpfit-lh-scale-correction": "0.000000",
+      "mpfit-lh-offset-correction": "0.000000",
+      "mpfit-no-pair-calc": "0",
+      "mpfit-optimize-scale-threshold": "-1.000000",
+      "mpfit-current-pos-bias": "-1.000000",
+      "mpfit-current-rot-bias": "-1.000000",
+      "record-rawlight": "1",
+      "record-imu": "1",
+      "record-cal-imu": "0",
+      "record-angle": "1",
+      "record-pose-timing": "1",
+      "record-data-matrices": "0",
+      "record": "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+      "record-stdout": "0",
+      "report-in-imu": "1",
+      "use-external-lighthouse": "0",
+      "serialize-device-config": "0",
+      "serialize-ootx": "0",
+      "move-threshold-gyro": "0.075000",
+      "move-threshold-acc": "0.030000",
+      "move-threshold-ang": "0.020000",
+      "filter-threshold-ang-per-sec": "50.000000",
+      "filter-light-outlier-criteria": "0.500000",
+      "filter-variance-minimum": "0.050000",
+      "filter-outlier-minimum-count": "11",
+      "kalman-lighthouse-up-variance": "-1.000000",
+      "kalman-lighthouse-initial-pos-variance": "0.100000",
+      "kalman-lighthouse-initial-rot-variance": "0.010000",
+      "kalman-pos-variance-per-sec": "0.000000",
+      "kalman-rot-variance-per-sec": "0.000000",
+      "kalman-bsd-variance": "0.000000",
+      "kalman-bsd-phase-variance": "0.000000",
+      "kalman-bsd-curve-variance": "0.000000",
+      "kalman-bsd-tilt-variance": "0.000000",
+      "kalman-bsd-ogeephase-variance": "-100.000000",
+      "kalman-bsd-ogeemag-variance": "-100.000000",
+      "kalman-bsd-gibpha-variance": "0.000000",
+      "kalman-bsd-gibmag-variance": "0.000000",
+      "kalman-lighthouse-imu-adaptive": "0",
+      "kalman-lighthouse-imu-max-error": "0.100000",
+      "kalman-lighthouse-imu-iterations": "10",
+      "kalman-lighthouse-imu-step-size": "-1.000000",
+      "kalman-lighthouse-imu-error-state-model": "1",
+      "kalman-lighthouse-obs-adaptive": "0",
+      "kalman-lighthouse-obs-max-error": "0.000000",
+      "kalman-lighthouse-obs-iterations": "10",
+      "kalman-lighthouse-obs-step-size": "-1.000000",
+      "kalman-lighthouse-obs-error-state-model": "1",
+      "dummy-driver-enable": "0",
+      "libusb-log-level": "2",
+      "pair-device": "0",
+      "usb-hz-output": "-1",
+      "simulator": "0",
+      "simulator-attractors": "3",
+      "simulator-obj-sensors": "20",
+      "simulator-fcal-noise": "1.000000e-03",
+      "simulator-init-time": "2.000000",
+      "simulator-gyro-noise": "1.000000e-03",
+      "simulator-acc-noise": "1.000000e-04",
+      "simulator-gyro-bias": "0.100000",
+      "simulator-sensor-time-jitter": "0.010000",
+      "simulator-show-gt": "1",
+      "simulator-sensor-noise": "1.000000e-04",
+      "simulator-obj-radius": "0.050000",
+      "simulator-time": "0.000000",
+      "simulator-sensor-droprate": "0.200000",
+      "simulator-noise-scale": "1.000000",
+      "simulator-lh-gen": "1",
+      "simulator-lh-duty-cycle": "1.000000",
+      "playback-replay-pose": "0",
+      "playback-replay-external-pose": "0",
+      "playback": "(null)",
+      "playback-factor": "1.000000",
+      "playback-start-time": "-1.000000",
+      "playback-time": "-1.000000",
+      "run-time": "-1.000000",
+      "light-min-length": "100",
+      "disambiguator-verbosity": "1000",
+      "serialize-lh-mpfit": "(null)",
+      "use-jacobian-function": "1",
+      "sensor-variance-per-sec": "0.000000",
+      "sensor-variance": "1.000000e-04",
+      "disable-lighthouse": "-1",
+      "syncs-per-run": "1",
+      "poser-async": "0",
+      "precise": "0",
+      "use-stationary-sensor-window": "1",
+      "mpfit-use-cov": "1",
+      "mpfit-cal-sensor-variance": "1.000000e-04",
+      "mpfit-model-velocity": "1",
+      "mpfit-record-reprojection-error": "0.000000",
+      "mpfit-object-up-variance": "-1.000000",
+      "mpfit-stationary-object-up-variance": "0.010000",
+      "mpfit-cal-stationary-object-up-variance": "1.000000e-03",
+      "mpfit-lighthouse-up-variance": "0.010000",
+      "usbmon-record": "(null)",
+      "usbmon-playback": "(null)",
+      "usbmon-record-all": "0",
+      "usbmon-output-all": "0",
+      "usbmon-output": "0",
+      "usbmon-only-record": "0",
+      "usbmon-allow-fs-config": "0",
+      "globalscenesolver": "1",
+      "gss-threaded": "1",
+      "gss-desired-coverage": "30",
+      "gss-auto-floor-height": "1"
+    },
+    "calibration_events": [
+      "3.031008 INFO LOG MPFIT success 153583.657569/2709.1967538169/0.0004869 (119 measurements, 1, MP_OK_CHI, 55 iters, up err 0.0002270, trace 0.0000356)",
+      "5.782223 INFO LOG MPFIT success 215171.278317/6484.4892786657/0.0005650 (209 measurements, 2, MP_OK_PAR, 28 iters, up err 0.0001223, trace 0.0000356)",
+      "34.093240 INFO LOG MPFIT success 936741.664314/6889.8453825995/0.0005404 (242 measurements, 3, MP_OK_BOTH, 29 iters, up err 0.0001402, trace 0.0000298)"
+    ],
+    "devices": {
+      "WM0": {
+        "model": "VIVE Tracker Pro MV",
+        "serial": "LHR-C6F86C46",
+        "pose_samples": 8326,
+        "velocity_samples": 8253,
+        "window": {
+          "20-45": {
+            "native_samples": 4503,
+            "hz_mean": 180.12,
+            "largest_pose_gap_ms": 16.270999999999702,
+            "vel_alignment_ms_p95": 3.925999999999874,
+            "linear_velocity_std_mm_s": 0.006020604597397634,
+            "angular_velocity_std_deg_s": 0.03628874245131808,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 0.035849938289321925,
+                  "p95_radius": 0.057419557907555624,
+                  "detrended_rms": 0.013388991098630705,
+                  "highpass_0p5s_rms": 0.002565754759147166,
+                  "drift_per_s": 0.004607147396942876,
+                  "axis_std": [
+                    0.02093561314990868,
+                    0.016506995038166276,
+                    0.023967421475734826
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.06868485815328441,
+                  "p95_radius": 0.1165164617020553,
+                  "detrended_rms": 0.021462048874058715,
+                  "highpass_0p5s_rms": 0.01054218465404173,
+                  "drift_per_s": 0.009038889930886525,
+                  "axis_std": [
+                    0.03349390378423814,
+                    0.059523233247841256,
+                    0.007263115898296306
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 0.03585805682090667,
+                  "p95_radius": 0.05746071637458082,
+                  "detrended_rms": 0.013407272088422578,
+                  "highpass_0p5s_rms": 0.002591490698588211,
+                  "drift_per_s": 0.004607339646219558,
+                  "axis_std": [
+                    0.020938010955306806,
+                    0.016513235624772592,
+                    0.023973172201599946
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.06868302346898832,
+                  "p95_radius": 0.11656479250017072,
+                  "detrended_rms": 0.021462302837312236,
+                  "highpass_0p5s_rms": 0.01054166686933392,
+                  "drift_per_s": 0.009038610788468486,
+                  "axis_std": [
+                    0.033487832439494575,
+                    0.05952403334170983,
+                    0.007267203456691572
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 0.03589152252027716,
+                  "p95_radius": 0.05757496516570435,
+                  "detrended_rms": 0.013482834002524735,
+                  "highpass_0p5s_rms": 0.002695562464241795,
+                  "drift_per_s": 0.004608108722069565,
+                  "axis_std": [
+                    0.02094793712547776,
+                    0.016539110248343702,
+                    0.02399673209426078
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.06869485682349849,
+                  "p95_radius": 0.11660467920133648,
+                  "detrended_rms": 0.02152455166039743,
+                  "highpass_0p5s_rms": 0.010662874770204635,
+                  "drift_per_s": 0.009037495695222457,
+                  "axis_std": [
+                    0.03347869298292044,
+                    0.05953457948785412,
+                    0.007334460809131805
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 0.03593558042800574,
+                  "p95_radius": 0.05784269079522965,
+                  "detrended_rms": 0.013582694519821126,
+                  "highpass_0p5s_rms": 0.0028279556905492407,
+                  "drift_per_s": 0.004609070243980788,
+                  "axis_std": [
+                    0.02096109756823943,
+                    0.016573498026987786,
+                    0.024027432084637097
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.06875275513254248,
+                  "p95_radius": 0.11665689322731716,
+                  "detrended_rms": 0.021738762548976758,
+                  "highpass_0p5s_rms": 0.011081096667811754,
+                  "drift_per_s": 0.009036105151648176,
+                  "axis_std": [
+                    0.033501354822992505,
+                    0.05956428080032393,
+                    0.007529742099133586
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM1": {
+        "model": "Knuckles Right",
+        "serial": "LHR-DF24384D",
+        "pose_samples": 10926,
+        "velocity_samples": 10832,
+        "window": {
+          "20-45": {
+            "native_samples": 5918,
+            "hz_mean": 236.72,
+            "largest_pose_gap_ms": 14.513000000000886,
+            "vel_alignment_ms_p95": 2.9339999999962174,
+            "linear_velocity_std_mm_s": 0.010530077628904276,
+            "angular_velocity_std_deg_s": 0.02782284647397621,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 0.030765821610256858,
+                  "p95_radius": 0.06554937418794948,
+                  "detrended_rms": 0.029204388381897758,
+                  "highpass_0p5s_rms": 0.0029907703788635406,
+                  "drift_per_s": 0.0013405816369559842,
+                  "axis_std": [
+                    0.01621835642226042,
+                    0.008199069018987743,
+                    0.024824906073065964
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.029746751396454767,
+                  "p95_radius": 0.04804995377250714,
+                  "detrended_rms": 0.01889751534948386,
+                  "highpass_0p5s_rms": 0.00848369616057206,
+                  "drift_per_s": 0.0031825789253240745,
+                  "axis_std": [
+                    0.022419385162063203,
+                    0.017007004216754072,
+                    0.009643764574524469
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 0.030789952974638057,
+                  "p95_radius": 0.06564498265997788,
+                  "detrended_rms": 0.029230699580646897,
+                  "highpass_0p5s_rms": 0.0030206117837122378,
+                  "drift_per_s": 0.0013402088401695555,
+                  "axis_std": [
+                    0.01623338005364333,
+                    0.00821339713651821,
+                    0.02484026335794837
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.02975641063726259,
+                  "p95_radius": 0.04805267677527168,
+                  "detrended_rms": 0.018903243803877614,
+                  "highpass_0p5s_rms": 0.008483699943279636,
+                  "drift_per_s": 0.0031836588388969218,
+                  "axis_std": [
+                    0.022426564198423635,
+                    0.017013364999405003,
+                    0.00964565206009414
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 0.03088987971092368,
+                  "p95_radius": 0.06563038283540776,
+                  "detrended_rms": 0.029339483929625234,
+                  "highpass_0p5s_rms": 0.0031413577039786154,
+                  "drift_per_s": 0.0013387182968278872,
+                  "axis_std": [
+                    0.016295597939395477,
+                    0.008272216435575554,
+                    0.024903987463775718
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.029820986183439955,
+                  "p95_radius": 0.048428792885928176,
+                  "detrended_rms": 0.01896696141553522,
+                  "highpass_0p5s_rms": 0.00857335905738637,
+                  "drift_per_s": 0.003187978995377589,
+                  "axis_std": [
+                    0.022469180675644556,
+                    0.017054683704836236,
+                    0.009672895142931674
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 0.03102237854244731,
+                  "p95_radius": 0.06495890736289373,
+                  "detrended_rms": 0.029483353944662092,
+                  "highpass_0p5s_rms": 0.003295109980969943,
+                  "drift_per_s": 0.0013368565702475221,
+                  "axis_std": [
+                    0.0163781018647073,
+                    0.00834907059992287,
+                    0.02498877287618722
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.029959702416798545,
+                  "p95_radius": 0.04870258794722148,
+                  "detrended_rms": 0.01913745705725609,
+                  "highpass_0p5s_rms": 0.008880007358121847,
+                  "drift_per_s": 0.003193380317082264,
+                  "axis_std": [
+                    0.02255355999916118,
+                    0.017141803800794535,
+                    0.009750859588899196
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM2": {
+        "model": "Knuckles Left",
+        "serial": "LHR-F39A0C97",
+        "pose_samples": 5780,
+        "velocity_samples": 5730,
+        "window": {
+          "20-45": {
+            "native_samples": 3130,
+            "hz_mean": 125.2,
+            "largest_pose_gap_ms": 24.13100000000057,
+            "vel_alignment_ms_p95": 4.075000000000273,
+            "linear_velocity_std_mm_s": 0.04367353266776835,
+            "angular_velocity_std_deg_s": 0.027903950041884173,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 0.12009490208918865,
+                  "p95_radius": 0.2202519084967937,
+                  "detrended_rms": 0.1053778961941796,
+                  "highpass_0p5s_rms": 0.012464759748563385,
+                  "drift_per_s": 0.007980325068161855,
+                  "axis_std": [
+                    0.04247154535893923,
+                    0.09460138906589698,
+                    0.06057665003479612
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1359156322603429,
+                  "p95_radius": 0.2056792567474615,
+                  "detrended_rms": 0.12252631725954892,
+                  "highpass_0p5s_rms": 0.02697926299000021,
+                  "drift_per_s": 0.008149377887275187,
+                  "axis_std": [
+                    0.056824153797555434,
+                    0.11762997908371524,
+                    0.03751349968591632
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 0.12020756159871383,
+                  "p95_radius": 0.22042960206969447,
+                  "detrended_rms": 0.10551523064303543,
+                  "highpass_0p5s_rms": 0.012566450657837857,
+                  "drift_per_s": 0.007978051420055116,
+                  "axis_std": [
+                    0.042521535813710064,
+                    0.09466967322258457,
+                    0.06065830387903213
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.13591542372107762,
+                  "p95_radius": 0.20568958201162602,
+                  "detrended_rms": 0.12252737908852046,
+                  "highpass_0p5s_rms": 0.026975172419951503,
+                  "drift_per_s": 0.008149004727275649,
+                  "axis_std": [
+                    0.05682740575283274,
+                    0.11762802249999399,
+                    0.037513953183100975
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 0.12067295492862494,
+                  "p95_radius": 0.22102944635001992,
+                  "detrended_rms": 0.10608071241572965,
+                  "highpass_0p5s_rms": 0.012979003094909547,
+                  "drift_per_s": 0.007968965599297897,
+                  "axis_std": [
+                    0.042726793082486135,
+                    0.09495186888922227,
+                    0.0609961129789129
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1359203182616643,
+                  "p95_radius": 0.20585685128351142,
+                  "detrended_rms": 0.12253797973724935,
+                  "highpass_0p5s_rms": 0.026987131128344114,
+                  "drift_per_s": 0.008147512186720931,
+                  "axis_std": [
+                    0.056846784559729184,
+                    0.11762240143439605,
+                    0.03751995045809147
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 0.12128757348499482,
+                  "p95_radius": 0.22157514125366037,
+                  "detrended_rms": 0.10682340237967447,
+                  "highpass_0p5s_rms": 0.013506718315653567,
+                  "drift_per_s": 0.007957628115924018,
+                  "axis_std": [
+                    0.042995135761415726,
+                    0.09532484352408331,
+                    0.061443209468943605
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.13593932430368727,
+                  "p95_radius": 0.205967075439223,
+                  "detrended_rms": 0.12256552171513578,
+                  "highpass_0p5s_rms": 0.027065664673160027,
+                  "drift_per_s": 0.008145646734878042,
+                  "axis_std": [
+                    0.056885328972599666,
+                    0.11762033745808512,
+                    0.0375368546373874
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lighthouses": {}
+  },
+  "baseline_replay_analysis": {
+    "file": ".lh-evaluation/full-2026-10-24/jitter-cadence-baseline/record.rec.gz",
+    "duration_s": 47.929093,
+    "pose_frame": "1",
+    "options": {
+      "center-on-lh0": "0",
+      "haptic-on-calibrate": "0",
+      "normalize-lighthouse-angle": "0.000000",
+      "max-error": "0.100000",
+      "max-cal-error": "0.050000",
+      "failures-to-reset": "-1",
+      "successes-to-reset": "-1",
+      "seed-poser": "BaryCentricSVD",
+      "required-meas": "8",
+      "time-window": "1613200",
+      "v": "0",
+      "blacklist-devs": "",
+      "configfile": "/tmp/lh-jitter-ei4leq3h/config.json",
+      "init-configfile": "(null)",
+      "disable-calibrate": "0",
+      "force-calibrate": "0",
+      "force-ootx": "0",
+      "lighthousecount": "0",
+      "lighthouse-gen": "0",
+      "output-callback-stats": "0.000000",
+      "threaded-posers": "0",
+      "lighthouse-0-disable": "0",
+      "lighthouse-1-disable": "0",
+      "lighthouse-2-disable": "0",
+      "lighthouse-3-disable": "0",
+      "lighthouse-max-update": "0.010000",
+      "lighthouse-max-nudge-distance": "0.100000",
+      "lighthouse-update-velocity": "0.100000",
+      "ignore-config-imu-bias": "0",
+      "light-error-threshold": "-1.000000",
+      "min-report-time": "-1.000000",
+      "report-covariance": "-1",
+      "report-sampled-cloud": "0.000000",
+      "report-ignore-start": "0",
+      "report-ignore-threshold": "0.100000",
+      "light-ignore-threshold": "1.000000",
+      "light-required-obs": "16",
+      "light-max-error": "-1.000000",
+      "kalman-light-variance": "0.010000",
+      "obs-cov-scale": "1.000000",
+      "kalman-obs-axisangle": "0",
+      "obs-pos-variance": "1.000000e-06",
+      "obs-rot-variance": "1.000000e-07",
+      "use-raw-obs": "0",
+      "show-raw-obs": "0",
+      "light-error-for-lh-confidence": "0",
+      "process-weight-jerk": "1874161.000000",
+      "process-weight-acc": "0.000000",
+      "process-weight-ang-vel": "60.000000",
+      "process-weight-vel": "0.000000",
+      "process-weight-pos": "0.000000",
+      "process-weight-rot": "0.000000",
+      "process-weight-acc-bias": "1.000000e-08",
+      "process-weight-gyro-bias": "1.000000e-08",
+      "kalman-minimize-state-space": "1",
+      "kalman-use-error-space": "1",
+      "kalman-joint-model-lightcap": "-1.000000",
+      "kalman-joint-lightcap-minimum-sensors": "5",
+      "kalman-lightcap-minimum-sensors": "5",
+      "kalman-initial-imu-variance": "0.000000",
+      "kalman-initial-acc-scale-variance": "1.000000e-06",
+      "kalman-initial-acc-bias-variance": "1.000000e-06",
+      "kalman-initial-gyro-variance": "1.000000e-06",
+      "kalman-zvu-moving": "-1.000000",
+      "kalman-zvu-stationary": "1.000000e-05",
+      "kalman-zvu-no-light": "1.000000e-04",
+      "kalman-zvu-no-light-time": "0.100000",
+      "kalman-noise-model": "0",
+      "imu-acc-norm-penalty": "0.000000",
+      "imu-acc-variance": "1.000000e-03",
+      "imu-gyro-variance": "3.046170e-05",
+      "light-batch-size": "32",
+      "kalman-obj-obs-adaptive": "0",
+      "kalman-obj-obs-max-error": "-1.000000",
+      "kalman-obj-obs-iterations": "10",
+      "kalman-obj-obs-step-size": "-1.000000",
+      "kalman-obj-obs-error-state-model": "1",
+      "kalman-obj-imu-adaptive": "0",
+      "kalman-obj-imu-max-error": "-1.000000",
+      "kalman-obj-imu-iterations": "0",
+      "kalman-obj-imu-step-size": "-1.000000",
+      "kalman-obj-imu-error-state-model": "1",
+      "kalman-obj-zvu-adaptive": "0",
+      "kalman-obj-zvu-max-error": "0.000000",
+      "kalman-obj-zvu-iterations": "0",
+      "kalman-obj-zvu-step-size": "-1.000000",
+      "kalman-obj-zvu-error-state-model": "1",
+      "kalman-obj-lightcap-adaptive": "0",
+      "kalman-obj-lightcap-max-error": "0.100000",
+      "kalman-obj-lightcap-iterations": "10",
+      "kalman-obj-lightcap-step-size": "-1.000000",
+      "kalman-obj-lightcap-error-state-model": "1",
+      "kalman-joint-lightcap-adaptive": "0",
+      "kalman-joint-lightcap-max-error": "0.100000",
+      "kalman-joint-lightcap-iterations": "10",
+      "kalman-joint-lightcap-step-size": "-1.000000",
+      "kalman-joint-lightcap-error-state-model": "1",
+      "optimizer-ftol": "0.000000",
+      "optimizer-xtol": "1.000000e-04",
+      "optimizer-gtol": "0.000000",
+      "optimizer-covtol": "0.000000",
+      "optimizer-epsfcn": "0.000000",
+      "optimizer-stepfactor": "0.000000",
+      "optimizer-douserscale": "0",
+      "optimizer-maxiter": "0",
+      "optimizer-maxfev": "0",
+      "optimizer-normtol": "5.000000e-05",
+      "optimizer-nprint": "0",
+      "mpfit-disable-filter": "0",
+      "mpfit-quat-model": "0",
+      "mpfit-lh-scale-correction": "0.000000",
+      "mpfit-lh-offset-correction": "0.000000",
+      "mpfit-no-pair-calc": "0",
+      "mpfit-optimize-scale-threshold": "-1.000000",
+      "mpfit-current-pos-bias": "-1.000000",
+      "mpfit-current-rot-bias": "-1.000000",
+      "record-rawlight": "0",
+      "record-imu": "0",
+      "record-cal-imu": "0",
+      "record-angle": "0",
+      "record-pose-timing": "1",
+      "record-data-matrices": "0",
+      "record": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/jitter-cadence-baseline/record.rec.gz",
+      "record-stdout": "0",
+      "report-in-imu": "1",
+      "use-external-lighthouse": "0",
+      "serialize-device-config": "0",
+      "serialize-ootx": "0",
+      "move-threshold-gyro": "0.075000",
+      "move-threshold-acc": "0.030000",
+      "move-threshold-ang": "0.020000",
+      "filter-threshold-ang-per-sec": "50.000000",
+      "filter-light-outlier-criteria": "0.500000",
+      "filter-variance-minimum": "0.050000",
+      "filter-outlier-minimum-count": "11",
+      "kalman-lighthouse-up-variance": "-1.000000",
+      "kalman-lighthouse-initial-pos-variance": "0.100000",
+      "kalman-lighthouse-initial-rot-variance": "0.010000",
+      "kalman-pos-variance-per-sec": "0.000000",
+      "kalman-rot-variance-per-sec": "0.000000",
+      "kalman-bsd-variance": "0.000000",
+      "kalman-bsd-phase-variance": "0.000000",
+      "kalman-bsd-curve-variance": "0.000000",
+      "kalman-bsd-tilt-variance": "0.000000",
+      "kalman-bsd-ogeephase-variance": "-100.000000",
+      "kalman-bsd-ogeemag-variance": "-100.000000",
+      "kalman-bsd-gibpha-variance": "0.000000",
+      "kalman-bsd-gibmag-variance": "0.000000",
+      "kalman-lighthouse-imu-adaptive": "0",
+      "kalman-lighthouse-imu-max-error": "0.100000",
+      "kalman-lighthouse-imu-iterations": "10",
+      "kalman-lighthouse-imu-step-size": "-1.000000",
+      "kalman-lighthouse-imu-error-state-model": "1",
+      "kalman-lighthouse-obs-adaptive": "0",
+      "kalman-lighthouse-obs-max-error": "0.000000",
+      "kalman-lighthouse-obs-iterations": "10",
+      "kalman-lighthouse-obs-step-size": "-1.000000",
+      "kalman-lighthouse-obs-error-state-model": "1",
+      "cli-menu-reset": "0",
+      "libusb-log-level": "2",
+      "pair-device": "0",
+      "usb-hz-output": "-1",
+      "usbmon-record": "(null)",
+      "usbmon-playback": "(null)",
+      "usbmon-record-all": "0",
+      "usbmon-output-all": "0",
+      "usbmon-output": "0",
+      "usbmon-only-record": "0",
+      "usbmon-allow-fs-config": "0",
+      "serialize-lh-mpfit": "(null)",
+      "use-jacobian-function": "1",
+      "sensor-variance-per-sec": "0.000000",
+      "sensor-variance": "1.000000e-04",
+      "disable-lighthouse": "-1",
+      "syncs-per-run": "1",
+      "poser-async": "0",
+      "precise": "0",
+      "use-stationary-sensor-window": "1",
+      "mpfit-use-cov": "1",
+      "mpfit-cal-sensor-variance": "1.000000e-04",
+      "mpfit-model-velocity": "1",
+      "mpfit-record-reprojection-error": "0.000000",
+      "mpfit-object-up-variance": "-1.000000",
+      "mpfit-stationary-object-up-variance": "0.010000",
+      "mpfit-cal-stationary-object-up-variance": "1.000000e-03",
+      "mpfit-lighthouse-up-variance": "0.010000",
+      "light-min-length": "100",
+      "disambiguator-verbosity": "1000",
+      "playback-replay-pose": "0",
+      "playback-replay-external-pose": "0",
+      "playback": "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+      "playback-factor": "0.000000",
+      "playback-start-time": "-1.000000",
+      "playback-time": "-1.000000",
+      "run-time": "-1.000000",
+      "globalscenesolver": "1",
+      "gss-threaded": "0",
+      "gss-desired-coverage": "30",
+      "gss-auto-floor-height": "1"
+    },
+    "calibration_events": [
+      "19.204657 INFO LOG MPFIT success 7018267.294519/5647.8750690400/0.0005300 (206 measurements, 1, MP_OK_CHI, 7 iters, up err 0.0001368, trace 0.0000121)",
+      "34.070859 INFO LOG MPFIT success 6307.137925/6039.3930071335/0.0005083 (240 measurements, 1, MP_OK_CHI, 16 iters, up err 0.0001508, trace 0.0000238)"
+    ],
+    "devices": {
+      "WM1": {
+        "model": "Knuckles Right",
+        "serial": "LHR-DF24384D",
+        "pose_samples": 6775,
+        "velocity_samples": 6682,
+        "window": {
+          "20-45": {
+            "native_samples": 5918,
+            "hz_mean": 236.72,
+            "largest_pose_gap_ms": 14.541000000001247,
+            "vel_alignment_ms_p95": 2.907000000000437,
+            "linear_velocity_std_mm_s": 0.021000044150862887,
+            "angular_velocity_std_deg_s": 0.02785540020717881,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.9752710710621266,
+                  "p95_radius": 3.3859546099667197,
+                  "detrended_rms": 1.5306507681354027,
+                  "highpass_0p5s_rms": 0.2475084925409077,
+                  "drift_per_s": 0.35345363871147467,
+                  "axis_std": [
+                    0.019399279689452962,
+                    0.019050313266150795,
+                    2.9751468366806986
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.036812701387710964,
+                  "p95_radius": 0.05072112035015792,
+                  "detrended_rms": 0.03677483124586643,
+                  "highpass_0p5s_rms": 0.022567243688858842,
+                  "drift_per_s": 0.0002312673688591442,
+                  "axis_std": [
+                    0.028397021431729265,
+                    0.016244758304968916,
+                    0.016878743581197883
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.9753111652711404,
+                  "p95_radius": 3.3859643593870103,
+                  "detrended_rms": 1.5307266841062301,
+                  "highpass_0p5s_rms": 0.2475263890566121,
+                  "drift_per_s": 0.35345380640012897,
+                  "axis_std": [
+                    0.01942313723811268,
+                    0.01908927722995155,
+                    2.9751865271646043
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03681967232443795,
+                  "p95_radius": 0.05074662405589253,
+                  "detrended_rms": 0.036781080078385944,
+                  "highpass_0p5s_rms": 0.022568671562947746,
+                  "drift_per_s": 0.00023348281855237638,
+                  "axis_std": [
+                    0.02840524348977202,
+                    0.01624538139547705,
+                    0.016879514083090026
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.9754716849169602,
+                  "p95_radius": 3.385980011122897,
+                  "detrended_rms": 1.5310305983706487,
+                  "highpass_0p5s_rms": 0.24759818554637858,
+                  "drift_per_s": 0.353454477155493,
+                  "axis_std": [
+                    0.01952241080196284,
+                    0.019251044982093526,
+                    2.9753453615481598
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03686859453174612,
+                  "p95_radius": 0.05114165994894931,
+                  "detrended_rms": 0.036827068895147884,
+                  "highpass_0p5s_rms": 0.022608139096752224,
+                  "drift_per_s": 0.00024234992449263942,
+                  "axis_std": [
+                    0.028452883697235413,
+                    0.01625797897349158,
+                    0.016893927659233074
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.9756726557528546,
+                  "p95_radius": 3.386009089381964,
+                  "detrended_rms": 1.5314110542790744,
+                  "highpass_0p5s_rms": 0.24768840427580255,
+                  "drift_per_s": 0.3534553156013778,
+                  "axis_std": [
+                    0.019655039453974222,
+                    0.019466276053310076,
+                    2.9755440675136917
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03697690032328715,
+                  "p95_radius": 0.05196253774628386,
+                  "detrended_rms": 0.036931616362349075,
+                  "highpass_0p5s_rms": 0.02273298216997397,
+                  "drift_per_s": 0.00025344470335467975,
+                  "axis_std": [
+                    0.028545470261135998,
+                    0.01629640464293919,
+                    0.01693736935897968
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM0": {
+        "model": "VIVE Tracker Pro MV",
+        "serial": "LHR-C6F86C46",
+        "pose_samples": 5153,
+        "velocity_samples": 5080,
+        "window": {
+          "20-45": {
+            "native_samples": 4503,
+            "hz_mean": 180.12,
+            "largest_pose_gap_ms": 15.990999999999644,
+            "vel_alignment_ms_p95": 3.9149999999992247,
+            "linear_velocity_std_mm_s": 0.03184377123288691,
+            "angular_velocity_std_deg_s": 0.03687237820098656,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.9740392616220874,
+                  "p95_radius": 3.3907494200823005,
+                  "detrended_rms": 1.5236274487192263,
+                  "highpass_0p5s_rms": 0.24513389165551752,
+                  "drift_per_s": 0.35383685957310845,
+                  "axis_std": [
+                    0.0466523263150441,
+                    0.022081616300526238,
+                    2.9735913458881003
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.14920017665308907,
+                  "p95_radius": 0.4909987573223764,
+                  "detrended_rms": 0.1465468832074242,
+                  "highpass_0p5s_rms": 0.04107912617540594,
+                  "drift_per_s": 0.0038807586380251004,
+                  "axis_std": [
+                    0.06133007850841487,
+                    0.13151959445966918,
+                    0.034668580251126666
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.974051511644878,
+                  "p95_radius": 3.390745760993379,
+                  "detrended_rms": 1.5236165581609127,
+                  "highpass_0p5s_rms": 0.24513656094213668,
+                  "drift_per_s": 0.35383973568098703,
+                  "axis_std": [
+                    0.046722768939732574,
+                    0.022116804146985164,
+                    2.973602230251066
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.14920473358375683,
+                  "p95_radius": 0.49109611486979754,
+                  "detrended_rms": 0.14654720163292922,
+                  "highpass_0p5s_rms": 0.04108049138460816,
+                  "drift_per_s": 0.0038838890735355333,
+                  "axis_std": [
+                    0.06133898577748727,
+                    0.1315197729549544,
+                    0.03467175607704798
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.9741008521835375,
+                  "p95_radius": 3.3908032313626846,
+                  "detrended_rms": 1.5235736575222534,
+                  "highpass_0p5s_rms": 0.24514762033966925,
+                  "drift_per_s": 0.3538512401418875,
+                  "axis_std": [
+                    0.04701539414359413,
+                    0.022263572328952347,
+                    2.9736458708157434
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.14923207067019006,
+                  "p95_radius": 0.4912361000941815,
+                  "detrended_rms": 0.14655761273034867,
+                  "highpass_0p5s_rms": 0.04111773355282396,
+                  "drift_per_s": 0.003896486449274551,
+                  "axis_std": [
+                    0.06138324629568776,
+                    0.13152376213003544,
+                    0.0346959361579622
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.9741632938318756,
+                  "p95_radius": 3.3912200757255415,
+                  "detrended_rms": 1.5235215204159143,
+                  "highpass_0p5s_rms": 0.24516230455309976,
+                  "drift_per_s": 0.3538656207841258,
+                  "axis_std": [
+                    0.04740521624412163,
+                    0.022460345563927033,
+                    2.9737006535169046
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.14928672746304497,
+                  "p95_radius": 0.49121444169363,
+                  "detrended_rms": 0.14659118080993117,
+                  "highpass_0p5s_rms": 0.04123557768904636,
+                  "drift_per_s": 0.00391240197161989,
+                  "axis_std": [
+                    0.06145795499433476,
+                    0.13153611704303728,
+                    0.034751930561915306
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM2": {
+        "model": "Knuckles Left",
+        "serial": "LHR-F39A0C97",
+        "pose_samples": 3585,
+        "velocity_samples": 3535,
+        "window": {
+          "20-45": {
+            "native_samples": 3130,
+            "hz_mean": 125.2,
+            "largest_pose_gap_ms": 24.121000000000947,
+            "vel_alignment_ms_p95": 4.079000000004385,
+            "linear_velocity_std_mm_s": 0.017959042352475942,
+            "angular_velocity_std_deg_s": 0.02811001554285104,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.9855392012027773,
+                  "p95_radius": 3.3973675495235858,
+                  "detrended_rms": 1.5181065932599929,
+                  "highpass_0p5s_rms": 0.2450907966271777,
+                  "drift_per_s": 0.3561434559965214,
+                  "axis_std": [
+                    0.016277316023851816,
+                    0.02369930299463702,
+                    2.9854007627015746
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1092767866501319,
+                  "p95_radius": 0.24976270764306122,
+                  "detrended_rms": 0.0778132826994332,
+                  "highpass_0p5s_rms": 0.027968507910454028,
+                  "drift_per_s": 0.010629006778594022,
+                  "axis_std": [
+                    0.08286017256565308,
+                    0.06653823017294146,
+                    0.025461182777343612
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.9855339291427603,
+                  "p95_radius": 3.3972937081859684,
+                  "detrended_rms": 1.5181128288541441,
+                  "highpass_0p5s_rms": 0.2450929340936081,
+                  "drift_per_s": 0.35614209764697874,
+                  "axis_std": [
+                    0.01631609366965119,
+                    0.02371285479302777,
+                    2.985395171106756
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.10929095654018996,
+                  "p95_radius": 0.24996489548586182,
+                  "detrended_rms": 0.07781942196699798,
+                  "highpass_0p5s_rms": 0.027964196013064817,
+                  "drift_per_s": 0.010630940107622545,
+                  "axis_std": [
+                    0.0828650018172654,
+                    0.06655470472446824,
+                    0.025463227099743933
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.9855129488403462,
+                  "p95_radius": 3.3970481907514354,
+                  "detrended_rms": 1.518137982776591,
+                  "highpass_0p5s_rms": 0.24510180467377185,
+                  "drift_per_s": 0.35613666424995244,
+                  "axis_std": [
+                    0.016476856348243585,
+                    0.02376900833680745,
+                    2.985372860320959
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.10935484372371687,
+                  "p95_radius": 0.24982461254688515,
+                  "detrended_rms": 0.07785403649749456,
+                  "highpass_0p5s_rms": 0.02797422211659447,
+                  "drift_per_s": 0.010638682232134943,
+                  "axis_std": [
+                    0.08288973268331523,
+                    0.06662323048409234,
+                    0.025477818222732342
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.985486966326307,
+                  "p95_radius": 3.3967310945804945,
+                  "detrended_rms": 1.5181699011380159,
+                  "highpass_0p5s_rms": 0.24511361444059843,
+                  "drift_per_s": 0.35612987250624467,
+                  "axis_std": [
+                    0.016690216372043803,
+                    0.023843553413087318,
+                    2.9853450969263746
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1094508951224667,
+                  "p95_radius": 0.2501986897351402,
+                  "detrended_rms": 0.0779199058936632,
+                  "highpass_0p5s_rms": 0.028048006044116915,
+                  "drift_per_s": 0.010648379670630084,
+                  "axis_std": [
+                    0.08293281757360958,
+                    0.06671478426499391,
+                    0.025510463988075893
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lighthouses": {}
+  },
+  "candidate_replay_analysis": {
+    "file": ".lh-evaluation/full-2026-10-24/jitter-cadence-candidate/record.rec.gz",
+    "duration_s": 47.929217,
+    "pose_frame": "1",
+    "options": {
+      "center-on-lh0": "0",
+      "haptic-on-calibrate": "0",
+      "normalize-lighthouse-angle": "0.000000",
+      "max-error": "0.100000",
+      "max-cal-error": "0.050000",
+      "failures-to-reset": "-1",
+      "successes-to-reset": "-1",
+      "seed-poser": "BaryCentricSVD",
+      "required-meas": "8",
+      "time-window": "1613200",
+      "v": "0",
+      "blacklist-devs": "",
+      "configfile": "/tmp/lh-jitter-jvp25917/config.json",
+      "init-configfile": "(null)",
+      "disable-calibrate": "0",
+      "force-calibrate": "0",
+      "force-ootx": "0",
+      "lighthousecount": "0",
+      "lighthouse-gen": "0",
+      "output-callback-stats": "0.000000",
+      "threaded-posers": "0",
+      "lighthouse-0-disable": "0",
+      "lighthouse-1-disable": "0",
+      "lighthouse-2-disable": "0",
+      "lighthouse-3-disable": "0",
+      "lighthouse-max-update": "0.010000",
+      "lighthouse-max-nudge-distance": "0.100000",
+      "lighthouse-update-velocity": "0.100000",
+      "ignore-config-imu-bias": "0",
+      "light-error-threshold": "-1.000000",
+      "min-report-time": "-1.000000",
+      "report-covariance": "-1",
+      "report-sampled-cloud": "0.000000",
+      "report-ignore-start": "0",
+      "report-ignore-threshold": "0.100000",
+      "light-ignore-threshold": "1.000000",
+      "light-required-obs": "16",
+      "light-max-error": "-1.000000",
+      "kalman-light-variance": "0.010000",
+      "obs-cov-scale": "1.000000",
+      "kalman-obs-axisangle": "0",
+      "obs-pos-variance": "1.000000e-06",
+      "obs-rot-variance": "1.000000e-07",
+      "use-raw-obs": "0",
+      "show-raw-obs": "0",
+      "light-error-for-lh-confidence": "0",
+      "process-weight-jerk": "1874161.000000",
+      "process-weight-acc": "0.000000",
+      "process-weight-ang-vel": "60.000000",
+      "process-weight-vel": "0.000000",
+      "process-weight-pos": "0.000000",
+      "process-weight-rot": "0.000000",
+      "process-weight-acc-bias": "1.000000e-08",
+      "process-weight-gyro-bias": "1.000000e-08",
+      "kalman-minimize-state-space": "1",
+      "kalman-use-error-space": "1",
+      "kalman-joint-model-lightcap": "-1.000000",
+      "kalman-joint-lightcap-minimum-sensors": "5",
+      "kalman-lightcap-minimum-sensors": "5",
+      "kalman-initial-imu-variance": "0.000000",
+      "kalman-initial-acc-scale-variance": "1.000000e-06",
+      "kalman-initial-acc-bias-variance": "1.000000e-06",
+      "kalman-initial-gyro-variance": "1.000000e-06",
+      "kalman-zvu-moving": "-1.000000",
+      "kalman-zvu-stationary": "1.000000e-05",
+      "kalman-zvu-no-light": "1.000000e-04",
+      "kalman-zvu-no-light-time": "0.100000",
+      "kalman-noise-model": "0",
+      "imu-acc-norm-penalty": "0.000000",
+      "imu-acc-variance": "1.000000e-03",
+      "imu-gyro-variance": "3.046170e-05",
+      "light-batch-size": "32",
+      "kalman-obj-obs-adaptive": "0",
+      "kalman-obj-obs-max-error": "-1.000000",
+      "kalman-obj-obs-iterations": "10",
+      "kalman-obj-obs-step-size": "-1.000000",
+      "kalman-obj-obs-error-state-model": "1",
+      "kalman-obj-imu-adaptive": "0",
+      "kalman-obj-imu-max-error": "-1.000000",
+      "kalman-obj-imu-iterations": "0",
+      "kalman-obj-imu-step-size": "-1.000000",
+      "kalman-obj-imu-error-state-model": "1",
+      "kalman-obj-zvu-adaptive": "0",
+      "kalman-obj-zvu-max-error": "0.000000",
+      "kalman-obj-zvu-iterations": "0",
+      "kalman-obj-zvu-step-size": "-1.000000",
+      "kalman-obj-zvu-error-state-model": "1",
+      "kalman-obj-lightcap-adaptive": "0",
+      "kalman-obj-lightcap-max-error": "0.100000",
+      "kalman-obj-lightcap-iterations": "10",
+      "kalman-obj-lightcap-step-size": "-1.000000",
+      "kalman-obj-lightcap-error-state-model": "1",
+      "kalman-joint-lightcap-adaptive": "0",
+      "kalman-joint-lightcap-max-error": "0.100000",
+      "kalman-joint-lightcap-iterations": "10",
+      "kalman-joint-lightcap-step-size": "-1.000000",
+      "kalman-joint-lightcap-error-state-model": "1",
+      "optimizer-ftol": "0.000000",
+      "optimizer-xtol": "1.000000e-04",
+      "optimizer-gtol": "0.000000",
+      "optimizer-covtol": "0.000000",
+      "optimizer-epsfcn": "0.000000",
+      "optimizer-stepfactor": "0.000000",
+      "optimizer-douserscale": "0",
+      "optimizer-maxiter": "0",
+      "optimizer-maxfev": "0",
+      "optimizer-normtol": "5.000000e-05",
+      "optimizer-nprint": "0",
+      "mpfit-disable-filter": "0",
+      "mpfit-quat-model": "0",
+      "mpfit-lh-scale-correction": "0.000000",
+      "mpfit-lh-offset-correction": "0.000000",
+      "mpfit-no-pair-calc": "0",
+      "mpfit-optimize-scale-threshold": "-1.000000",
+      "mpfit-current-pos-bias": "-1.000000",
+      "mpfit-current-rot-bias": "-1.000000",
+      "record-rawlight": "0",
+      "record-imu": "0",
+      "record-cal-imu": "0",
+      "record-angle": "0",
+      "record-pose-timing": "1",
+      "record-data-matrices": "0",
+      "record": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/jitter-cadence-candidate/record.rec.gz",
+      "record-stdout": "0",
+      "report-in-imu": "1",
+      "use-external-lighthouse": "0",
+      "serialize-device-config": "0",
+      "serialize-ootx": "0",
+      "move-threshold-gyro": "0.075000",
+      "move-threshold-acc": "0.030000",
+      "move-threshold-ang": "0.020000",
+      "filter-threshold-ang-per-sec": "50.000000",
+      "filter-light-outlier-criteria": "0.500000",
+      "filter-variance-minimum": "0.050000",
+      "filter-outlier-minimum-count": "11",
+      "kalman-lighthouse-up-variance": "-1.000000",
+      "kalman-lighthouse-initial-pos-variance": "0.100000",
+      "kalman-lighthouse-initial-rot-variance": "0.010000",
+      "kalman-pos-variance-per-sec": "0.000000",
+      "kalman-rot-variance-per-sec": "0.000000",
+      "kalman-bsd-variance": "0.000000",
+      "kalman-bsd-phase-variance": "0.000000",
+      "kalman-bsd-curve-variance": "0.000000",
+      "kalman-bsd-tilt-variance": "0.000000",
+      "kalman-bsd-ogeephase-variance": "-100.000000",
+      "kalman-bsd-ogeemag-variance": "-100.000000",
+      "kalman-bsd-gibpha-variance": "0.000000",
+      "kalman-bsd-gibmag-variance": "0.000000",
+      "kalman-lighthouse-imu-adaptive": "0",
+      "kalman-lighthouse-imu-max-error": "0.100000",
+      "kalman-lighthouse-imu-iterations": "10",
+      "kalman-lighthouse-imu-step-size": "-1.000000",
+      "kalman-lighthouse-imu-error-state-model": "1",
+      "kalman-lighthouse-obs-adaptive": "0",
+      "kalman-lighthouse-obs-max-error": "0.000000",
+      "kalman-lighthouse-obs-iterations": "10",
+      "kalman-lighthouse-obs-step-size": "-1.000000",
+      "kalman-lighthouse-obs-error-state-model": "1",
+      "cli-menu-reset": "0",
+      "serialize-lh-mpfit": "(null)",
+      "use-jacobian-function": "1",
+      "sensor-variance-per-sec": "0.000000",
+      "sensor-variance": "1.000000e-04",
+      "disable-lighthouse": "-1",
+      "syncs-per-run": "1",
+      "poser-async": "0",
+      "precise": "0",
+      "use-stationary-sensor-window": "1",
+      "mpfit-use-cov": "1",
+      "mpfit-cal-sensor-variance": "1.000000e-04",
+      "mpfit-model-velocity": "1",
+      "mpfit-record-reprojection-error": "0.000000",
+      "mpfit-object-up-variance": "-1.000000",
+      "mpfit-stationary-object-up-variance": "0.010000",
+      "mpfit-cal-stationary-object-up-variance": "1.000000e-03",
+      "mpfit-lighthouse-up-variance": "0.010000",
+      "libusb-log-level": "2",
+      "pair-device": "0",
+      "usb-hz-output": "-1",
+      "usbmon-record": "(null)",
+      "usbmon-playback": "(null)",
+      "usbmon-record-all": "0",
+      "usbmon-output-all": "0",
+      "usbmon-output": "0",
+      "usbmon-only-record": "0",
+      "usbmon-allow-fs-config": "0",
+      "globalscenesolver": "1",
+      "gss-threaded": "0",
+      "gss-desired-coverage": "30",
+      "gss-auto-floor-height": "1",
+      "light-min-length": "100",
+      "disambiguator-verbosity": "1000",
+      "playback-replay-pose": "0",
+      "playback-replay-external-pose": "0",
+      "playback": "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+      "playback-factor": "0.000000",
+      "playback-start-time": "-1.000000",
+      "playback-time": "-1.000000",
+      "run-time": "-1.000000",
+      "simulator": "0",
+      "simulator-attractors": "3",
+      "simulator-obj-sensors": "20",
+      "simulator-fcal-noise": "1.000000e-03",
+      "simulator-init-time": "2.000000",
+      "simulator-gyro-noise": "1.000000e-03",
+      "simulator-acc-noise": "1.000000e-04",
+      "simulator-gyro-bias": "0.100000",
+      "simulator-sensor-time-jitter": "0.010000",
+      "simulator-show-gt": "1",
+      "simulator-sensor-noise": "1.000000e-04",
+      "simulator-obj-radius": "0.050000",
+      "simulator-time": "0.000000",
+      "simulator-sensor-droprate": "0.200000",
+      "simulator-noise-scale": "1.000000",
+      "simulator-lh-gen": "1",
+      "simulator-lh-duty-cycle": "1.000000",
+      "dummy-driver-enable": "0"
+    },
+    "calibration_events": [
+      "19.204657 INFO LOG MPFIT success 7018267.294519/5647.8750690400/0.0005300 (206 measurements, 1, MP_OK_CHI, 7 iters, up err 0.0001368, trace 0.0000121)",
+      "34.070859 INFO LOG MPFIT success 6307.137925/6039.3930071335/0.0005083 (240 measurements, 1, MP_OK_CHI, 16 iters, up err 0.0001508, trace 0.0000238)"
+    ],
+    "devices": {
+      "WM1": {
+        "model": "Knuckles Right",
+        "serial": "LHR-DF24384D",
+        "pose_samples": 7143,
+        "velocity_samples": 7043,
+        "window": {
+          "20-45": {
+            "native_samples": 6237,
+            "hz_mean": 249.48,
+            "largest_pose_gap_ms": 14.541000000001247,
+            "vel_alignment_ms_p95": 2.7129999999999654,
+            "linear_velocity_std_mm_s": 0.02100155512504536,
+            "angular_velocity_std_deg_s": 0.02787015556948419,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.9752718152252635,
+                  "p95_radius": 3.3859554497215676,
+                  "detrended_rms": 1.5306513898646528,
+                  "highpass_0p5s_rms": 0.24750641285528868,
+                  "drift_per_s": 0.35345370726103686,
+                  "axis_std": [
+                    0.019398801217445374,
+                    0.019049718553037515,
+                    2.9751475878026974
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03682356072359196,
+                  "p95_radius": 0.050910938713371726,
+                  "detrended_rms": 0.03678597443339202,
+                  "highpass_0p5s_rms": 0.022592381082515225,
+                  "drift_per_s": 0.00023043346043070641,
+                  "axis_std": [
+                    0.02839626293001307,
+                    0.016247499070177106,
+                    0.016901054698989185
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.975311925696192,
+                  "p95_radius": 3.3859645114873587,
+                  "detrended_rms": 1.5307273326872637,
+                  "highpass_0p5s_rms": 0.2475242989456716,
+                  "drift_per_s": 0.35345387534409745,
+                  "axis_std": [
+                    0.019422643539237245,
+                    0.019088644548068214,
+                    2.975187294903843
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03682969310421528,
+                  "p95_radius": 0.05109984414054106,
+                  "detrended_rms": 0.036791361904540014,
+                  "highpass_0p5s_rms": 0.022593744125685447,
+                  "drift_per_s": 0.00023272390582507294,
+                  "axis_std": [
+                    0.028403444554400546,
+                    0.01624741972129476,
+                    0.016902425387968985
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.9754725104065773,
+                  "p95_radius": 3.385980277113376,
+                  "detrended_rms": 1.531031354372952,
+                  "highpass_0p5s_rms": 0.24759605387201777,
+                  "drift_per_s": 0.35345454767712875,
+                  "axis_std": [
+                    0.0195218556926167,
+                    0.019250260611941242,
+                    2.9753461957899803
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03687528256246643,
+                  "p95_radius": 0.051853219942422826,
+                  "detrended_rms": 0.036833922624669765,
+                  "highpass_0p5s_rms": 0.022633011591773017,
+                  "drift_per_s": 0.0002418881401999936,
+                  "axis_std": [
+                    0.02844703317642869,
+                    0.016257150811109674,
+                    0.016919155269272224
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.975673562611193,
+                  "p95_radius": 3.3860094958512112,
+                  "detrended_rms": 1.5314119445896541,
+                  "highpass_0p5s_rms": 0.24768622095733073,
+                  "drift_per_s": 0.35345538809519383,
+                  "axis_std": [
+                    0.019654406528493516,
+                    0.019465302729286964,
+                    2.9755449849593707
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.03697948121149226,
+                  "p95_radius": 0.052317857396392234,
+                  "detrended_rms": 0.03693423482195115,
+                  "highpass_0p5s_rms": 0.022757739085791494,
+                  "drift_per_s": 0.00025334845283861814,
+                  "axis_std": [
+                    0.028534813614450948,
+                    0.016291876059798097,
+                    0.01696529448939309
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM0": {
+        "model": "VIVE Tracker Pro MV",
+        "serial": "LHR-C6F86C46",
+        "pose_samples": 7126,
+        "velocity_samples": 7026,
+        "window": {
+          "20-45": {
+            "native_samples": 6226,
+            "hz_mean": 249.04,
+            "largest_pose_gap_ms": 15.990999999999644,
+            "vel_alignment_ms_p95": 2.7170000000005246,
+            "linear_velocity_std_mm_s": 0.03189646007629176,
+            "angular_velocity_std_deg_s": 0.036704979027395945,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.974039819645939,
+                  "p95_radius": 3.3904916912020346,
+                  "detrended_rms": 1.5236284994783116,
+                  "highpass_0p5s_rms": 0.24513655317267008,
+                  "drift_per_s": 0.3538368627526415,
+                  "axis_std": [
+                    0.04665786544082834,
+                    0.022085342467799706,
+                    2.9735917894156616
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.14922114471476877,
+                  "p95_radius": 0.49133519911238543,
+                  "detrended_rms": 0.14656662801004583,
+                  "highpass_0p5s_rms": 0.04118901491686166,
+                  "drift_per_s": 0.0038819202833109898,
+                  "axis_std": [
+                    0.06133658912929699,
+                    0.13153620509535338,
+                    0.0346842848143493
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.9740520653351203,
+                  "p95_radius": 3.390568187112259,
+                  "detrended_rms": 1.5236175877945102,
+                  "highpass_0p5s_rms": 0.24513919956062472,
+                  "drift_per_s": 0.35383973990825485,
+                  "axis_std": [
+                    0.04672830735953743,
+                    0.022120440970585412,
+                    2.973602669945444
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1492252435139222,
+                  "p95_radius": 0.491212765700875,
+                  "detrended_rms": 0.14656719975770782,
+                  "highpass_0p5s_rms": 0.041189688803556716,
+                  "drift_per_s": 0.003884529045782665,
+                  "axis_std": [
+                    0.06134453320405997,
+                    0.13153697973269568,
+                    0.03468493203922661
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.9741013896688524,
+                  "p95_radius": 3.390837885037804,
+                  "detrended_rms": 1.5235746048582108,
+                  "highpass_0p5s_rms": 0.2451501691017429,
+                  "drift_per_s": 0.3538512485596384,
+                  "axis_std": [
+                    0.04702097400788893,
+                    0.022266861455276583,
+                    2.973646295529191
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1492506646648396,
+                  "p95_radius": 0.4910407610754616,
+                  "detrended_rms": 0.14657853832827739,
+                  "highpass_0p5s_rms": 0.04122393691138446,
+                  "drift_per_s": 0.0038950477694680557,
+                  "axis_std": [
+                    0.0613849559154739,
+                    0.13154333538941532,
+                    0.034698688804903344
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.9741638136023334,
+                  "p95_radius": 3.391223908189368,
+                  "detrended_rms": 1.5235223698400653,
+                  "highpass_0p5s_rms": 0.24516474490595921,
+                  "drift_per_s": 0.3538656344389551,
+                  "axis_std": [
+                    0.047410945927977656,
+                    0.022463222028991914,
+                    2.973701060295716
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1493027396283831,
+                  "p95_radius": 0.4909906154083356,
+                  "detrended_rms": 0.14661307240135282,
+                  "highpass_0p5s_rms": 0.04133753907592631,
+                  "drift_per_s": 0.003908383169376837,
+                  "axis_std": [
+                    0.061454904004453595,
+                    0.13155860738530473,
+                    0.034740979508116894
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "WM2": {
+        "model": "Knuckles Left",
+        "serial": "LHR-F39A0C97",
+        "pose_samples": 7168,
+        "velocity_samples": 7068,
+        "window": {
+          "20-45": {
+            "native_samples": 6260,
+            "hz_mean": 250.4,
+            "largest_pose_gap_ms": 20.102000000001397,
+            "vel_alignment_ms_p95": 2.822999999999354,
+            "linear_velocity_std_mm_s": 0.017965319927066663,
+            "angular_velocity_std_deg_s": 0.028115008741015263,
+            "predictions": {
+              "0": {
+                "position_mm": {
+                  "rms": 2.985540230032442,
+                  "p95_radius": 3.3978224976686775,
+                  "detrended_rms": 1.518269167338627,
+                  "highpass_0p5s_rms": 0.2457980721653692,
+                  "drift_per_s": 0.35613032043122606,
+                  "axis_std": [
+                    0.016275676650722395,
+                    0.02370329956916419,
+                    2.9854017687877894
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.1093472650695205,
+                  "p95_radius": 0.25173077118075915,
+                  "detrended_rms": 0.07788038055620701,
+                  "highpass_0p5s_rms": 0.027997457137625012,
+                  "drift_per_s": 0.01063348527465802,
+                  "axis_std": [
+                    0.08292346399632744,
+                    0.06657428641577993,
+                    0.025463461769041972
+                  ]
+                }
+              },
+              "0.01": {
+                "position_mm": {
+                  "rms": 2.985535071372747,
+                  "p95_radius": 3.3977486679952937,
+                  "detrended_rms": 1.5182754885319525,
+                  "highpass_0p5s_rms": 0.24580023611964577,
+                  "drift_per_s": 0.3561289732182889,
+                  "axis_std": [
+                    0.01631438861105305,
+                    0.023717021719348638,
+                    2.9853962896074093
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.10936557756734323,
+                  "p95_radius": 0.2517321434352612,
+                  "detrended_rms": 0.07789175526746386,
+                  "highpass_0p5s_rms": 0.027996931920720645,
+                  "drift_per_s": 0.010635500533440319,
+                  "axis_std": [
+                    0.08293093930344357,
+                    0.06659365929094811,
+                    0.02546710437266568
+                  ]
+                }
+              },
+              "0.05": {
+                "position_mm": {
+                  "rms": 2.985514544751063,
+                  "p95_radius": 3.3975039287133204,
+                  "detrended_rms": 1.5183009849791729,
+                  "highpass_0p5s_rms": 0.24580921146816795,
+                  "drift_per_s": 0.356123584367767,
+                  "axis_std": [
+                    0.01647490734153044,
+                    0.023773849007823457,
+                    2.985374428518404
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.10944601944714345,
+                  "p95_radius": 0.25174331184636184,
+                  "detrended_rms": 0.07794729868142795,
+                  "highpass_0p5s_rms": 0.028022241022556262,
+                  "drift_per_s": 0.010643569042205654,
+                  "axis_std": [
+                    0.08296634272580718,
+                    0.06667380044741372,
+                    0.025487673126961992
+                  ]
+                }
+              },
+              "0.1": {
+                "position_mm": {
+                  "rms": 2.98548912951659,
+                  "p95_radius": 3.3972465980772744,
+                  "detrended_rms": 1.5183333317844538,
+                  "highpass_0p5s_rms": 0.2458211495333363,
+                  "drift_per_s": 0.35611684830737556,
+                  "axis_std": [
+                    0.016688004094204085,
+                    0.023849218826823542,
+                    2.985347227332597
+                  ]
+                },
+                "orientation_deg": {
+                  "rms": 0.10956272278190564,
+                  "p95_radius": 0.2519459065911164,
+                  "detrended_rms": 0.0780392851064771,
+                  "highpass_0p5s_rms": 0.028115350914766007,
+                  "drift_per_s": 0.010653671461992897,
+                  "axis_std": [
+                    0.08302296292166063,
+                    0.06677992049562931,
+                    0.025526849975872432
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lighthouses": {}
+  },
+  "baseline_replay_provenance": {
+    "command": [
+      "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/candidate-refresh/survive-cli",
+      "--playback",
+      "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+      "--playback-factor",
+      "0",
+      "--configfile",
+      "/tmp/lh-jitter-ei4leq3h/config.json",
+      "--no-threaded-posers",
+      "--no-gss-threaded",
+      "--report-in-imu",
+      "--record-pose-timing",
+      "--record",
+      "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/jitter-cadence-baseline/record.rec.gz",
+      "--no-record-rawlight",
+      "--no-record-imu",
+      "--no-record-angle"
+    ],
+    "returncode": 0,
+    "wall_s": 2.870199340999534,
+    "source_sha256": "527444f0cfae3715148d394eea49f44f77691c5f6a221793f88bd54cf7267676",
+    "build_sha256": {
+      "survive-cli": "405c6202ee170749a715c7fc3bcfbee9cbc6aad72bdc6f39d820f5d4056d7d1c",
+      "libsurvive.so": "9a7a4620fd5656bdda3fee3a9c660c9660911e52d7bd1d29cf0477c257ecf0c2",
+      "plugins/disambiguator_statebased.so": "7cf0a9089ada7a0628548deebc934725cb11d545b005f0e178f13d0ddfb43779",
+      "plugins/driver_global_scene_solver.so": "5464d40486b2924902cdce4e86440c82025a6722657429a150be3d2d69cc5665",
+      "plugins/driver_playback.so": "4eeda4085d6ea8238c8f4f642df8e845ce191c15a5ac463b3d00dfe6d78486eb",
+      "plugins/driver_usbmon.so": "1b07ad8b0f40a18607462b9698e2d512978452dff15ddf5007a5d774326a5e13",
+      "plugins/driver_vive.so": "0c603479a1aef0393aca9f8f9667ea6b806d2e028d9aaaba916294fa68030e2e",
+      "plugins/poser_barycentric_svd.so": "4dd0091d57becbfc76ccbe0845bec96e1f22698f1bc4bea02746d5b8460b20fb",
+      "plugins/poser_mpfit.so": "ba97cb634f58c80cafb42dc77c0218a5252b1bce82800b7e12359c48071da3df"
+    }
+  },
+  "final_replay_provenance": {
+    "command": [
+      "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+      "--playback",
+      "/home/reina/WiVRn/survive-jitter-raw-20261024-A.txt",
+      "--playback-factor",
+      "0",
+      "--configfile",
+      "/tmp/lh-jitter-kkws57c6/config.json",
+      "--no-threaded-posers",
+      "--no-gss-threaded",
+      "--report-in-imu",
+      "--record-pose-timing",
+      "--record",
+      "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/jitter-cadence-final/record.rec.gz",
+      "--no-record-rawlight",
+      "--no-record-imu",
+      "--no-record-angle"
+    ],
+    "returncode": 0,
+    "wall_s": 2.9684407590011688,
+    "source_sha256": "527444f0cfae3715148d394eea49f44f77691c5f6a221793f88bd54cf7267676",
+    "build_sha256": {
+      "survive-cli": "c1db76a518b0253e787eeeb2d2534a170a7b3c1fc36f87b103a358ade32eee41",
+      "libsurvive.so": "a97d3b0ab949ae20318772a56715dbeab2f4c711a50f269d95e4f58efb6fe47c",
+      "plugins/disambiguator_statebased.so": "dbd89c6f3aa8e0f4e958ac739c3a6c6382d1ea5fb3aeef4edc6ec670c77665fb",
+      "plugins/driver_dummy.so": "0341fca6167d916e4006f95b68c270c64c4253b7c774b8da7a83b6023af6005f",
+      "plugins/driver_global_scene_solver.so": "f65987fde247143523e07bf32b8518438169bd2927dc7ce7194bf1ff1f295fe6",
+      "plugins/driver_playback.so": "68013dd56bf8de1b5892751ed26b264aa0c6f1070f64b0148d86a48faf92d4ee",
+      "plugins/driver_simulator.so": "55e17b5a2ee0a0fb6e8c07731b2a65779e886d80409ffb88b03e7e31b9848569",
+      "plugins/driver_udp.so": "42a6cf10998c564eeb048abc7561761d8eebc2e2d447364a1e9031a43ccc2f66",
+      "plugins/driver_usbmon.so": "7a9bf720a2077821ac78cbeece265d98c0771ca3ba356d1093ab2a0d2bbe96a1",
+      "plugins/driver_vive.so": "579ef88ee1c6c56f9e61518de9e639035214dc3244dac11db10721610c69ed99",
+      "plugins/poser_barycentric_svd.so": "6df65c5666ed4f6ed09be6a70c6424ec9404f35d3b53d759f8f72b2e9ed34c9d",
+      "plugins/poser_dummy.so": "c3fbc7b491149c4fcf3ac4b9b94c27a447918febe49317fc49ac818cda219c2c",
+      "plugins/poser_kalman_only.so": "adfc82b7c564a1fc94dc241674888a2f3aa0e63db4c00c15cb7047323f42d16c",
+      "plugins/poser_mpfit.so": "6519b4d1a028b00ef4e056f706ba4ed5ec2cb355938df7c19824d9e5a7387741"
+    }
+  },
+  "final_static_pose_stats": {
+    "objects": {
+      "WM1": {
+        "poses": 7143,
+        "nonfinite_poses": 0,
+        "max_quaternion_norm_error": 7.797806960141429e-07,
+        "first_receive_time_s": 19.304613,
+        "last_receive_time_s": 47.929093,
+        "max_receive_gap_s": 0.014541000000001247,
+        "receive_gaps_over_100ms": 0,
+        "tracked_object_serial": "LHR-DF24384D"
+      },
+      "WM2": {
+        "poses": 7168,
+        "nonfinite_poses": 0,
+        "max_quaternion_norm_error": 9.17624921048521e-07,
+        "first_receive_time_s": 19.3107,
+        "last_receive_time_s": 47.927161,
+        "max_receive_gap_s": 0.020102000000001397,
+        "receive_gaps_over_100ms": 0,
+        "tracked_object_serial": "LHR-F39A0C97"
+      },
+      "WM0": {
+        "poses": 7126,
+        "nonfinite_poses": 0,
+        "max_quaternion_norm_error": 7.316227323972413e-07,
+        "first_receive_time_s": 19.306627,
+        "last_receive_time_s": 47.929217,
+        "max_receive_gap_s": 0.015990999999999644,
+        "receive_gaps_over_100ms": 0,
+        "tracked_object_serial": "LHR-C6F86C46"
+      }
+    },
+    "pose_stream_sha256": "7dfa427cdaee474f4f259a96d85eaf88b061e50b0bf2d58ec986af4c96998941"
+  },
+  "initial_and_final_static_pose_stream_identical": true,
+  "short_bs1_bs2_replays": {
+    "evaluation": "Complete replay for four selected captures, 5Hz held-out disagreement and 50Hz coverage. Equal coverage, mixed small RMSE changes; this is not a whole-corpus reassessment.",
+    "provenance": {
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+      "seconds": 0,
+      "repeat": 1,
+      "compare": false,
+      "record_timing": true,
+      "include_incomplete": false,
+      "warmup": 10,
+      "sessions": [
+        "/home/reina/LH-Dump/2026-10-18_220050_630705468_3165209",
+        "/home/reina/LH-Dump/2026-10-20_125408_406716137_53614",
+        "/home/reina/LH-Dump/2026-10-23_222834_994990818_234361",
+        "/home/reina/LH-Dump/2026-10-23_223843_281852543_236227"
+      ],
+      "source_sha256": {
+        "/home/reina/LH-Dump/2026-10-18_220050_630705468_3165209/manifest.json": "c58b06c0a3c4ad72b31454193cc64c354c566be36ba51e020b97c66ae9523e73",
+        "/home/reina/LH-Dump/2026-10-18_220050_630705468_3165209/usb.pcap.gz": "844de78ecfa833ddbf378a1c485cad59465cc3de5343e53e40162e1220571793",
+        "/home/reina/LH-Dump/2026-10-18_220050_630705468_3165209/usb.pcap.gz.usbdevs": "d05c9632b7a8d13b5976d9f9175f9eceec7b2891ca87a90851606d425c891870",
+        "/home/reina/LH-Dump/2026-10-20_125408_406716137_53614/manifest.json": "f55f7191f4ad8029f3ccbdcd870e0cea979869ae92e6a12dc672d9cbe3215a7a",
+        "/home/reina/LH-Dump/2026-10-20_125408_406716137_53614/usb.pcap.gz": "89e379c32045c8d3a14c1d4faae6f4acd9d0fb1e9ca29d7ed389a240ac07ac54",
+        "/home/reina/LH-Dump/2026-10-20_125408_406716137_53614/usb.pcap.gz.usbdevs": "3b1b14f07ef3f66a52772b4dea0986d1eb1bb8a7363d3a886d3dccf38c880423",
+        "/home/reina/LH-Dump/2026-10-23_222834_994990818_234361/manifest.json": "52ff21fa5b8a631046a25cd2f41d04696becfd4117862cf8b73ef6c9d2a2715f",
+        "/home/reina/LH-Dump/2026-10-23_222834_994990818_234361/usb.pcap.gz": "1a3cd1f45b1d253a505cec0641b294bd363f07a03db6ad06ab1a1f15a99403a9",
+        "/home/reina/LH-Dump/2026-10-23_222834_994990818_234361/usb.pcap.gz.usbdevs": "d05c9632b7a8d13b5976d9f9175f9eceec7b2891ca87a90851606d425c891870",
+        "/home/reina/LH-Dump/2026-10-23_223843_281852543_236227/manifest.json": "bdfd410243891e80c48e7ee3b371157dc84ee9c39908a4c542a2a087b7c4eed9",
+        "/home/reina/LH-Dump/2026-10-23_223843_281852543_236227/usb.pcap.gz": "59d0f0a1e828ee82c69affdfa226ff5b455c855e604c7438498275dea6901918",
+        "/home/reina/LH-Dump/2026-10-23_223843_281852543_236227/usb.pcap.gz.usbdevs": "d05c9632b7a8d13b5976d9f9175f9eceec7b2891ca87a90851606d425c891870"
+      },
+      "build_sha256": {
+        "libsurvive.so": "a97d3b0ab949ae20318772a56715dbeab2f4c711a50f269d95e4f58efb6fe47c",
+        "libsurvive.so.0": "a97d3b0ab949ae20318772a56715dbeab2f4c711a50f269d95e4f58efb6fe47c",
+        "libsurvive.so.0.3": "a97d3b0ab949ae20318772a56715dbeab2f4c711a50f269d95e4f58efb6fe47c",
+        "plugins/disambiguator_statebased.so": "dbd89c6f3aa8e0f4e958ac739c3a6c6382d1ea5fb3aeef4edc6ec670c77665fb",
+        "plugins/driver_dummy.so": "0341fca6167d916e4006f95b68c270c64c4253b7c774b8da7a83b6023af6005f",
+        "plugins/driver_global_scene_solver.so": "f65987fde247143523e07bf32b8518438169bd2927dc7ce7194bf1ff1f295fe6",
+        "plugins/driver_playback.so": "68013dd56bf8de1b5892751ed26b264aa0c6f1070f64b0148d86a48faf92d4ee",
+        "plugins/driver_simulator.so": "55e17b5a2ee0a0fb6e8c07731b2a65779e886d80409ffb88b03e7e31b9848569",
+        "plugins/driver_udp.so": "42a6cf10998c564eeb048abc7561761d8eebc2e2d447364a1e9031a43ccc2f66",
+        "plugins/driver_usbmon.so": "7a9bf720a2077821ac78cbeece265d98c0771ca3ba356d1093ab2a0d2bbe96a1",
+        "plugins/driver_vive.so": "579ef88ee1c6c56f9e61518de9e639035214dc3244dac11db10721610c69ed99",
+        "plugins/poser_barycentric_svd.so": "6df65c5666ed4f6ed09be6a70c6424ec9404f35d3b53d759f8f72b2e9ed34c9d",
+        "plugins/poser_dummy.so": "c3fbc7b491149c4fcf3ac4b9b94c27a447918febe49317fc49ac818cda219c2c",
+        "plugins/poser_kalman_only.so": "adfc82b7c564a1fc94dc241674888a2f3aa0e63db4c00c15cb7047323f42d16c",
+        "plugins/poser_mpfit.so": "6519b4d1a028b00ef4e056f706ba4ed5ec2cb355938df7c19824d9e5a7387741",
+        "survive-cli": "c1db76a518b0253e787eeeb2d2534a170a7b3c1fc36f87b103a358ade32eee41"
+      }
+    },
+    "repeat_audit": [
+      {
+        "session": "2026-10-18_220050_630705468_3165209",
+        "independent_replays": 3,
+        "identical": true,
+        "pose_stream_sha256": "20e3b4e1e0e3ae1a82f1afd3e178dc95028789ed1ebafe5f3aeae9315f3bbbcf",
+        "final_run": {
+          "command": [
+            "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+            "--usbmon-playback",
+            "/home/reina/LH-Dump/2026-10-18_220050_630705468_3165209/usb.pcap.gz",
+            "--playback-factor",
+            "0",
+            "--configfile",
+            "/tmp/survive-replay-501ue7fw/config.json",
+            "--no-threaded-posers",
+            "--no-gss-threaded",
+            "--record",
+            ".lh-evaluation/full-2026-10-24/cadence-final-short/2026-10-18_220050_630705468_3165209-0.rec.gz",
+            "--no-record-rawlight",
+            "--no-record-imu",
+            "--no-record-angle",
+            "--record-pose-timing"
+          ],
+          "returncode": 0,
+          "wall_time_s": 12.430519430999993,
+          "objects": {
+            "WM3": {
+              "poses": 60471,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.288220685910176e-07,
+              "first_receive_time_s": 13.341834,
+              "last_receive_time_s": 254.750905,
+              "max_receive_gap_s": 0.01004999999999967,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 57886,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.06281589330149e-07,
+              "first_receive_time_s": 22.355315,
+              "last_receive_time_s": 254.756906,
+              "max_receive_gap_s": 0.045998999999994794,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "pose_stream_sha256": "20e3b4e1e0e3ae1a82f1afd3e178dc95028789ed1ebafe5f3aeae9315f3bbbcf",
+          "ok": true
+        }
+      },
+      {
+        "session": "2026-10-20_125408_406716137_53614",
+        "independent_replays": 3,
+        "identical": true,
+        "pose_stream_sha256": "2e3c18bf0f92c3a0f0358471f0866969d073a896ec493a2f649522e564f9ebf0",
+        "final_run": {
+          "command": [
+            "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+            "--usbmon-playback",
+            "/home/reina/LH-Dump/2026-10-20_125408_406716137_53614/usb.pcap.gz",
+            "--playback-factor",
+            "0",
+            "--configfile",
+            "/tmp/survive-replay-khg8sl8f/config.json",
+            "--no-threaded-posers",
+            "--no-gss-threaded",
+            "--record",
+            ".lh-evaluation/full-2026-10-24/cadence-final-short/2026-10-20_125408_406716137_53614-0.rec.gz",
+            "--no-record-rawlight",
+            "--no-record-imu",
+            "--no-record-angle",
+            "--record-pose-timing"
+          ],
+          "returncode": 0,
+          "wall_time_s": 10.029357008999796,
+          "objects": {
+            "WM0": {
+              "poses": 28970,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.078617505484885e-07,
+              "first_receive_time_s": 11.879011,
+              "last_receive_time_s": 127.83437,
+              "max_receive_gap_s": 0.010000000000005116,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-5D3D7A83"
+            },
+            "WM3": {
+              "poses": 38113,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.903146035965648e-07,
+              "first_receive_time_s": 11.869051,
+              "last_receive_time_s": 164.851621,
+              "max_receive_gap_s": 0.03599700000000894,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 37659,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 8.549813654834537e-07,
+              "first_receive_time_s": 12.920973,
+              "last_receive_time_s": 164.859625,
+              "max_receive_gap_s": 0.06000099999999975,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "pose_stream_sha256": "2e3c18bf0f92c3a0f0358471f0866969d073a896ec493a2f649522e564f9ebf0",
+          "ok": true
+        }
+      },
+      {
+        "session": "2026-10-23_222834_994990818_234361",
+        "independent_replays": 3,
+        "identical": true,
+        "pose_stream_sha256": "d505c70e3be1c1c5cce0543c432cb3d822459526b1443f6f9e47f2e65b98b766",
+        "final_run": {
+          "command": [
+            "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+            "--usbmon-playback",
+            "/home/reina/LH-Dump/2026-10-23_222834_994990818_234361/usb.pcap.gz",
+            "--playback-factor",
+            "0",
+            "--configfile",
+            "/tmp/survive-replay-0ol_g0ix/config.json",
+            "--no-threaded-posers",
+            "--no-gss-threaded",
+            "--record",
+            ".lh-evaluation/full-2026-10-24/cadence-final-short/2026-10-23_222834_994990818_234361-0.rec.gz",
+            "--no-record-rawlight",
+            "--no-record-imu",
+            "--no-record-angle",
+            "--record-pose-timing"
+          ],
+          "returncode": 0,
+          "wall_time_s": 3.619604920999336,
+          "objects": {
+            "WM3": {
+              "poses": 12803,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 7.400647737965116e-07,
+              "first_receive_time_s": 19.335179,
+              "last_receive_time_s": 70.448015,
+              "max_receive_gap_s": 0.008002000000004728,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 12765,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.115670844828117e-07,
+              "first_receive_time_s": 19.341217,
+              "last_receive_time_s": 70.45802,
+              "max_receive_gap_s": 0.008032999999997514,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "pose_stream_sha256": "d505c70e3be1c1c5cce0543c432cb3d822459526b1443f6f9e47f2e65b98b766",
+          "ok": true
+        }
+      },
+      {
+        "session": "2026-10-23_223843_281852543_236227",
+        "independent_replays": 3,
+        "identical": true,
+        "pose_stream_sha256": "5edbb4029ccb91009839f20b2d17a9b28c88684dc87d9571aca5383219ab8bdd",
+        "final_run": {
+          "command": [
+            "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/report-cadence-final/survive-cli",
+            "--usbmon-playback",
+            "/home/reina/LH-Dump/2026-10-23_223843_281852543_236227/usb.pcap.gz",
+            "--playback-factor",
+            "0",
+            "--configfile",
+            "/tmp/survive-replay-th297dpp/config.json",
+            "--no-threaded-posers",
+            "--no-gss-threaded",
+            "--record",
+            ".lh-evaluation/full-2026-10-24/cadence-final-short/2026-10-23_223843_281852543_236227-0.rec.gz",
+            "--no-record-rawlight",
+            "--no-record-imu",
+            "--no-record-angle",
+            "--record-pose-timing"
+          ],
+          "returncode": 0,
+          "wall_time_s": 18.794452632000684,
+          "objects": {
+            "WM3": {
+              "poses": 80766,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.198879230565282e-07,
+              "first_receive_time_s": 23.393574,
+              "last_receive_time_s": 345.703347,
+              "max_receive_gap_s": 0.008003999999999678,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-F39A0C97"
+            },
+            "WM1": {
+              "poses": 80422,
+              "nonfinite_poses": 0,
+              "max_quaternion_norm_error": 9.585344594720269e-07,
+              "first_receive_time_s": 23.379614,
+              "last_receive_time_s": 345.715353,
+              "max_receive_gap_s": 0.00999999999999801,
+              "receive_gaps_over_100ms": 0,
+              "tracked_object_serial": "LHR-DF24384D"
+            }
+          },
+          "pose_stream_sha256": "5edbb4029ccb91009839f20b2d17a9b28c88684dc87d9571aca5383219ab8bdd",
+          "ok": true
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "session": "2026-10-18_220050_630705468_3165209",
+        "baseline": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 258,
+              "rmse": 0.40154974236020724,
+              "median": 0.13896514685767425,
+              "p95": 0.9527159703681212,
+              "max": 1.1593025549972964
+            },
+            "orientation_difference_deg": {
+              "n": 258,
+              "rmse": 28.163461240485557,
+              "median": 24.956952285064613,
+              "p95": 50.62795649939174,
+              "max": 53.775236439788934
+            },
+            "coverage": {
+              "matched_reference_bins": 5630,
+              "valid_reference_bins": 5630,
+              "fraction": 1.0,
+              "first_replay_pose_after_start_s": 22.445507399,
+              "first_valid_reference_after_start_s": 22.921790952
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 718,
+              "rmse": 0.04256783303072097,
+              "median": 0.040703130456761785,
+              "p95": 0.05136771425405293,
+              "max": 0.20708503068080794
+            },
+            "orientation_difference_deg": {
+              "n": 718,
+              "rmse": 2.488405812182067,
+              "median": 2.423757574928156,
+              "p95": 2.7739660382258347,
+              "max": 3.3031797538687284
+            },
+            "coverage": {
+              "matched_reference_bins": 9674,
+              "valid_reference_bins": 9817,
+              "fraction": 0.9854334318019762,
+              "first_replay_pose_after_start_s": 13.429985502,
+              "first_valid_reference_after_start_s": 5.959887553
+            },
+            "association": "matched"
+          }
+        },
+        "candidate": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 256,
+              "rmse": 0.4022970636389242,
+              "median": 0.13961173888520206,
+              "p95": 0.9546654912288953,
+              "max": 1.1624209608148401
+            },
+            "orientation_difference_deg": {
+              "n": 256,
+              "rmse": 28.214264986903235,
+              "median": 25.045056325439177,
+              "p95": 50.757641854387,
+              "max": 53.917537248793245
+            },
+            "coverage": {
+              "matched_reference_bins": 5630,
+              "valid_reference_bins": 5630,
+              "fraction": 1.0,
+              "first_replay_pose_after_start_s": 22.445507399,
+              "first_valid_reference_after_start_s": 22.921790952
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 721,
+              "rmse": 0.042975542839037206,
+              "median": 0.04065875961898556,
+              "p95": 0.051612502777402175,
+              "max": 0.19959381143747162
+            },
+            "orientation_difference_deg": {
+              "n": 721,
+              "rmse": 2.5339728811246762,
+              "median": 2.4633830598995186,
+              "p95": 2.80878869926894,
+              "max": 4.529504019696669
+            },
+            "coverage": {
+              "matched_reference_bins": 9674,
+              "valid_reference_bins": 9817,
+              "fraction": 0.9854334318019762,
+              "first_replay_pose_after_start_s": 13.429985502,
+              "first_valid_reference_after_start_s": 5.959887553
+            },
+            "association": "matched"
+          }
+        }
+      },
+      {
+        "session": "2026-10-20_125408_406716137_53614",
+        "baseline": {
+          "LHR-5D3D7A83": {
+            "position_difference_m": {
+              "n": 314,
+              "rmse": 0.06195355061652108,
+              "median": 0.027373441254729437,
+              "p95": 0.08615206950425462,
+              "max": 0.09176655737984352
+            },
+            "orientation_difference_deg": {
+              "n": 314,
+              "rmse": 1.8613084631955585,
+              "median": 2.009958955635376,
+              "p95": 2.055683209796456,
+              "max": 2.0823444471022916
+            },
+            "coverage": {
+              "matched_reference_bins": 5358,
+              "valid_reference_bins": 5448,
+              "fraction": 0.9834801762114538,
+              "first_replay_pose_after_start_s": 11.971305408,
+              "first_valid_reference_after_start_s": 4.113828702
+            },
+            "association": "matched"
+          },
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 163,
+              "rmse": 0.11437821835253956,
+              "median": 0.09773539856493116,
+              "p95": 0.1725682457448104,
+              "max": 0.4173874487133446
+            },
+            "orientation_difference_deg": {
+              "n": 163,
+              "rmse": 2.459096986933311,
+              "median": 1.8586016807541696,
+              "p95": 4.57042891520704,
+              "max": 6.252630178095109
+            },
+            "coverage": {
+              "matched_reference_bins": 3248,
+              "valid_reference_bins": 3248,
+              "fraction": 1.0,
+              "first_replay_pose_after_start_s": 13.013268417,
+              "first_valid_reference_after_start_s": 13.068380775
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 412,
+              "rmse": 0.07988437619588278,
+              "median": 0.09023596829529348,
+              "p95": 0.10636599067287016,
+              "max": 0.1837117245548645
+            },
+            "orientation_difference_deg": {
+              "n": 412,
+              "rmse": 2.4234235239038378,
+              "median": 2.1583246633222037,
+              "p95": 3.8342453055897385,
+              "max": 9.416907062922117
+            },
+            "coverage": {
+              "matched_reference_bins": 5744,
+              "valid_reference_bins": 5826,
+              "fraction": 0.9859251630621353,
+              "first_replay_pose_after_start_s": 11.961339584,
+              "first_valid_reference_after_start_s": 6.991575525
+            },
+            "association": "matched"
+          }
+        },
+        "candidate": {
+          "LHR-5D3D7A83": {
+            "position_difference_m": {
+              "n": 315,
+              "rmse": 0.06234506615374798,
+              "median": 0.027367621683176486,
+              "p95": 0.08691294861573272,
+              "max": 0.09289068488949634
+            },
+            "orientation_difference_deg": {
+              "n": 315,
+              "rmse": 1.9541528405387303,
+              "median": 2.048480711815984,
+              "p95": 2.0948087902807555,
+              "max": 2.2071266618524037
+            },
+            "coverage": {
+              "matched_reference_bins": 5358,
+              "valid_reference_bins": 5448,
+              "fraction": 0.9834801762114538,
+              "first_replay_pose_after_start_s": 11.971305408,
+              "first_valid_reference_after_start_s": 4.113828702
+            },
+            "association": "matched"
+          },
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 162,
+              "rmse": 0.1156598658984416,
+              "median": 0.09864361883437976,
+              "p95": 0.17589547386433851,
+              "max": 0.49308633660181594
+            },
+            "orientation_difference_deg": {
+              "n": 162,
+              "rmse": 2.5857822361008567,
+              "median": 1.9874934730532587,
+              "p95": 4.447482239723648,
+              "max": 8.70126936292554
+            },
+            "coverage": {
+              "matched_reference_bins": 3248,
+              "valid_reference_bins": 3248,
+              "fraction": 1.0,
+              "first_replay_pose_after_start_s": 13.013268417,
+              "first_valid_reference_after_start_s": 13.068380775
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 415,
+              "rmse": 0.08072251219747709,
+              "median": 0.09165493492003386,
+              "p95": 0.10705236052542426,
+              "max": 0.16951940134546986
+            },
+            "orientation_difference_deg": {
+              "n": 415,
+              "rmse": 2.5301187907903864,
+              "median": 2.2792726015788567,
+              "p95": 3.94456673487384,
+              "max": 8.156606155627584
+            },
+            "coverage": {
+              "matched_reference_bins": 5744,
+              "valid_reference_bins": 5826,
+              "fraction": 0.9859251630621353,
+              "first_replay_pose_after_start_s": 11.961339584,
+              "first_valid_reference_after_start_s": 6.991575525
+            },
+            "association": "matched"
+          }
+        }
+      },
+      {
+        "session": "2026-10-23_222834_994990818_234361",
+        "baseline": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 191,
+              "rmse": 0.018230957580609036,
+              "median": 0.01809158690428723,
+              "p95": 0.021828039491760685,
+              "max": 0.03478830857477894
+            },
+            "orientation_difference_deg": {
+              "n": 191,
+              "rmse": 3.3254218180946515,
+              "median": 3.540410288521135,
+              "p95": 3.8369800006150494,
+              "max": 4.495617429733372
+            },
+            "coverage": {
+              "matched_reference_bins": 2488,
+              "valid_reference_bins": 2777,
+              "fraction": 0.8959308606409795,
+              "first_replay_pose_after_start_s": 19.442568411,
+              "first_valid_reference_after_start_s": 13.518528225
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 187,
+              "rmse": 0.02552273558597986,
+              "median": 0.025753725722764943,
+              "p95": 0.027337151544734643,
+              "max": 0.02789012327687595
+            },
+            "orientation_difference_deg": {
+              "n": 187,
+              "rmse": 1.6062676262429794,
+              "median": 1.6128959286489353,
+              "p95": 1.7799543211457456,
+              "max": 1.8204663046687006
+            },
+            "coverage": {
+              "matched_reference_bins": 2134,
+              "valid_reference_bins": 2381,
+              "fraction": 0.8962620747585048,
+              "first_replay_pose_after_start_s": 19.436549595,
+              "first_valid_reference_after_start_s": 13.514205844
+            },
+            "association": "matched"
+          }
+        },
+        "candidate": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 189,
+              "rmse": 0.018171417514933244,
+              "median": 0.017952323879246737,
+              "p95": 0.021753497580898846,
+              "max": 0.03369192910472522
+            },
+            "orientation_difference_deg": {
+              "n": 189,
+              "rmse": 3.3572148594635762,
+              "median": 3.53301486385786,
+              "p95": 3.8453621187505687,
+              "max": 7.159991272322941
+            },
+            "coverage": {
+              "matched_reference_bins": 2488,
+              "valid_reference_bins": 2777,
+              "fraction": 0.8959308606409795,
+              "first_replay_pose_after_start_s": 19.442568411,
+              "first_valid_reference_after_start_s": 13.518528225
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 191,
+              "rmse": 0.025348260591024734,
+              "median": 0.02549574136428907,
+              "p95": 0.027168102670583512,
+              "max": 0.027951898007674683
+            },
+            "orientation_difference_deg": {
+              "n": 191,
+              "rmse": 1.6047590410490589,
+              "median": 1.609044139269039,
+              "p95": 1.7808126388240662,
+              "max": 1.8288576378603758
+            },
+            "coverage": {
+              "matched_reference_bins": 2134,
+              "valid_reference_bins": 2381,
+              "fraction": 0.8962620747585048,
+              "first_replay_pose_after_start_s": 19.436549595,
+              "first_valid_reference_after_start_s": 13.514205844
+            },
+            "association": "matched"
+          }
+        }
+      },
+      {
+        "session": "2026-10-23_223843_281852543_236227",
+        "baseline": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 1058,
+              "rmse": 0.008866023288847315,
+              "median": 0.008861704556074674,
+              "p95": 0.009054720944974217,
+              "max": 0.009222678991673882
+            },
+            "orientation_difference_deg": {
+              "n": 1058,
+              "rmse": 2.34852677206272,
+              "median": 2.34630034015865,
+              "p95": 2.437260443921504,
+              "max": 2.475137527361689
+            },
+            "coverage": {
+              "matched_reference_bins": 15731,
+              "valid_reference_bins": 16386,
+              "fraction": 0.9600268521908947,
+              "first_replay_pose_after_start_s": 23.483037726,
+              "first_valid_reference_after_start_s": 8.975460532
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 1039,
+              "rmse": 0.008446535363507292,
+              "median": 0.008451589020272165,
+              "p95": 0.008594074666874387,
+              "max": 0.008677074194568946
+            },
+            "orientation_difference_deg": {
+              "n": 1039,
+              "rmse": 1.996815445305686,
+              "median": 1.9679851876082437,
+              "p95": 2.3047807691258435,
+              "max": 2.430897581319225
+            },
+            "coverage": {
+              "matched_reference_bins": 13460,
+              "valid_reference_bins": 14020,
+              "fraction": 0.9600570613409415,
+              "first_replay_pose_after_start_s": 23.496952862,
+              "first_valid_reference_after_start_s": 8.974248828
+            },
+            "association": "matched"
+          }
+        },
+        "candidate": {
+          "LHR-DF24384D": {
+            "position_difference_m": {
+              "n": 1048,
+              "rmse": 0.008868992258317837,
+              "median": 0.008862496167219635,
+              "p95": 0.009056823064824665,
+              "max": 0.009263921719191314
+            },
+            "orientation_difference_deg": {
+              "n": 1048,
+              "rmse": 2.349013654568229,
+              "median": 2.3465470077045847,
+              "p95": 2.437980231892273,
+              "max": 2.480033873985891
+            },
+            "coverage": {
+              "matched_reference_bins": 15731,
+              "valid_reference_bins": 16386,
+              "fraction": 0.9600268521908947,
+              "first_replay_pose_after_start_s": 23.483037726,
+              "first_valid_reference_after_start_s": 8.975460532
+            },
+            "association": "matched"
+          },
+          "LHR-F39A0C97": {
+            "position_difference_m": {
+              "n": 1059,
+              "rmse": 0.008446305814870811,
+              "median": 0.008450232053535343,
+              "p95": 0.008590369782714711,
+              "max": 0.008678552349253861
+            },
+            "orientation_difference_deg": {
+              "n": 1059,
+              "rmse": 1.9967867331328628,
+              "median": 1.9627915815371275,
+              "p95": 2.312695699377066,
+              "max": 2.3952190974981677
+            },
+            "coverage": {
+              "matched_reference_bins": 13460,
+              "valid_reference_bins": 14020,
+              "fraction": 0.9600570613409415,
+              "first_replay_pose_after_start_s": 23.496952862,
+              "first_valid_reference_after_start_s": 8.974248828
+            },
+            "association": "matched"
+          }
+        }
+      }
+    ]
+  },
+  "full_corpus_includes_this_commit": false
+}

@@ -495,3 +495,7 @@ per-object outcome, with detailed time bins available in the local reports.
 See [the trial ledger](lighthouse-optimization-trials.md) for the completed
 long BS 2.0 reference-lock experiment and reset probes. Short-prefix gains
 did not survive full-duration evaluation; neither prototype changes defaults.
+
+The subsequent [IMU reporting-cadence fix](lighthouse-cadence-results.md)
+restores nominal-rate output in the supplied WiVRn static record. Its targeted
+BS 1.0/2.0 checks are separate from the earlier entire-corpus assessment.
