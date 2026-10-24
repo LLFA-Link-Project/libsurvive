@@ -189,3 +189,10 @@ the tracker, which supplies its configured observation variance. A synthetic
 dispatch test reproduces the previous segmentation fault and passes under
 ASan/UBSan after the fix. A separate early-initialization problem in the SVD poser
 was then exposed by the real-capture Debug run and is investigated separately.
+
+The SVD poser now defers construction until sensor geometry is available. USB
+replay may deliver IMU data before captured configuration; constructing the SVD
+model then permanently captured zero sensors, leading to an out-of-range
+correspondence assertion (and invalid access without assertions). A dedicated
+regression covers IMU-before-config, subsequent initialization and cleanup. The
+previously failing 20-second native BS 1.0 prefix now completes under ASan/UBSan.

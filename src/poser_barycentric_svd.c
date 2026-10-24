@@ -245,7 +245,10 @@ int PoserBaryCentricSVD(SurviveObject *so, PoserData *pd) {
 		return 0;
 
 	if (!dd) {
-
+		// IMU packets can arrive before the device configuration. The SVD setup
+		// snapshots the sensor geometry, so wait until that geometry is available.
+		if (!so->has_sensor_locations || so->sensor_ct == 0)
+			return 0;
 		*user = dd = PoserDataSVD_new(so);
 	}
 

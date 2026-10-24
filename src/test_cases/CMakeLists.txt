@@ -4,6 +4,10 @@ SET(SURVIVE_TESTS
         rotate_angvel export_config sensor_activations)
 
 set(barycentric_svd_ADDITIONAL_SRCS ../barycentric_svd/barycentric_svd.c)
+if(TARGET poser_barycentric_svd)
+    list(APPEND SURVIVE_TESTS barycentric_poser)
+    set(barycentric_poser_ADDITIONAL_SRCS ../poser_barycentric_svd.c ../barycentric_svd/barycentric_svd.c)
+endif()
 
 IF(NOT WIN32)
     LIST(APPEND SURVIVE_TESTS watchman)
