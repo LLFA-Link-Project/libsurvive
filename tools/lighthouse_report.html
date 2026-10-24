@@ -32,7 +32,7 @@ const report=JSON.parse(document.getElementById('report-data').textContent), sum
 const el=id=>document.getElementById(id), fmt=(v,d=2)=>v==null?'—':Number(v).toFixed(d);
 el('status').textContent=(report.complete?'COMPLETE':'IN PROGRESS')+' · Generated '+report.generated_utc+' · Reload to view a newly generated report.';
 el('protocol-note').textContent=report.evaluation_settings?.protocol_note||'';
-for(const [label,value] of [['Sessions',summary.sessions],['Stored source GB',(summary.source_bytes/1e9).toFixed(2)],['Finite-output replays',summary.replay_states.finite_output||0],['Reference callbacks read',summary.reference_callbacks_read.toLocaleString()],['Sessions with CLI MENU resets',summary.sessions_with_cli_menu_reset_events||0]]){
+for(const [label,value] of [['Sessions',summary.sessions],['Stored source GB',(summary.source_bytes/1e9).toFixed(2)],['Finite-output replays',summary.replay_states.finite_output||0],['Reference callbacks read',(summary.reference_callbacks_read??summary.reference_callbacks_indexed??0).toLocaleString()],['Sessions with CLI MENU resets',summary.sessions_with_cli_menu_reset_events||0]]){
  const card=document.createElement('div'),number=document.createElement('strong');number.textContent=value;card.append(number,document.createTextNode(label));el('cards').append(card);
 }
 const all=[];
