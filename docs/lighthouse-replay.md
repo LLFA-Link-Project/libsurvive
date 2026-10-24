@@ -337,7 +337,8 @@ in the metadata. The 71-second BS 2.0 comparison produces identical position and
 angle RMSE with both parsers. No optional dependency is required by the tests.
 
 `tools/lighthouse_corpus_report.py` assembles inventory, integrity, replay and
-comparison checkpoints into a session ledger, object CSV and Markdown table:
+comparison checkpoints into a session ledger, object CSV, Markdown table and
+standalone HTML report with session/device filters and per-minute error plots:
 
 ```sh
 python3 tools/lighthouse_corpus_report.py /path/to/corpus-work \

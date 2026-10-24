@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lighthouse corpus evaluation</title>
+<style>
+body{font:15px system-ui,sans-serif;max-width:1500px;margin:32px auto;padding:0 20px;background:#f6f8fb;color:#172b40}
+h1{font-size:26px}p{line-height:1.6}label{margin-right:18px}select,input{font:inherit;padding:6px;max-width:100%}
+table{border-collapse:collapse;width:100%;background:white;font-size:13px}td,th{text-align:left;padding:9px;border-bottom:1px solid #dce2e9;vertical-align:top}th{background:#e8edf4;position:sticky;top:0}
+.scroll{overflow:auto;max-height:550px}button{font:inherit;color:#185eab;border:0;background:transparent;cursor:pointer;text-align:left;padding:0}
+canvas{display:block;background:white;width:100%;height:280px;margin:16px 0;border:1px solid #dce2e9}#cards{display:flex;gap:14px;flex-wrap:wrap}#cards div{padding:16px;background:white;border:1px solid #dce2e9;min-width:160px}#cards strong{display:block;font-size:25px}
+small{color:#52647a}#detail{background:#e8edf4;padding:12px;white-space:pre-wrap}
+</style>
+<h1>Lighthouse corpus evaluation</h1>
+<p id="status"></p><div id="cards"></div>
+<p>Valve poses are reference estimates, not ground truth. One full USB replay per capture does not establish repeatability.
+Held-out errors use 5 Hz samples after one common spatial fit per capture; output coverage uses 50 Hz.
+Incomplete captures remain visible and are excluded from pooled errors. No time lag is fitted.</p>
+<label>Find session / device <input id="search" type="search"></label>
+<label><input id="qualified" type="checkbox"> Qualified captures only</label>
+<p id="count"></p>
+<div class="scroll"><table><thead><tr><th>Session / source status</th><th>Replay / comparison</th><th>Device</th><th>Position RMSE</th><th>Angle RMSE</th><th>Coverage</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p><label>Plot device <select id="device"></select></label>
+<label>Metric <select id="metric"><option value="position_difference_m">Position error (mm)</option><option value="orientation_difference_deg">Angle error (degrees)</option></select></label></p>
+<canvas id="chart"></canvas>
+<p id="plot-note"></p><p id="detail"></p>
+<script id="report-data" type="application/json">__LIGHTHOUSE_REPORT_DATA__</script>
+<script>
+'use strict';
+const report=JSON.parse(document.getElementById('report-data').textContent), summary=report.summary;
+const el=id=>document.getElementById(id), fmt=(v,d=2)=>v==null?'—':Number(v).toFixed(d);
+el('status').textContent=(report.complete?'COMPLETE':'IN PROGRESS')+' · Generated '+report.generated_utc+' · Reload to view a newly generated report.';
+for(const [label,value] of [['Sessions',summary.sessions],['Stored source GB',(summary.source_bytes/1e9).toFixed(2)],['Finite-output replays',summary.replay_states.finite_output||0],['Reference callbacks indexed',summary.reference_callbacks_indexed.toLocaleString()]]){
+ const card=document.createElement('div'),number=document.createElement('strong');number.textContent=value;card.append(number,document.createTextNode(label));el('cards').append(card);
+}
+const all=[];
+for(const session of report.sessions){
+ const objects=Object.entries(session.comparison?.objects||{});
+ for(const [serial,obj] of objects.length?objects:[['',{}]])all.push({session,serial,obj});
+}
+let visible=[], selected=null;
+function choose(index){selected=visible[index];draw();}
+function update(){
+ const q=el('search').value.toLowerCase();
+ visible=all.filter(r=>(!el('qualified').checked||r.session.eligible_for_summary)&&(r.session.session+' '+r.serial).toLowerCase().includes(q));
+ el('rows').replaceChildren();el('device').replaceChildren();
+ visible.forEach((r,index)=>{
+  const s=r.session,o=r.obj,tr=document.createElement('tr');
+  const values=[s.session+' / '+s.status,s.replay_state+' / '+s.comparison_state,r.serial||'—',o.position_difference_m?fmt(o.position_difference_m.rmse*1000)+' mm':'—',o.orientation_difference_deg?fmt(o.orientation_difference_deg.rmse)+'°':'—',o.coverage?.fraction==null?'—':fmt(o.coverage.fraction*100,1)+'%'];
+  values.forEach((value,i)=>{const td=document.createElement('td');if(i===0){const b=document.createElement('button');b.textContent=value;b.onclick=()=>{el('device').value=index;choose(index);};td.append(b);}else td.textContent=value;tr.append(td);});el('rows').append(tr);
+  const option=document.createElement('option');option.value=index;option.textContent=s.session+' / '+(r.serial||'no device');el('device').append(option);
+ });
+ el('count').textContent=new Set(visible.map(r=>r.session.session)).size+' sessions / '+visible.length+' device rows shown';choose(0);
+}
+function draw(){
+ const canvas=el('chart'),rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
+ canvas.width=rect.width*ratio;canvas.height=280*ratio;
+ const c=canvas.getContext('2d');c.scale(ratio,ratio);const w=rect.width,h=280;
+ el('detail').textContent='';el('plot-note').textContent='';if(!selected)return;
+ const s=selected.session,o=selected.obj,metric=el('metric').value,scale=metric==='position_difference_m'?1000:1;
+ const points=(o.heldout_time_bins||[]).filter(b=>b[metric]);
+ el('detail').textContent=s.session+' / '+(selected.serial||'no device')+'\nQualified for pooled summary: '+s.eligible_for_summary+'\n'+(s.comparison_reason||s.replay_reason||'')+'\nSource errors: '+JSON.stringify(s.errors||[])+'\nGzip errors: '+JSON.stringify(s.gzip_errors||{});
+ if(!points.length){el('plot-note').textContent='No per-minute held-out error bins available for this device. Missing output is not a zero error.';return;}
+ const x0=0,x1=Math.max(1,...points.map(p=>p.start_after_input_s/60+1)),ymax=Math.max(.001,...points.flatMap(p=>[p[metric].rmse*scale,p[metric].p95*scale]));
+ const left=70,right=w-20,top=20,bottom=h-40;
+ const x=t=>left+(right-left)*(t-x0)/(x1-x0),y=v=>bottom-(bottom-top)*v/ymax;
+ c.font='12px system-ui';c.fillStyle='#52647a';c.strokeStyle='#dde3eb';
+ for(let i=0;i<=4;i++){const v=ymax*i/4;c.beginPath();c.moveTo(left,y(v));c.lineTo(right,y(v));c.stroke();c.fillText(fmt(v,1),4,y(v)+4);const t=x1*i/4;c.fillText(fmt(t,1),x(t)-12,h-20);}
+ c.fillText('Minutes since first input',left,h-4);
+ for(const [field,color] of [['p95','#d58a19'],['rmse','#176ab5']]){
+  c.strokeStyle=color;c.lineWidth=2;
+  // Each one-minute bin is separate. Do not draw across missing data.
+  for(const p of points){c.beginPath();c.moveTo(x(p.start_after_input_s/60),y(p[metric][field]*scale));c.lineTo(x(p.start_after_input_s/60+1),y(p[metric][field]*scale));c.stroke();}
+ }
+ el('plot-note').textContent='Blue: RMSE; amber: 95th percentile. '+(metric==='position_difference_m'?'Millimetres. ':'Degrees. ')+'One-minute held-out bins use the same spatial fit. Blank intervals have no matched samples; reference loss, replay loss and timing rejection can all cause gaps.';
+}
+el('search').oninput=update;el('qualified').onchange=update;el('device').onchange=()=>choose(Number(el('device').value));el('metric').onchange=draw;window.onresize=draw;update();
+</script>
+</html>

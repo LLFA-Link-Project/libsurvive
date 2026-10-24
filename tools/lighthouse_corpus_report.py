@@ -138,6 +138,10 @@ def write_report(report, output):
         values='; '.join(metrics) or reason.replace('|','/') or 'pending'
         lines.append(f"| `{s['session']}` | {s.get('status')} | {s['replay_state']} | {s['comparison_state']} | {values} |")
     (output/'report.md').write_text('\n'.join(lines)+'\n')
+    template=pathlib.Path(__file__).with_name('lighthouse_report.html').read_text()
+    # JSON is data inside a script element; escape '<' to prevent an embedded end tag.
+    data=json.dumps(report,allow_nan=False).replace('<','\\u003c')
+    (output/'report.html').write_text(template.replace('__LIGHTHOUSE_REPORT_DATA__',data))
 
 
 def main():
