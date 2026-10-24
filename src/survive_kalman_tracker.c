@@ -928,6 +928,21 @@ void survive_kalman_tracker_predict(const SurviveKalmanTracker *tracker, FLT t, 
 	SV_VERBOSE(300, "Predict pose %f %f " SurvivePose_format, t, t - tracker->model.t, SURVIVE_POSE_EXPAND(*out))
 }
 
+// The IMU bias filter has its own error-state covariance. Its random walk
+// must be added there, rather than to the separate kinematic pose filter.
+static void imu_bias_process_noise(void *user, FLT dt, const CnMat *state, CnMat *out) {
+	const struct SurviveKalmanTracker_Params *params = user;
+	cn_set_zero(out);
+	for (int axis = 0; axis < 3; axis++) {
+		int accel = offsetof(SurviveIMUBiasErrorModel, AccBias) / sizeof(FLT) + axis;
+		int gyro = offsetof(SurviveIMUBiasErrorModel, GyroBias) / sizeof(FLT) + axis;
+		if (accel < out->rows)
+			cnMatrixSet(out, accel, accel, params->process_weight_acc_bias * dt);
+		if (gyro < out->rows)
+			cnMatrixSet(out, gyro, gyro, params->process_weight_gyro_bias * dt);
+	}
+}
+
 static void survive_kalman_tracker_process_noise_bounce(void *user, FLT t, const CnMat *x, struct CnMat *q_out) {
 	struct SurviveKalmanTracker_Params *params = (struct SurviveKalmanTracker_Params *)user;
 	survive_kalman_tracker_process_noise(params, false, t, x, q_out);
@@ -1350,10 +1365,9 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 	}
 
 	if(imu_state_cnt) {
-		cnkalman_error_state_init(&tracker->imu_bias_model, imu_state_cnt, imu_state_cnt - 1, 0, 0,
+		cnkalman_error_state_init(&tracker->imu_bias_model, imu_state_cnt, imu_state_cnt - 1, 0, imu_bias_process_noise,
 								  imu_error_state_fn, &tracker->params, (FLT*)&tracker->state.IMUBias);
 		tracker->imu_bias_model.Update_fn = imu_bias_update_fn;
-		tracker->model.state_variance_per_second = cnVec(imu_state_cnt, tracker->process_variance.IMUBias.AccScale);
 	}
 
 	if(tracker->use_error_state) {
