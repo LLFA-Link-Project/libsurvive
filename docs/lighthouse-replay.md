@@ -489,3 +489,9 @@ remain under `.lh-evaluation/full-2026-10-24`. The controlled report is
 `controlled-corpus/report/report.html`; these large derived artifacts are
 excluded from Git. The committed compact results retain every session and
 per-object outcome, with detailed time bins available in the local reports.
+
+## Full-duration optimization follow-up
+
+See [the trial ledger](lighthouse-optimization-trials.md) for the completed
+long BS 2.0 reference-lock experiment and reset probes. Short-prefix gains
+did not survive full-duration evaluation; neither prototype changes defaults.
