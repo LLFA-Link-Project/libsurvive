@@ -103,3 +103,62 @@ TEST(GlobalScenes, SparseCandidatePreservesAcceptedScene) {
 		free(gss.scenes[i].meas);
 	return 0;
 }
+
+// The main close path owns poll_sema while a solver may need to retake it.
+// No hardware or optimization is required to reproduce that lock cycle.
+#include "../survive_config.h"
+#include "../survive_private.h"
+
+struct close_waiter {
+	global_scene_solver *gss;
+	og_sema_t ready;
+};
+
+static void *close_waiter_thread(void *userdata) {
+	struct close_waiter *waiter = userdata;
+	global_scene_solver *gss = waiter->gss;
+	OGLockMutex(gss->data_available_lock);
+	OGUnlockSema(waiter->ready);
+	while (gss->active)
+		OGWaitCond(gss->data_available, gss->data_available_lock);
+	OGUnlockMutex(gss->data_available_lock);
+	// Model the optimizer returning and reacquiring the context lock.
+	survive_get_ctx_lock(gss->ctx);
+	survive_release_ctx_lock(gss->ctx);
+	return NULL;
+}
+
+static int test_close_solver(bool reacquire_context) {
+	struct SurviveContext_private private = {.poll_sema = OGCreateSema()};
+	config_entry settings[] = {
+	    {.tag = "gss-threaded", .type = CONFIG_UINT32, .numeric.i = 1},
+	    {.tag = "gss-desired-coverage", .type = CONFIG_UINT32, .numeric.i = 30},
+	    {.tag = "gss-auto-floor-height", .type = CONFIG_UINT32, .numeric.i = 1},
+	};
+	config_group temporary = {.config_entries = settings, .used_entries = 3, .write_lock = OGCreateMutex()};
+	SurviveContext ctx = {.private_members = &private, .temporary_config_values = &temporary};
+	global_scene_solver *gss = calloc(1, sizeof(*gss));
+	gss->ctx = &ctx;
+	global_scene_solver_attach_config(&ctx, gss);
+	gss->threaded = true;
+	gss->active = true;
+	gss->data_available = OGCreateConditionVariable();
+	gss->data_available_lock = OGCreateMutex();
+	gss->scenes_lock = OGCreateMutex();
+	struct close_waiter waiter = {.gss = gss, .ready = OGCreateSema()};
+	gss->thread = OGCreateThread(reacquire_context ? close_waiter_thread : survive_threaded_gss_thread_fn,
+	                            "close waiter", reacquire_context ? (void *)&waiter : (void *)gss);
+	if (reacquire_context)
+		OGLockSema(waiter.ready);
+	// poll_sema starts locked, matching survive_close's calling convention.
+	ASSERT_EQ(DriverRegGlobalSceneSolverClose(&ctx, gss), 0);
+	OGDeleteSema(waiter.ready);
+	OGDeleteSema(private.poll_sema);
+	OGDeleteMutex(temporary.write_lock);
+	for (int i = 0; i < 3; i++)
+		ASSERT_EQ(settings[i].update_list, NULL);
+	return 0;
+}
+
+TEST(GlobalScenes, CloseReleasesContextWhileJoining) { return test_close_solver(true); }
+TEST(GlobalScenes, CloseSleepingWorker) { return test_close_solver(false); }
