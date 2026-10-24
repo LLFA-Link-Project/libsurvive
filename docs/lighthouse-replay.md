@@ -429,3 +429,63 @@ The corpus callback total counts every parsed reference callback, including
 rejected/missing-time rows and base-station callbacks. The pose index keeps
 tracked-object validity samples; base-station poses are excluded from the
 reference fit. This count is labelled callbacks read, not matched error samples.
+
+## Completed corpus with CLI resets disabled
+
+`lighthouse-controlled-results.md`, `.csv` and `.json` contain the second
+whole-corpus assessment. All 22 MENU-exposed captures were replayed with the
+corrected CLI, plus the entire 9839-second no-MENU BS 2.0 capture as a control.
+The other 50 full replays were reused after their complete recorded button audit
+showed no MENU events. Core and plugin hashes are identical across the original
+and controlled CLI binaries. The no-MENU control's 7,035,157 recorded poses have
+exactly the same stream hash with both CLIs. `lighthouse-controlled-selection.json`
+records every selected replay and the common core/plugin fingerprints.
+
+The complete capture set remains **73 sessions / 46,400,284,364 bytes**, with
+**52,859,105 finite poses** in the selected replays, 48 captures with pose output
+and 25 without. All 123,522,379 reference callbacks were parsed; error remains
+sampled at 5 Hz on held-out data, coverage at 50 Hz, and native pose finiteness
+is checked on the complete output streams. The original source files were read
+again after the controlled runs: no file changed, all 378 declared hashes still
+match, and all 69 controlled replay input hashes match the audited source
+catalog. No extra/uninventoried session directories or loose files were found.
+
+For the same 25 complete integrity-checked captures:
+
+| Assessment | Qualified reference coverage | Matched held-out position RMSE | Angle RMSE | Error samples |
+| --- | ---: | ---: | ---: | ---: |
+| Original CLI | 91.2118% | 239.51 mm | 8.837 degrees | 704,693 |
+| MENU reset disabled | 99.6859% | 227.47 mm | 8.344 degrees | 810,226 |
+
+Both coverage values use the same **11,891,626 valid reference bins**. The
+coverage increase comes from removing the CLI's calibration resets. Error
+samples differ when coverage expands, so the RMSE change is not a paired
+accuracy improvement on an identical sample mask. These are disagreements
+with reference estimates; they do not establish SteamVR-equivalent physical
+accuracy or latency. Large optical/relocalization outliers remain.
+
+In the 4h50m capture, all five devices continue past the original CLI's
+11189.525-second reset. Coverage changes from 64.37–91.21% to
+99.963–99.983% per object. DF24384D's RMSE rises from 40.1 to 86.8 mm on the
+expanded support, illustrating why coverage and matched error must be reported
+together rather than treating missing output as a low error.
+
+The revised scene collector was also tested on the entire 9839-second
+three-station BS 2.0 capture. Its 7,035,157-pose stream hash and all evaluated
+errors/coverage exactly match the original collector, avoiding the earlier
+full-retention regression. This is a complete long-capture regression check,
+not evidence of lower error from the collector change. Independent original-CLI
+repeats cover 15 finite-output captures; all 15 have identical stream hashes,
+including the long BS 2.0 capture. Whole-corpus repeatability is not claimed.
+
+The IMU-to-head comparison point was checked against the five BS 2.0 devices'
+recorded driver offsets using the actual libsurvive configuration parser.
+Translation differences are at most 1.71e-8 m and rotation differences at most
+5.4e-6 degrees after quaternion normalization. The large BS 2.0 outliers are
+therefore not explained by a different configured body point in this check.
+
+The full local HTML reports, minute bins, replay recordings and SQLite indexes
+remain under `.lh-evaluation/full-2026-10-24`. The controlled report is
+`controlled-corpus/report/report.html`; these large derived artifacts are
+excluded from Git. The committed compact results retain every session and
+per-object outcome, with detailed time bins available in the local reports.

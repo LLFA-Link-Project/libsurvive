@@ -1,0 +1,531 @@
+{
+  "required_controlled_sessions": [
+    "2026-10-12_214550_50198189_6833",
+    "2026-10-15_212702_874332610_16467",
+    "2026-10-16_232741_545365161_23337",
+    "2026-10-18_220538_706224956_3191146",
+    "2026-10-18_220617_448707184_3194808",
+    "2026-10-18_220701_114777916_3198653",
+    "2026-10-18_220809_336331269_3205113",
+    "2026-10-18_221525_767334952_3243150",
+    "2026-10-18_230117_248337110_3485273",
+    "2026-10-19_010830_799509642_4145450",
+    "2026-10-19_010850_76384244_4147071",
+    "2026-10-19_011842_256246838_8395",
+    "2026-10-19_200046_32144142_836303",
+    "2026-10-20_125408_406716137_53614",
+    "2026-10-20_141639_535334221_39260",
+    "2026-10-20_144145_705461248_69368",
+    "2026-10-20_145814_702750436_85857",
+    "2026-10-20_230937_993574039_3563446",
+    "2026-10-21_230710_926270474_92418",
+    "2026-10-23_222834_994990818_234361",
+    "2026-10-23_223201_761415902_234804",
+    "2026-10-23_223404_333316760_235084",
+    "2026-10-23_224637_177775667_238804"
+  ],
+  "reused_sessions": [
+    "2026-10-12_212926_597504624_5217",
+    "2026-10-17_211141_807298928_131088",
+    "2026-10-17_211325_257481295_131315",
+    "2026-10-17_211921_292709390_161362",
+    "2026-10-17_213206_443349137_328709",
+    "2026-10-17_213924_140823944_371671",
+    "2026-10-17_214032_648690022_371822",
+    "2026-10-17_214125_204082500_372165",
+    "2026-10-17_214358_592536267_403169",
+    "2026-10-17_221241_864951772_700576",
+    "2026-10-17_221501_388302091_942",
+    "2026-10-17_221805_731840254_30372",
+    "2026-10-17_222353_523372400_78234",
+    "2026-10-17_223245_280524253_28305",
+    "2026-10-18_220010_351058_3161655",
+    "2026-10-18_220050_630705468_3165209",
+    "2026-10-18_220525_833041053_3189836",
+    "2026-10-18_220745_310603587_3202711",
+    "2026-10-18_222224_639046455_3281085",
+    "2026-10-18_223146_664681466_3329935",
+    "2026-10-18_225410_717323349_3447062",
+    "2026-10-18_225451_540560623_3450864",
+    "2026-10-18_225521_853642156_3453779",
+    "2026-10-18_230038_131099690_3481780",
+    "2026-10-19_003256_861249396_3973329",
+    "2026-10-19_011641_367096167_4189278",
+    "2026-10-19_011808_402766626_4858",
+    "2026-10-19_172913_780056640_18703",
+    "2026-10-19_172939_598576680_21188",
+    "2026-10-19_174824_343883005_126284",
+    "2026-10-19_185631_769305405_8429",
+    "2026-10-19_192746_186023466_39957",
+    "2026-10-19_194108_617852739_758828",
+    "2026-10-20_135619_853669178_12772",
+    "2026-10-20_150000_393421371_88126",
+    "2026-10-20_150325_895547003_91897",
+    "2026-10-20_150700_72107488_96663",
+    "2026-10-20_152401_257786874_117452",
+    "2026-10-20_154014_844134701_136463",
+    "2026-10-20_230856_424441559_3559569",
+    "2026-10-20_230917_547422963_3561461",
+    "2026-10-21_230646_11184762_92223",
+    "2026-10-23_221157_951018722_231536",
+    "2026-10-23_221233_277171477_231754",
+    "2026-10-23_221302_599253463_231956",
+    "2026-10-23_221920_786263516_233271",
+    "2026-10-23_222645_181982641_234040",
+    "2026-10-23_223623_95859849_235461",
+    "2026-10-23_223825_913327654_236075",
+    "2026-10-23_223843_281852543_236227"
+  ],
+  "core_plugin_build_sha256": {
+    "libsurvive.so": "9a7a4620fd5656bdda3fee3a9c660c9660911e52d7bd1d29cf0477c257ecf0c2",
+    "libsurvive.so.0": "9a7a4620fd5656bdda3fee3a9c660c9660911e52d7bd1d29cf0477c257ecf0c2",
+    "libsurvive.so.0.3": "9a7a4620fd5656bdda3fee3a9c660c9660911e52d7bd1d29cf0477c257ecf0c2",
+    "plugins/disambiguator_statebased.so": "7cf0a9089ada7a0628548deebc934725cb11d545b005f0e178f13d0ddfb43779",
+    "plugins/driver_global_scene_solver.so": "d1fc1d759e019fee8c38596e689b2e36f25a1d040d3e96200c533cc121360a62",
+    "plugins/driver_playback.so": "4eeda4085d6ea8238c8f4f642df8e845ce191c15a5ac463b3d00dfe6d78486eb",
+    "plugins/driver_usbmon.so": "1b07ad8b0f40a18607462b9698e2d512978452dff15ddf5007a5d774326a5e13",
+    "plugins/driver_vive.so": "0c603479a1aef0393aca9f8f9667ea6b806d2e028d9aaaba916294fa68030e2e",
+    "plugins/poser_barycentric_svd.so": "4dd0091d57becbfc76ccbe0845bec96e1f22698f1bc4bea02746d5b8460b20fb",
+    "plugins/poser_mpfit.so": "ba97cb634f58c80cafb42dc77c0218a5252b1bce82800b7e12359c48071da3df"
+  },
+  "selection": {
+    "2026-10-12_212926_597504624_5217": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-12_212926_597504624_5217-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "18409f0b3930b4ffed5db0d4ae50501c1b07290647b0d5e97cee33ac56113b3d"
+    },
+    "2026-10-16_232741_545365161_23337": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-16_232741_545365161_23337/2026-10-16_232741_545365161_23337-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "8f86ab02114670b3d2004843fb8e6923b187a720132e39c25345b2c38772a015"
+    },
+    "2026-10-17_211141_807298928_131088": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_211141_807298928_131088-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_211325_257481295_131315": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_211325_257481295_131315-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_211921_292709390_161362": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_211921_292709390_161362-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_213206_443349137_328709": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_213206_443349137_328709-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_214358_592536267_403169": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_214358_592536267_403169-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_221241_864951772_700576": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_221241_864951772_700576-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_221805_731840254_30372": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_221805_731840254_30372-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_222353_523372400_78234": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_222353_523372400_78234-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_223245_280524253_28305": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-17_223245_280524253_28305-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-18_222224_639046455_3281085": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-18_222224_639046455_3281085-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "c97540ab6163fb7cfb53bf53bcd11fb0fa2f6833d9414b29b1eae240be909f22"
+    },
+    "2026-10-18_225410_717323349_3447062": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-18_225410_717323349_3447062-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "7219ac63cc964acd3fdf5c990f033bf369ea5d0b574c3e1ed4e5707fbda44c71"
+    },
+    "2026-10-18_230038_131099690_3481780": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-18_230038_131099690_3481780-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "0d6912e3137ef5793d719de7f2e8db26f4049f51d6b2cd576ad6f2c2a29f84ef"
+    },
+    "2026-10-19_010830_799509642_4145450": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-19_010830_799509642_4145450/2026-10-19_010830_799509642_4145450-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "32da21d370ac694d06b782e7051ec8add3f47f02a8c810f03c147351220a5377"
+    },
+    "2026-10-19_010850_76384244_4147071": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-19_010850_76384244_4147071/2026-10-19_010850_76384244_4147071-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "a2d6b2755d0f1558fd1b103896739a8f7aaafa018c4cfb5d9624578bca80b806"
+    },
+    "2026-10-19_011641_367096167_4189278": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-19_011641_367096167_4189278-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "d4ea9f0eb17411fb39b81874e19a5af6005f4ebcd71fc7c48d50730d3d8216e4"
+    },
+    "2026-10-19_011808_402766626_4858": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-19_011808_402766626_4858-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "fe762890c5885becf6fdf6a7092c6c6795baec446704e107d0fad44db7cf64b0"
+    },
+    "2026-10-19_192746_186023466_39957": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-19_192746_186023466_39957-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "896859132bc855e5f097eb49d2e7b2408758077eef6f106c385b03c2a43c5c07"
+    },
+    "2026-10-19_194108_617852739_758828": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-0/2026-10-19_194108_617852739_758828-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-19_200046_32144142_836303": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-5/2026-10-19_200046_32144142_836303-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "9015d4aee2188b991f4fd413bbfab84e6febda5ac0a385a94179e5b64b977ac6"
+    },
+    "2026-10-20_125408_406716137_53614": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-20_125408_406716137_53614/2026-10-20_125408_406716137_53614-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "cdf9c182a7b3bbecd01b2cb19742f3bb24ece3a9893b8396efc5693b1f68061a"
+    },
+    "2026-10-20_145814_702750436_85857": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-20_145814_702750436_85857/2026-10-20_145814_702750436_85857-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "8cea16ac41b54481009b91fb3cedaf87003083d44e3e49f63e12c6dfea83ce5b"
+    },
+    "2026-10-20_150000_393421371_88126": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-20_150000_393421371_88126-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "d226e794a9a75d0afaa57cb64c8704ec6fa438a3b8dbb459eb6cfe8d803ab8f0"
+    },
+    "2026-10-20_150325_895547003_91897": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-20_150325_895547003_91897-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "82502bacbf895d8d3d356d9c6637668b18aab3316b9a8d1edc14980990206654"
+    },
+    "2026-10-20_152401_257786874_117452": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-20_152401_257786874_117452-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "ebb0a17c39e5f768ef10474250226be4d934f8758cb0f7363ffe5b81032d7802"
+    },
+    "2026-10-20_230856_424441559_3559569": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-20_230856_424441559_3559569-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-20_230917_547422963_3561461": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-20_230917_547422963_3561461-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-20_230937_993574039_3563446": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-20_230937_993574039_3563446/2026-10-20_230937_993574039_3563446-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "12b91eaf4e30d0cd12b7335aa2e09554706d9e25cb71787263cb2760bfc823a2"
+    },
+    "2026-10-21_230646_11184762_92223": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-21_230646_11184762_92223-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-23_221233_277171477_231754": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_221233_277171477_231754-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-23_221302_599253463_231956": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_221302_599253463_231956-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "03f3ca3fa387701af6efe108eab05361ee926c9efff32285924525ccfd7ed2d7"
+    },
+    "2026-10-23_222645_181982641_234040": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_222645_181982641_234040-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "40ec4e99d073c9738781ec18de1d134537c366211847a9a19f3b6286ce8c4659"
+    },
+    "2026-10-23_222834_994990818_234361": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-23_222834_994990818_234361/2026-10-23_222834_994990818_234361-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "1967680b485ec51860c5718075807878e98c49221b483d18e62b974124c6f929"
+    },
+    "2026-10-23_223201_761415902_234804": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-23_223201_761415902_234804/2026-10-23_223201_761415902_234804-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "56b67aa66ee0ba92e79de9169dbd5aafce0cb48926d56101908414f070e99c6d"
+    },
+    "2026-10-23_223623_95859849_235461": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_223623_95859849_235461-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "cb51f51310193706fea45d59627221358781c364f2093574597eed4d237531b4"
+    },
+    "2026-10-12_214550_50198189_6833": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-12_214550_50198189_6833/2026-10-12_214550_50198189_6833-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "59836168ec80be4406435f2c6dcf4c80b1db85f719f20df85677ff8b8f6717ca"
+    },
+    "2026-10-15_212702_874332610_16467": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-15_212702_874332610_16467/2026-10-15_212702_874332610_16467-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "4d5991851f9c0b3fcd9322d1fb6f920e19e16ee0d83a38410f84c8212933caee"
+    },
+    "2026-10-17_213924_140823944_371671": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-17_213924_140823944_371671-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_214032_648690022_371822": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-17_214032_648690022_371822-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_214125_204082500_372165": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-17_214125_204082500_372165-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-17_221501_388302091_942": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-17_221501_388302091_942-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-18_220010_351058_3161655": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_220010_351058_3161655-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-18_220050_630705468_3165209": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_220050_630705468_3165209-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "8cdfb0457e171844a7740d5107eae292d00e5254aa64666c295fdc970b935a83"
+    },
+    "2026-10-18_220525_833041053_3189836": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_220525_833041053_3189836-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-18_220538_706224956_3191146": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_220538_706224956_3191146/2026-10-18_220538_706224956_3191146-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "406829ae9e21869ae427415120b282fdac8a428034f77021cefa44c6d5242fba"
+    },
+    "2026-10-18_220617_448707184_3194808": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_220617_448707184_3194808/2026-10-18_220617_448707184_3194808-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "36658f292178ccea405c2394cfdc4dd0edcdcf81cf78c02bbebfbd88d187a1a7"
+    },
+    "2026-10-18_220701_114777916_3198653": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_220701_114777916_3198653/2026-10-18_220701_114777916_3198653-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "1ce19d644b49bf1937c438efc52384332616ed660f012f1073ddd560abd7debf"
+    },
+    "2026-10-18_220745_310603587_3202711": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_220745_310603587_3202711-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "0b3ebb50b76512276a6f895a56a471e9f110da8298af6397132953061397f08c"
+    },
+    "2026-10-18_220809_336331269_3205113": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_220809_336331269_3205113/2026-10-18_220809_336331269_3205113-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "ebc885e19da1d829b162e319e0a1f1c3a1779c62dab193236c3bdf07620afd7a"
+    },
+    "2026-10-18_221525_767334952_3243150": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_221525_767334952_3243150/2026-10-18_221525_767334952_3243150-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "68b7c28aad94f76c8e2acb46e1fad45a00638205640322da1d7dd0f213722417"
+    },
+    "2026-10-18_223146_664681466_3329935": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_223146_664681466_3329935-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e8e9f76563babde12c5ed9e90a36adfe93eb8860239aeb49c982a61945f2c2bb"
+    },
+    "2026-10-18_225451_540560623_3450864": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_225451_540560623_3450864-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "547906a231a0e67f00bb4331dca5f9aad2c5bab0cf1ddeb22b17f9796ce6beae"
+    },
+    "2026-10-18_225521_853642156_3453779": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-18_225521_853642156_3453779-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "cda7609412c2fada97397dbd6ff44f9b9c38c7e929b28da1997d2d110a214a69"
+    },
+    "2026-10-18_230117_248337110_3485273": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-18_230117_248337110_3485273/2026-10-18_230117_248337110_3485273-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-19_003256_861249396_3973329": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-19_003256_861249396_3973329-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "4c7c6109f517de87f4a6f1fe3909f0537a7a07b9a3d5f7585884d355ca45d931"
+    },
+    "2026-10-19_011842_256246838_8395": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-19_011842_256246838_8395/2026-10-19_011842_256246838_8395-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-19_172913_780056640_18703": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-19_172913_780056640_18703-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-19_172939_598576680_21188": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-19_172939_598576680_21188-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "b6a4ebbed1aba9cb61a6492a034682c5bfba22eea943d6f48f0873f4c40b616b"
+    },
+    "2026-10-19_174824_343883005_126284": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-19_174824_343883005_126284-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "fe047fdae4558746247804c478f4df51b10b8bdb1e3cca6db75f6e519d0127f3"
+    },
+    "2026-10-19_185631_769305405_8429": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-19_185631_769305405_8429-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "07b5174612fdf58f1b795ada493bcdc6ac0143cb84bf0a8af2582fa4a9e86434"
+    },
+    "2026-10-20_135619_853669178_12772": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-20_135619_853669178_12772-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "2c88fd3adeeff3e0646313278145efd1f7d1b4e44bf60273ee3e2805b9737010"
+    },
+    "2026-10-20_141639_535334221_39260": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-20_141639_535334221_39260/2026-10-20_141639_535334221_39260-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "19cc9e18f7e02d46aab5bf6058d0a30f61bd421276608e39aa4ba6abfe6e7145"
+    },
+    "2026-10-20_144145_705461248_69368": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-20_144145_705461248_69368/2026-10-20_144145_705461248_69368-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "82082189e12c57cd50cdc1e185cbfe2cda75c3a0298633d94dded823c7f98900"
+    },
+    "2026-10-20_150700_72107488_96663": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-20_150700_72107488_96663-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "feb4e7fdcc31203ef04cc61e3c624115638af79b4bafdd0865ecad4ef100d4a8"
+    },
+    "2026-10-20_154014_844134701_136463": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-1/2026-10-20_154014_844134701_136463-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "129b634c25b2b95519ebbf8427bd5ba138da8d1cbbecd8c1f96cdb155de99715"
+    },
+    "2026-10-21_230710_926270474_92418": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-21_230710_926270474_92418/2026-10-21_230710_926270474_92418-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "6e4220f3ee30a8182dfcfc886533ccf3a86495b8329ca666570d3a6c5fa5cd93"
+    },
+    "2026-10-23_221157_951018722_231536": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_221157_951018722_231536-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-23_221920_786263516_233271": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_221920_786263516_233271-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "0b9c5ef78e193f1539f7c86039df19f70c14056aac64ad71dce7d3c845297c99"
+    },
+    "2026-10-23_223404_333316760_235084": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-23_223404_333316760_235084/2026-10-23_223404_333316760_235084-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "479c43fcd5cd76a76636640c84f6333035b745354976a20e5a3b9d39c6c1248c"
+    },
+    "2026-10-23_223825_913327654_236075": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_223825_913327654_236075-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "2026-10-23_223843_281852543_236227": {
+      "selection_reason": "Original replay reused: complete recorded button audit contains no MENU events.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/replay-4/2026-10-23_223843_281852543_236227-0.rec.gz",
+      "binary": "/tmp/lh-build/survive-cli",
+      "pose_stream_sha256": "86fa8791f2429c3e2f9471e55ad60c635242fae6f06f77326f225cef7c87eef1"
+    },
+    "2026-10-23_224637_177775667_238804": {
+      "selection_reason": "Controlled CLI replay; MENU calibration reset disabled.",
+      "recording": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-controlled/2026-10-23_224637_177775667_238804/2026-10-23_224637_177775667_238804-0.rec.gz",
+      "binary": "/home/reina/libsurvive/.lh-evaluation/full-2026-10-24/menu-control/survive-cli",
+      "pose_stream_sha256": "11ae46107507fc1a779dba5d7455e0dd7f6f8f4c23acb55258e616be5e8ce96f"
+    }
+  }
+}
