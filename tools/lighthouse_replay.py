@@ -85,9 +85,15 @@ def main():
         if (path / "manifest.json").is_file():
             sessions.add(path.resolve())
         else:
-            sessions.update(p.parent.resolve() for p in path.glob("*/manifest.json"))
+            found = {p.parent.resolve() for p in path.glob("*/manifest.json")}
+            if not found:
+                parser.error(f"No session manifests found at {path}")
+            sessions.update(found)
     if not sessions:
         parser.error("No session manifests found")
+    names = collections.Counter(p.name for p in sessions)
+    if any(n > 1 for n in names.values()):
+        parser.error("Session directory names must be unique across all input roots")
     settings = {"binary": str(binary), "seconds": args.seconds, "repeat": args.repeat,
                 "compare": args.compare, "record_timing": args.record_timing,
                 "include_incomplete": args.include_incomplete, "warmup": args.warmup,

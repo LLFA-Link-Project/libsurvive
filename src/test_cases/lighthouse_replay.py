@@ -38,9 +38,9 @@ with gzip.open(record,'wt') as f:
     def tearDown(self):
         self.temp.cleanup()
 
-    def run_replay(self, output, *flags):
+    def run_replay(self, output, *flags, sessions=()):
         return subprocess.run([sys.executable,str(RUNNER),str(self.binary),str(self.session),
-                               '--repeat','1','--output',str(output),*flags],capture_output=True,text=True)
+                               *map(str,sessions),'--repeat','1','--output',str(output),*flags],capture_output=True,text=True)
 
     def test_resume_does_not_rerun_and_rejects_changed_build(self):
         output=self.root/'results'
@@ -68,6 +68,24 @@ with gzip.open(record,'wt') as f:
         self.assertNotEqual(result.returncode,0)
         self.assertEqual((output/'results.json').read_bytes(),before)
         self.assertEqual((self.root/'calls').read_text(),'1')
+
+    def test_missing_input_is_not_silently_omitted(self):
+        output=self.root/'results'
+        result=self.run_replay(output,sessions=[self.root/'missing-capture'])
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('No session manifests found at',result.stderr)
+        self.assertFalse(output.exists())
+        self.assertFalse((self.root/'calls').exists())
+
+    def test_duplicate_names_cannot_overwrite_outputs(self):
+        duplicate=self.root/'other'/self.session.name
+        duplicate.mkdir(parents=True)
+        (duplicate/'manifest.json').write_bytes(self.manifest.read_bytes())
+        output=self.root/'results'
+        result=self.run_replay(output,sessions=[duplicate])
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('must be unique',result.stderr)
+        self.assertFalse(output.exists())
 
     def test_incomplete_is_explicit_and_opt_in(self):
         self.manifest.write_text(json.dumps(dict(status='recording',errors=[])))
