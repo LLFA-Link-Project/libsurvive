@@ -295,7 +295,11 @@ the index; the full reference/input streams are not held in Python lists. It
 maps a 50 Hz replay stream for coverage, then samples pose error at 5 Hz to bound
 the alignment/error working set for multi-hour captures. Training remains the
 first third after warmup, evaluation the last two thirds, with no fitted time
-shift. It sorts by full sensor ticks and segments receiver identity changes.
+shift. The disk comparator uses the capture clock-sync sample span independently
+of native output/input, so a trailing input or pose failure does not shorten
+the coverage denominator. Unsampled capture edges outside the first/last clock
+sample are explicitly excluded. Too few alignment pairs leaves error unavailable
+while retaining the independent coverage measurement. It sorts by full sensor ticks and segments receiver identity changes.
 Sampling rate and timing assumptions are included in each result. Five-hertz
 errors cannot resolve the existing <=50 ms reacquisition criterion; that recovery
 metric is explicitly unavailable at this rate. Native reference state events
@@ -303,8 +307,9 @@ remain reported. Per-minute held-out error bins use the same fitted transform;
 they do not refit each minute to conceal drift or outliers. These results are not numerically interchangeable with earlier
 50 Hz error tables.
 
-A 50 Hz disk-backed comparison of the 71-second BS 2.0 recording exactly matches
-the earlier in-memory position RMSE and coverage. Synthetic tests also check
+Before switching to the independent capture-clock window, a 50 Hz disk-backed
+comparison of the 71-second BS 2.0 recording exactly matched the earlier
+in-memory position RMSE and coverage under the same input-span bounds. Synthetic tests also check
 clock-anchor equivalence, receiver identity changes, invalid interpolation,
 held-out fitting, explicit truncation handling, checkpoint/resume, and changed
 build rejection. `--allow-truncated` is only for explicitly unqualified source
@@ -365,3 +370,20 @@ regression; the fix passes normally and with ASan/UBSan.
 This lifecycle fix was made after freezing both the full-corpus baseline and the
 separate long BS 2.0 scene-retention candidate. Those artifacts retain their
 original hashes and do not validate this later fix.
+
+### CLI button side effects during replay
+
+The original `survive-cli` resets every lighthouse and tracked object on any MENU
+button event, including release/touch events. A full replay of the 4h50m capture
+showed a simultaneous reset at 11189.525 seconds, followed by no further libsurvive
+poses despite later valid reference poses. The reset path is in the CLI callback;
+it must not be attributed to the tracking library alone.
+
+The CLI now requires `--cli-menu-reset` to enable this action, and only a button
+press triggers it. Normal MENU input no longer discards calibration. A regression
+checks the default behavior, explicit enablement, release/touch events and other
+buttons, normally and under ASan/UBSan. Evaluation artifacts from the original CLI
+remain identifiable by their frozen binary hashes. MENU events in the recorded
+replays are audited, and affected captures require a separate controlled replay
+with the new CLI and the same frozen core/plugins before drawing tracking-quality
+conclusions. The later global-scene fixes are evaluated separately.

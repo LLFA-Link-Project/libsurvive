@@ -123,6 +123,10 @@ def replay_index(db, path, clock, sample_hz=50, allow_unbracketed_span=False):
     db.execute('CREATE INDEX input_ticks ON inputs(obj,tick)')
     db.execute('CREATE INDEX pose_ticks ON poses(obj,tick,id)')
     span=db.execute('SELECT MIN(receive),MAX(receive) FROM inputs').fetchone()
+    if span[0] is None and db.execute('SELECT 1 FROM poses LIMIT 1').fetchone() is None:
+        counts['no_replay_input_or_poses']=1
+        db.execute('CREATE INDEX replay_times ON replay(serial,t,id)');db.commit()
+        return dict(counts)
     for name,value in zip(('capture_start_monotonic_ns','capture_end_monotonic_ns'),span):
         converted=clock.convert(value) if value is not None else None
         if converted is None and allow_unbracketed_span:
@@ -206,6 +210,14 @@ def reference_index(db, session, time_field='pose_time_estimate_ns', allow_trunc
     return {'rows_read':rows,'integrity':integrity,'rejected':dict(rejected),'json_parser':JSON_PARSER}
 
 
+def capture_bounds(clock_rows):
+    """Use an independent capture window so missing trailing input is not hidden."""
+    if len(clock_rows) < 2:
+        raise ValueError('At least two capture clock samples required')
+    times = [(row['monotonic_before_ns']+row['monotonic_after_ns'])//2 for row in clock_rows]
+    return min(times), max(times)
+
+
 def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncated=False,
         reference_database=None, reference_info=None):
     db=create_db(database)
@@ -236,8 +248,12 @@ def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncate
         except (EOFError,OSError,json.JSONDecodeError):
             if not allow_truncated:raise
             events=None;events_integrity='partial; event summary unavailable'
+        bounds=capture_bounds(clock_rows)
         result=comparison.compare(replay,refs,warmup_s=warmup,evaluation_hz=evaluation_hz,
-            bounds=(timing['capture_start_monotonic_ns'],timing['capture_end_monotonic_ns']),events=events,diagnostic_bin_s=60)
+            bounds=bounds,events=events,diagnostic_bin_s=60)
+        result['evaluation_window']={'basis':'capture clock-sync sample span, independent of replay output/input',
+            'start_monotonic_ns':bounds[0],'end_monotonic_ns':bounds[1],
+            'unsampled_capture_edges':'Outside the first/last clock sample is not evaluated'}
         result.update(timing=timing,reference_index=reference,clock_integrity=clock_integrity,events_integrity=events_integrity,wall_time_s=time.monotonic()-started,
             sampling='Replay sorted by full device ticks; 50Hz mapping/coverage, sampled error evaluation',
             timing_caveat='Input arrival mapping; device/USB/driver latency and prediction remain unknown')

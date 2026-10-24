@@ -123,7 +123,7 @@ class CorpusLedger(unittest.TestCase):
                 if name=='partial':
                     self.assertFalse(corpus.assemble(root)['complete'])
                 metric=dict(n=3,rmse=error)
-                comparison=dict(evaluation_samples=3,evaluation_sample_hz=5,
+                comparison=dict(evaluation_samples=3,evaluation_sample_hz=5,evaluation_window={'basis':'capture clock-sync sample span'},
                                 objects={'a':dict(position_difference_m=metric,orientation_difference_deg=metric,coverage={'fraction':1})})
                 write(root/'comparison'/(name+'.json'),dict(comparison=comparison))
             result=corpus.assemble(root)

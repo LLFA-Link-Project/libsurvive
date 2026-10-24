@@ -82,7 +82,7 @@ class Comparison(unittest.TestCase):
         refs = [(t, ((p[0]+(i>=3), p[1], p[2]), q)) for i, (t, (p,q)) in enumerate(rows)]
         result = compare.compare({'a': rows}, {'a': refs}, warmup_s=0, diagnostic_bin_s=1)
         bins = result['objects']['a']['heldout_time_bins']
-        self.assertEqual([row['start_after_input_s'] for row in bins], list(range(3,10)))
+        self.assertEqual([row['start_after_capture_s'] for row in bins], list(range(3,10)))
         for row in bins:
             self.assertAlmostEqual(row['position_difference_m']['rmse'], 1)
 
@@ -117,6 +117,25 @@ class Comparison(unittest.TestCase):
 
 
 class DiskComparison(unittest.TestCase):
+    def test_capture_window_keeps_tail_after_replay_input_stops(self):
+        clock=[sample(10_000_000_000,0),sample(19_000_000_000,9_000_000_000)]
+        pose=((0,0,0),(1,0,0,0))
+        replay=[(i*1_000_000_000,pose) for i in range(6)]
+        refs=[(i*1_000_000_000,pose) for i in range(10)]
+        result=compare.compare({'a':replay},{'a':refs},warmup_s=0,bounds=disk.capture_bounds(clock))
+        self.assertAlmostEqual(result['objects']['a']['coverage']['fraction'],.6)
+        self.assertEqual(result['evaluation_samples'],3)
+
+    def test_no_alignment_still_reports_missing_output_coverage(self):
+        pose=((0,0,0),(1,0,0,0))
+        refs=[(i*1_000_000_000,pose) for i in range(10)]
+        result=compare.compare({}, {'a':refs},warmup_s=0,bounds=(0,9_000_000_000))
+        self.assertEqual(result['objects']['a']['coverage']['fraction'],0)
+        self.assertEqual(result['objects']['a']['coverage']['valid_reference_bins'],10)
+        self.assertIsNone(result['objects']['a']['position_difference_m'])
+        self.assertIsNone(result['world_from_survive'])
+        self.assertEqual(result['evaluation_samples'],0)
+
     def test_disk_clock_mapping_matches_memory_implementation(self):
         start = 1_700_000_000_000_000_000
         tick_base = 1 << 40

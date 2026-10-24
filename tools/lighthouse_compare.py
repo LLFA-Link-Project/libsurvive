@@ -319,7 +319,7 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
         times = None if hasattr(refs, "interpolate") else [row[0] for row in refs]
         previous_evaluation = None
         for t, pose in samples:
-            if t < begin:
+            if t < begin or t > end:
                 continue
             if evaluation_hz and previous_evaluation is not None and t-previous_evaluation < 1e9/evaluation_hz:
                 continue
@@ -330,10 +330,10 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
         # Coverage denominator is valid reference time, not emitted replay poses.
         libtimes = [row[0] for row in samples]
         good = total = 0
-        previous = 0
+        previous = None
         for t, pose in refs:
             t -= round(lag_s*1e9)
-            if pose is None or t < begin or t > end or t-previous < 20_000_000:
+            if pose is None or t < begin or t > end or (previous is not None and t-previous < 20_000_000):
                 continue
             previous = t
             total += 1
@@ -346,10 +346,10 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
                             'first_valid_reference_after_start_s':
                                 next(((t-start)/1e9 for t, p in refs if t >= start and p is not None), None)}
     training = [row for row in pairs if row[3] < split]
-    transform = fit(training)
+    transform = fit(training) if len(training) >= 3 else None
     per_object = {}
     for serial in coverage:
-        rows = [row for row in pairs if row[0] == serial and row[3] >= split]
+        rows = [row for row in pairs if row[0] == serial and row[3] >= split] if transform else []
         positions, angles = [], []
         errors = []
         for _, pose, ref, t in rows:
@@ -360,14 +360,15 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
         per_object[serial] = {'position_difference_m': distribution(positions),
                               'orientation_difference_deg': distribution(angles), 'coverage': coverage[serial],
                               'association': ('no_replay_poses' if not replay.get(serial) else
-                                              'no_reference_poses' if not reference.get(serial) else 'matched')}
+                                              'no_reference_poses' if not reference.get(serial) else
+                                              'insufficient_alignment' if transform is None else 'matched')}
         if diagnostic_bin_s:
             groups = collections.defaultdict(list)
             period = round(diagnostic_bin_s*1e9)
             for t, pos, ang in errors:
                 groups[(t-start)//period].append((pos,ang))
             per_object[serial]['heldout_time_bins'] = [
-                {'start_after_input_s': key*diagnostic_bin_s,
+                {'start_after_capture_s': key*diagnostic_bin_s,
                  'position_difference_m': distribution([v[0] for v in values]),
                  'orientation_difference_deg': distribution([v[1] for v in values])}
                 for key,values in sorted(groups.items())]
@@ -403,8 +404,9 @@ def compare(replay, reference, warmup_s=10, lag_s=0, bounds=None, events=None, e
     return {'reference_is_ground_truth': False, 'fitted_time_lag_s': lag_s,
             'time_lag_was_fitted': False, 'warmup_s': warmup_s, 'alignment_train_end_monotonic_ns': split,
             'alignment_train_samples': len(training), 'alignment_method': 'common SE3; positions + 0.25m orientation axes',
-            'world_from_survive': {'position_m': transform[0], 'orientation_wxyz': transform[1]},
-            'evaluation_samples': sum(row[3] >= split for row in pairs), 'objects': per_object,
+            'world_from_survive': {'position_m': transform[0], 'orientation_wxyz': transform[1]} if transform else None,
+            'alignment_unavailable': 'Too few training alignment samples' if transform is None else None,
+            'evaluation_samples': sum(row[3] >= split for row in pairs) if transform else 0, 'objects': per_object,
             'reference_state_events': events, 'evaluation_sample_hz': evaluation_hz}
 
 

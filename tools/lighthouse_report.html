@@ -13,6 +13,7 @@ small{color:#52647a}#detail{background:#e8edf4;padding:12px;white-space:pre-wrap
 </style>
 <h1>Lighthouse corpus evaluation</h1>
 <p id="status"></p><div id="cards"></div>
+<p id="protocol-note"></p>
 <p>Valve poses are reference estimates, not ground truth. One full USB replay per capture does not establish repeatability.
 Held-out errors use 5 Hz samples after one common spatial fit per capture; output coverage uses 50 Hz.
 Incomplete captures remain visible and are excluded from pooled errors. No time lag is fitted.</p>
@@ -30,7 +31,8 @@ Incomplete captures remain visible and are excluded from pooled errors. No time 
 const report=JSON.parse(document.getElementById('report-data').textContent), summary=report.summary;
 const el=id=>document.getElementById(id), fmt=(v,d=2)=>v==null?'—':Number(v).toFixed(d);
 el('status').textContent=(report.complete?'COMPLETE':'IN PROGRESS')+' · Generated '+report.generated_utc+' · Reload to view a newly generated report.';
-for(const [label,value] of [['Sessions',summary.sessions],['Stored source GB',(summary.source_bytes/1e9).toFixed(2)],['Finite-output replays',summary.replay_states.finite_output||0],['Reference callbacks indexed',summary.reference_callbacks_indexed.toLocaleString()]]){
+el('protocol-note').textContent=report.evaluation_settings?.protocol_note||'';
+for(const [label,value] of [['Sessions',summary.sessions],['Stored source GB',(summary.source_bytes/1e9).toFixed(2)],['Finite-output replays',summary.replay_states.finite_output||0],['Reference callbacks indexed',summary.reference_callbacks_indexed.toLocaleString()],['Sessions with CLI MENU resets',summary.sessions_with_cli_menu_reset_events||0]]){
  const card=document.createElement('div'),number=document.createElement('strong');number.textContent=value;card.append(number,document.createTextNode(label));el('cards').append(card);
 }
 const all=[];
@@ -59,18 +61,19 @@ function draw(){
  el('detail').textContent='';el('plot-note').textContent='';if(!selected)return;
  const s=selected.session,o=selected.obj,metric=el('metric').value,scale=metric==='position_difference_m'?1000:1;
  const points=(o.heldout_time_bins||[]).filter(b=>b[metric]);
- el('detail').textContent=s.session+' / '+(selected.serial||'no device')+'\nQualified for pooled summary: '+s.eligible_for_summary+'\n'+(s.comparison_reason||s.replay_reason||'')+'\nSource errors: '+JSON.stringify(s.errors||[])+'\nGzip errors: '+JSON.stringify(s.gzip_errors||{});
+ el('detail').textContent=s.session+' / '+(selected.serial||'no device')+'\nQualified for pooled summary: '+s.eligible_for_summary+'\n'+(s.comparison_reason||s.replay_reason||'')+'\nSource errors: '+JSON.stringify(s.errors||[])+'\nGzip errors: '+JSON.stringify(s.gzip_errors||{})+'\nCLI MENU reset events: '+(s.cli_menu_reset_events?.length??'not audited')+'\nNative recognized USB packets / source packets: '+(s.replay?.recognized_usb_packets_observed??'unknown')+' / '+(s.replay?.source_usb_packet_count??'unknown');
  if(!points.length){el('plot-note').textContent='No per-minute held-out error bins available for this device. Missing output is not a zero error.';return;}
- const x0=0,x1=Math.max(1,...points.map(p=>p.start_after_input_s/60+1)),ymax=Math.max(.001,...points.flatMap(p=>[p[metric].rmse*scale,p[metric].p95*scale]));
+ const minute=p=>(p.start_after_capture_s??p.start_after_input_s)/60;
+ const x0=0,x1=Math.max(1,...points.map(p=>minute(p)+1)),ymax=Math.max(.001,...points.flatMap(p=>[p[metric].rmse*scale,p[metric].p95*scale]));
  const left=70,right=w-20,top=20,bottom=h-40;
  const x=t=>left+(right-left)*(t-x0)/(x1-x0),y=v=>bottom-(bottom-top)*v/ymax;
  c.font='12px system-ui';c.fillStyle='#52647a';c.strokeStyle='#dde3eb';
  for(let i=0;i<=4;i++){const v=ymax*i/4;c.beginPath();c.moveTo(left,y(v));c.lineTo(right,y(v));c.stroke();c.fillText(fmt(v,1),4,y(v)+4);const t=x1*i/4;c.fillText(fmt(t,1),x(t)-12,h-20);}
- c.fillText('Minutes since first input',left,h-4);
+ c.fillText('Minutes since evaluation window start',left,h-4);
  for(const [field,color] of [['p95','#d58a19'],['rmse','#176ab5']]){
   c.strokeStyle=color;c.lineWidth=2;
   // Each one-minute bin is separate. Do not draw across missing data.
-  for(const p of points){c.beginPath();c.moveTo(x(p.start_after_input_s/60),y(p[metric][field]*scale));c.lineTo(x(p.start_after_input_s/60+1),y(p[metric][field]*scale));c.stroke();}
+  for(const p of points){c.beginPath();c.moveTo(x(minute(p)),y(p[metric][field]*scale));c.lineTo(x(minute(p)+1),y(p[metric][field]*scale));c.stroke();}
  }
  el('plot-note').textContent='Blue: RMSE; amber: 95th percentile. '+(metric==='position_difference_m'?'Millimetres. ':'Degrees. ')+'One-minute held-out bins use the same spatial fit. Blank intervals have no matched samples; reference loss, replay loss and timing rejection can all cause gaps.';
 }
