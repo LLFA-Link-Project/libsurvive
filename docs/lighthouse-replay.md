@@ -245,3 +245,14 @@ Eleven targeted tests pass; six decoder/optimizer/timing/poser/comparator tests
 also pass under ASan/UBSan (leak detection disabled). The interrupted 30-minute
 replay from the previous temporary environment did not produce a completed
 result and is not reported as a pass.
+
+The gravity-prior experiment was also checked on four BS 1.0 captures. It
+worsened the 165-second multi-device capture's tracker position disagreement from
+62.08 mm to 76.77 mm and F39A0C97 from 69.66 mm to 82.55 mm, confirming that the
+short BS 2.0 improvement does not justify a new default. Compact experiment
+measurements are retained in `lighthouse-gravity-experiments.json`.
+
+The entire 71-second three-station BS 2.0 capture also completed in a Debug build
+under ASan/UBSan with no reported sanitizer errors, using fresh configuration and
+no physical USB devices. This is one complete capture validation, not proof of
+multi-hour stability or accuracy equivalence.

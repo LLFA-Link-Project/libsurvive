@@ -1,0 +1,178 @@
+{
+  "reference_is_ground_truth": false,
+  "method": "Same held-out protocol as lighthouse-replay.md; fresh calibration; default gravity weights unchanged",
+  "experiments": [
+    {
+      "session": "2026-10-23_222834_994990818_234361",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.01664375482508199,
+          "orientation_rmse_deg": 2.3032955317341535,
+          "coverage": 0.8959308606409795
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.021718319937112675,
+          "orientation_rmse_deg": 1.1370736637504253,
+          "coverage": 0.8962620747585048
+        }
+      }
+    },
+    {
+      "session": "2026-10-23_222834_994990818_234361",
+      "variant": "both_up",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01",
+        "--mpfit-lighthouse-up-variance",
+        ".1"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.01580941215722554,
+          "orientation_rmse_deg": 3.3582354861874166,
+          "coverage": 0.8959308606409795
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.023400416288291374,
+          "orientation_rmse_deg": 1.680459672588719,
+          "coverage": 0.8962620747585048
+        }
+      }
+    },
+    {
+      "session": "2026-10-23_223843_281852543_236227",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.008973690519298744,
+          "orientation_rmse_deg": 2.4286302994962106,
+          "coverage": 0.9656251918237063
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.008571184436233404,
+          "orientation_rmse_deg": 2.0996795769286285,
+          "coverage": 0.9654974535542644
+        }
+      }
+    },
+    {
+      "session": "2026-10-23_223843_281852543_236227",
+      "variant": "both_up",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01",
+        "--mpfit-lighthouse-up-variance",
+        ".1"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.008945234144827712,
+          "orientation_rmse_deg": 2.4120656275848096,
+          "coverage": 0.9656251918237063
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.008535813919557267,
+          "orientation_rmse_deg": 2.0630343150598,
+          "coverage": 0.9654974535542644
+        }
+      }
+    },
+    {
+      "session": "2026-10-18_220050_630705468_3165209",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.40418769949049915,
+          "orientation_rmse_deg": 28.43285979759013,
+          "coverage": 1.0
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.04250934928958247,
+          "orientation_rmse_deg": 2.4572049334062984,
+          "coverage": 0.993631881676253
+        }
+      }
+    },
+    {
+      "session": "2026-10-18_220701_114777916_3198653",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.05499412476560282,
+          "orientation_rmse_deg": 0.715475178936904,
+          "coverage": 0.830781627719581
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.054076948659672774,
+          "orientation_rmse_deg": 0.5427396838517577,
+          "coverage": 0.8299065420560747
+        }
+      }
+    },
+    {
+      "session": "2026-10-20_125408_406716137_53614",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-5D3D7A83": {
+          "position_rmse_m": 0.07677437549033737,
+          "orientation_rmse_deg": 1.688732770313203,
+          "coverage": 0.9833769144564811
+        },
+        "LHR-DF24384D": {
+          "position_rmse_m": 0.12714013552766074,
+          "orientation_rmse_deg": 2.5186469659520583,
+          "coverage": 0.8343596059113301
+        },
+        "LHR-F39A0C97": {
+          "position_rmse_m": 0.08254604650548232,
+          "orientation_rmse_deg": 2.062742898857452,
+          "coverage": 0.7833130116704407
+        }
+      }
+    },
+    {
+      "session": "2026-10-19_185631_769305405_8429",
+      "variant": "object_up_01",
+      "flags": [
+        "--mpfit-cal-stationary-object-up-variance",
+        ".01"
+      ],
+      "retained": false,
+      "objects": {
+        "LHR-5D3D7A83": {
+          "position_rmse_m": 0.0182684786486123,
+          "orientation_rmse_deg": 0.43171508367439676,
+          "coverage": 0.9981657848324516
+        }
+      }
+    }
+  ]
+}
