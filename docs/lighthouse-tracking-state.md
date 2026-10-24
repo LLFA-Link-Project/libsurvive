@@ -42,3 +42,24 @@ recording; it has no asynchronous writer/drop accounting. Retain the library and
 plugin revisions, configuration, source data and write/integrity results, and
 measure logging overhead when drawing conclusions about a live application.
 See [the WiVRn measurement handoff](libsurvive-micro-motion-handoff.md).
+
+With `record-tracking-state=1`, global scene optimization also emits `INFO LOG`
+diagnostics for failed and successful candidates:
+
+```
+GSS_QUALITY status=... scenes=... optical_rms_rad=... optical_count=... object_gravity_rms_deg=... object_gravity_count=...
+GSS_LIGHTHOUSE_GRAVITY index=... channel=... angle_deg=...
+```
+
+The optical RMS is the solver's existing fitted-light residual statistic. Object
+gravity angles are recomputed from the returned scene poses and their measured
+acceleration; lighthouse angles compare the returned lighthouse pose with its
+OOTX acceleration. These compare local measured gravity with world up, regardless
+of mounting angle. Unavailable gravity produces `nan`. Candidate diagnostics do
+not indicate acceptance and do not change acceptance rules or filter settings.
+They measure internal agreement, not ground-truth accuracy. See
+[the calibration investigation](lighthouse-calibration-failure-results.md).
+
+Since `4def8c2`, the legacy `up err` statistic sums squared vector residuals,
+rather than squaring their signed sum. It includes object and lighthouse gravity
+constraints. Its numeric values are not directly comparable with older logs.
