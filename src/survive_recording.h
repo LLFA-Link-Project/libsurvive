@@ -68,3 +68,6 @@ void survive_recording_imu_scales(struct SurviveObject *so, int gyro_scale_mode,
 void survive_recording_raw_imu_process(struct SurviveObject *so, int mask, const FLT *accelgyro, uint32_t timecode,
 									   int id);
 void survive_recording_disconnect_process(struct SurviveObject *so);
+
+// Write a complete matrix record atomically, including its prefix and newline.
+void survive_recording_write_matrix_record(struct SurviveRecordingData *data, const char *prefix, const CnMat *matrix);

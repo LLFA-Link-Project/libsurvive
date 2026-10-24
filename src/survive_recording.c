@@ -40,6 +40,7 @@ typedef struct SurviveRecordingData {
 	bool writeTrackingState;
 	int writeDataMatrix;
 	gzFile output_file;
+	og_mutex_t output_lock;
 } SurviveRecordingData;
 
 // clang-format off
@@ -73,63 +74,78 @@ END_STRUCT_CONFIG_SECTION(SurviveRecordingData)
 #define FLT_PRINTF "%0.6f "
 #endif
 
-SURVIVE_EXPORT void survive_recording_write_matrix(struct SurviveRecordingData *recordingData, const SurviveObject *so,
-												   int lvl, const char *name, const CnMat *M) {
-	if (!recordingData || recordingData->writeDataMatrix < lvl || !M || M->rows == 0 || M->cols == 0) {
-		return;
+// Callers hold output_lock across a complete logical record. zlib streams are
+// not safe for concurrent writers, even when the gzip CRC remains valid.
+static void recording_write_v_unlocked(SurviveRecordingData *data, bool preamble, const char *format, va_list args) {
+	double ts = preamble ? survive_run_time(data->ctx) : 0;
+	if (data->output_file) {
+		va_list copy;
+		va_copy(copy, args);
+		if (preamble)
+			gzprintf(data->output_file, FLT_PRINTF, ts);
+		gzvprintf(data->output_file, format, copy);
+		va_end(copy);
 	}
-
-	survive_recording_write_to_output(recordingData, "%s DATA_MATRIX %s %d %d ", so ? so->codename : "g", name, M->rows,
-									  M->cols);
-	for (int i = 0; i < M->rows * M->cols; i++) {
-		survive_recording_write_to_output_nopreamble(recordingData, "%f ", M->data[i]);
-	}
-	survive_recording_write_to_output_nopreamble(recordingData, "\n");
-}
-void survive_recording_write_to_output(struct SurviveRecordingData *recordingData, const char *format, ...) {
-	if (!recordingData) {
-		return;
-	}
-
-	double ts = survive_run_time(recordingData->ctx);
-
-	if (recordingData->output_file) {
-		va_list args;
-		va_start(args, format);
-		gzprintf(recordingData->output_file, FLT_PRINTF, ts);
-		gzvprintf(recordingData->output_file, format, args);
-
-		va_end(args);
-	}
-
-	if (recordingData->alwaysWriteStdOut) {
-		va_list args;
-		va_start(args, format);
-		fprintf(stdout, FLT_PRINTF, ts);
+	if (data->alwaysWriteStdOut) {
+		if (preamble)
+			fprintf(stdout, FLT_PRINTF, ts);
 		vfprintf(stdout, format, args);
-		va_end(args);
 	}
 }
 
-void survive_recording_write_to_output_nopreamble(struct SurviveRecordingData *recordingData, const char *format, ...) {
-	if (!recordingData) {
+static void recording_write_unlocked(SurviveRecordingData *data, bool preamble, const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	recording_write_v_unlocked(data, preamble, format, args);
+	va_end(args);
+}
+
+static void recording_write_v(SurviveRecordingData *data, bool preamble, const char *format, va_list args) {
+	if (!data)
 		return;
-	}
+	OGLockMutex(data->output_lock);
+	recording_write_v_unlocked(data, preamble, format, args);
+	OGUnlockMutex(data->output_lock);
+}
 
-	if (recordingData->output_file) {
-		va_list args;
-		va_start(args, format);
-		gzvprintf(recordingData->output_file, format, args);
+void survive_recording_write_to_output(SurviveRecordingData *data, const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	recording_write_v(data, true, format, args);
+	va_end(args);
+}
 
-		va_end(args);
-	}
+void survive_recording_write_to_output_nopreamble(SurviveRecordingData *data, const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	recording_write_v(data, false, format, args);
+	va_end(args);
+}
 
-	if (recordingData->alwaysWriteStdOut) {
-		va_list args;
-		va_start(args, format);
-		vfprintf(stdout, format, args);
-		va_end(args);
-	}
+static void recording_matrix_values(SurviveRecordingData *data, const CnMat *matrix) {
+	for (int i = 0; i < matrix->rows * matrix->cols; i++)
+		recording_write_unlocked(data, false, "%f ", matrix->data[i]);
+	recording_write_unlocked(data, false, "\n");
+}
+
+void survive_recording_write_matrix_record(SurviveRecordingData *data, const char *prefix, const CnMat *matrix) {
+	if (!data)
+		return;
+	OGLockMutex(data->output_lock);
+	recording_write_unlocked(data, true, "%s", prefix);
+	recording_matrix_values(data, matrix);
+	OGUnlockMutex(data->output_lock);
+}
+
+SURVIVE_EXPORT void survive_recording_write_matrix(SurviveRecordingData *data, const SurviveObject *so,
+												   int lvl, const char *name, const CnMat *matrix) {
+	if (!data || data->writeDataMatrix < lvl || !matrix || matrix->rows == 0 || matrix->cols == 0)
+		return;
+	OGLockMutex(data->output_lock);
+	recording_write_unlocked(data, true, "%s DATA_MATRIX %s %d %d ", so ? so->codename : "g", name,
+							matrix->rows, matrix->cols);
+	recording_matrix_values(data, matrix);
+	OGUnlockMutex(data->output_lock);
 }
 void survive_recording_disconnect_process(struct SurviveObject *so) {
 	SurviveRecordingData *recordingData = so->ctx ? so->ctx->recptr : 0;
@@ -147,10 +163,12 @@ void survive_recording_config_process(SurviveObject *so, char *ct0conf, int len)
 		if (buffer[i] == '\n' || buffer[i] == '\r')
 			buffer[i] = ' ';
 
-	survive_recording_write_to_output(recordingData, "%s CONFIG ", so->codename);
+	OGLockMutex(recordingData->output_lock);
+	recording_write_unlocked(recordingData, true, "%s CONFIG ", so->codename);
 	write_to_output_raw(recordingData, buffer, len);
 
 	write_to_output_raw(recordingData, "\r\n", 2);
+	OGUnlockMutex(recordingData->output_lock);
 
 	free(buffer);
 }
@@ -426,7 +444,9 @@ void survive_recording_raw_imu_process(struct SurviveObject *so, int mask, const
 void survive_destroy_recording(SurviveContext *ctx) {
 	if (ctx->recptr) {
 		SurviveRecordingData_detach_config(ctx, ctx->recptr);
-		gzclose(ctx->recptr->output_file);
+		if (ctx->recptr->output_file)
+			gzclose(ctx->recptr->output_file);
+		OGDeleteMutex(ctx->recptr->output_lock);
 		free(ctx->recptr);
 		ctx->recptr = 0;
 	}
@@ -446,6 +466,7 @@ void survive_install_recording(SurviveContext *ctx) {
 	if (strlen(dataout_file) > 0 || record_to_stdout) {
 		ctx->recptr = SV_CALLOC(sizeof(struct SurviveRecordingData));
 		ctx->recptr->ctx = ctx;
+		ctx->recptr->output_lock = OGCreateMutex();
 		SurviveRecordingData_attach_config(ctx, ctx->recptr);
 		if (strlen(dataout_file) > 0) {
 			if (strstr(dataout_file, ".pcap")) {
@@ -464,6 +485,7 @@ void survive_install_recording(SurviveContext *ctx) {
 				ctx->recptr->output_file = gzopen(dataout_file, useCompression ? "w6F" : "wT");
 				if (ctx->recptr->output_file == 0) {
 					SV_INFO("Could not open %s for writing", dataout_file);
+					OGDeleteMutex(ctx->recptr->output_lock);
 					free(ctx->recptr);
 					ctx->recptr = 0;
 					return;

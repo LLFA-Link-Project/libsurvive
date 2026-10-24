@@ -140,11 +140,9 @@ void survive_kalman_lighthouse_report(SurviveKalmanLighthouse *tracker) {
 
 	if (tracker->report_covariance_cnt > 0 && ++tracker->stats.reported_poses % tracker->report_covariance_cnt == 0) {
 		SurviveContext *ctx = tracker->ctx;
-		survive_recording_write_to_output(ctx->recptr, "LH%d FULL_COVARIANCE ", ctx->bsd[tracker->lh].mode);
-		for (int i = 0; i < tracker->model.P.rows * tracker->model.P.cols; i++) {
-			survive_recording_write_to_output_nopreamble(ctx->recptr, "%f ", tracker->model.P.data[i]);
-		}
-		survive_recording_write_to_output_nopreamble(ctx->recptr, "\n");
+		char prefix[64];
+		snprintf(prefix, sizeof(prefix), "LH%d FULL_COVARIANCE ", ctx->bsd[tracker->lh].mode);
+		survive_recording_write_matrix_record(ctx->recptr, prefix, &tracker->model.P);
 
 		survive_recording_write_matrix(ctx->recptr, 0, 5, tracker->lh == 0 ? "bsd0" : "bsd1", &tracker->bsd_model.P);
 

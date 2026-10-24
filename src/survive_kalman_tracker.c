@@ -1241,11 +1241,9 @@ void survive_kalman_tracker_integrate_observation(PoserData *pd, SurviveKalmanTr
             cnMatrixSet(&R, i, i, cnMatrixGet(&R, i, i) + augR[i]);
 
         if(tracker->report_covariance_cnt > 0 && Ri && Ri->rows == Ri->cols && (tracker->stats.obs_count % tracker->report_covariance_cnt) == 0) {
-            survive_recording_write_to_output(ctx->recptr, "%s' FULL_COVARIANCE ", so->codename);
-            for (int i = 0; i < R.cols * R.cols; i++) {
-                survive_recording_write_to_output_nopreamble(ctx->recptr, "%f ", R.data[i]);
-            }
-            survive_recording_write_to_output_nopreamble(ctx->recptr, "\n");
+            char prefix[64];
+            snprintf(prefix, sizeof(prefix), "%s' FULL_COVARIANCE ", so->codename);
+            survive_recording_write_matrix_record(ctx->recptr, prefix, &R);
 
             if(tracker->report_sampled_cloud > 0) {
                 survive_show_covariance(so, pose, Ri, .05, tracker->report_sampled_cloud);
@@ -1742,11 +1740,9 @@ void survive_kalman_tracker_report_state(PoserData *pd, SurviveKalmanTracker *tr
     if(tracker->report_covariance_cnt > 0 && tracker->stats.reported_poses % tracker->report_covariance_cnt == 0) {
 		survive_recording_write_to_output(ctx->recptr, "%s FULL_STATE " Point27_format "\n",
                                           so->codename, LINMATH_VEC27_EXPAND((FLT*)&tracker->state));
-        survive_recording_write_to_output(ctx->recptr, "%s FULL_COVARIANCE ", so->codename);
-        for (int i = 0; i < tracker->model.P.rows * tracker->model.P.cols; i++) {
-            survive_recording_write_to_output_nopreamble(ctx->recptr, "%f ", tracker->model.P.data[i]);
-        }
-        survive_recording_write_to_output_nopreamble(ctx->recptr, "\n");
+        char prefix[64];
+        snprintf(prefix, sizeof(prefix), "%s FULL_COVARIANCE ", so->codename);
+        survive_recording_write_matrix_record(ctx->recptr, prefix, &tracker->model.P);
 		survive_recording_write_matrix(ctx->recptr, so, 5, "imu", &tracker->imu_bias_model.P);
 
 		if(tracker->report_sampled_cloud > 0) {
