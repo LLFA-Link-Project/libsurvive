@@ -7,6 +7,7 @@ disposable SQLite cache; browsers request bounded windows at original cadence.
 
 import argparse
 import concurrent.futures
+from contextlib import closing
 import gzip
 import hashlib
 import http.server
@@ -15,6 +16,7 @@ import math
 import mimetypes
 import os
 from pathlib import Path
+import re
 import signal
 import sqlite3
 import statistics
@@ -25,8 +27,9 @@ import zlib
 
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).with_name('lighthouse-viewer')
-VERSION = 3
+VERSION = 4
 MAX_WINDOW = 60
+MAX_SCENE_SAMPLES = 300000
 COLUMNS = ['t', 'tick', 'hz', 'x', 'y', 'z', 'qw', 'qx', 'qy', 'qz',
            'stationary_s', 'vx', 'vy', 'vz', 'bias_gx', 'bias_gy', 'bias_gz',
            'gyro_x', 'gyro_y', 'gyro_z', 'valid']
@@ -147,6 +150,22 @@ class Writer:
 def native_index(source, writer, health, cancel=None):
     identities, pending, configs, options, epochs = {}, {}, {}, {}, []
     bases = {}
+    # LH_POSE is recorded *after* floor subtraction. POSE_STATE and raw-obs
+    # with report-in-imu are before it. Never silently mix those origins.
+    floor = None
+    calibration = source.get('initial_calibration')
+    if calibration and calibration.is_file():
+        match = re.search(r'"floor-offset"\s*:\s*"?([-+0-9.eE]+)', calibration.read_text())
+        floor = float(match[1]) if match else 0.0
+
+    def description(device, serial, mode):
+        c = configs.get(device, {})
+        return dict(serial=serial, device=device, stage=mode,
+                    frame='libsurvive world Z-up',
+                    reference='raw IMU before floor' if mode == 'POSE_STATE' else 'reported pose (floor / profile may apply)',
+                    clock='native receive seconds; sensor tick/Hz retained',
+                    label=f'{serial} · {c.get("model_number", device)} · {mode}',
+                    model=c.get('model_number', ''), role=c.get('device_class', 'unknown'))
 
     def flush(device):
         item = pending.pop(device, None)
@@ -154,11 +173,7 @@ def native_index(source, writer, health, cancel=None):
             row, state, identity = item
             serial, segment = identity
             mode = 'POSE_STATE' if state else 'POSE'
-            writer.add(f'{device}:{serial}:{segment}:{mode}', dict(
-                serial=serial, device=device, stage=mode,
-                frame='libsurvive world Z-up', reference='raw IMU before floor' if state else 'reported pose (floor / profile may apply)',
-                clock='native receive seconds; sensor tick/Hz retained',
-                label=f'{serial} · {device} · {mode}', role=configs.get(device, {}).get('device_class', 'unknown')), row)
+            writer.add(f'{device}:{serial}:{segment}:{mode}', description(device, serial, mode), row)
 
     for line in read_lines(source['path'], health, cancel):
         fields = line.split(maxsplit=3)
@@ -166,7 +181,7 @@ def native_index(source, writer, health, cancel=None):
             continue
         ts, device, kind, value = fields
         if kind not in ('CONFIG', 'POSE', 'POSE_STATE', 'POSE_TIMING', 'POSE_BIAS',
-                        'VELOCITY', 'I', 'INPUT_TIME', 'LH_POSE') and device != 'OPTION':
+                        'VELOCITY', 'I', 'INPUT_TIME', 'LH_POSE', 'EXTERNAL_POSE') and device != 'OPTION':
             continue
         try:
             t = float(ts)
@@ -175,6 +190,8 @@ def native_index(source, writer, health, cancel=None):
             f = value.split()
             if device == 'OPTION':
                 options[kind] = value.split(maxsplit=1)[-1].strip()
+                if kind == 'floor-offset':
+                    floor = float(options[kind])
             elif kind == 'CONFIG':
                 c = json.loads(value)
                 serial = c.get('device_serial_number') or device
@@ -186,9 +203,28 @@ def native_index(source, writer, health, cancel=None):
             elif kind == 'INPUT_TIME' and len(epochs) < 32:
                 epochs.append(int(f[1])*1000-round(t*1e9))
             elif kind == 'LH_POSE':
-                p = list(map(float, f[:7]))
-                if len(p) == 7 and all(map(math.isfinite, p)):
-                    bases[device] = dict(t=t, position=p[:3], quaternion=unit(p[3:]))
+                p = numbers(f[:7], 7)
+                reference = 'raw world before floor' if floor is not None else 'reported floor-subtracted world (floor unknown)'
+                if floor is not None:
+                    p[2] += floor
+                key = f'BS:{device}:{f[7] if len(f)>7 else "unknown"}'
+                desc = dict(serial=key, device=device, stage='LH_POSE',
+                            frame='libsurvive world Z-up', reference=reference,
+                            clock='native receive seconds; persistent until next LH_POSE',
+                            label=f'BS channel {device}', model='Lighthouse', role='base_station', persistent=True)
+                writer.add(key, desc, [t, None, None, *p[:3], *unit(p[3:]), *([None]*10), 1])
+                bases[device] = dict(t=t, position=p[:3], quaternion=unit(p[3:]), reference=reference)
+            elif kind == 'EXTERNAL_POSE' and device.endswith('-raw-obs'):
+                obj = device.removesuffix('-raw-obs')
+                serial, segment = identities.get(obj, (obj, 0))
+                p = numbers(f, 7)
+                desc = description(obj, serial, 'OPTICAL')
+                imu = options.get('report-in-imu') == '1'
+                desc.update(reference='raw IMU before floor' if imu else 'head before floor',
+                            label=f'{serial} · optical solver candidate',
+                            clock='native receive seconds; optical measurement tick unavailable')
+                writer.add(f'{obj}:{serial}:{segment}:OPTICAL', desc,
+                           [t, None, None, *p[:3], *unit(p[3:]), *([None]*10), 1])
             elif kind == 'POSE':
                 flush(device)
                 p = numbers(f, 7)
@@ -198,6 +234,9 @@ def native_index(source, writer, health, cancel=None):
             elif device in pending:
                 row = pending[device][0]
                 if kind == 'POSE_STATE':
+                    floor = float(f[4])
+                    if not math.isfinite(floor):
+                        raise ValueError('invalid floor offset')
                     tick, hz = int(f[0]), int(f[1])
                     if hz <= 0:
                         raise ValueError('invalid sensor frequency')
@@ -218,7 +257,7 @@ def native_index(source, writer, health, cancel=None):
             health['damaged_rows'] += 1
             # Retain an explicit invalid sample when its callback is known, so
             # short invalid intervals cannot disappear behind interpolation.
-            item = pending.get(device)
+            item = pending.get(device) if kind in ('POSE', 'POSE_STATE', 'POSE_TIMING', 'POSE_BIAS', 'VELOCITY', 'I') else None
             if item:
                 item[0][3:10] = [0, 0, 0, 1, 0, 0, 0]
                 item[0][10:20] = [None]*10
@@ -299,6 +338,7 @@ def jsonl_index(source, writer, health, cancel=None):
             description = dict(serial=serial, stage=stage, frame=frame, reference=reference,
                                clock=f'CLOCK_MONOTONIC callback relative to {origin_basis}',
                                role=r.get('role', str(r.get('device_class', 'unknown'))),
+                               model=r.get('model_number', ''), input_name=input_name,
                                label=f'{serial} · {stage} {input_name} · {reference}')
             writer.add(f'{serial}:{stage}:{input_name}:{frame}:{reference}', description, row)
         except (KeyError, ValueError, TypeError, IndexError, OverflowError):
@@ -381,6 +421,7 @@ def catalogue(dump_root, repo):
         status = manifest.get('status', 'unknown')
         native = stream_file(folder, 'native.rec')
         common = dict(session_path=folder, manifest_status=status,
+                      initial_calibration=folder/'calibration.initial.json',
                       revision=manifest.get('libsurvive_revision'), group='recordings')
         add(f'dump:{folder.name}:native', native, f'{folder.name} / native', folder.name,
             kind='native', input_group=folder.name, **common)
@@ -396,7 +437,19 @@ def catalogue(dump_root, repo):
                                 ('r4-tracker-final', r4, 'R4 / tracker constraints replay')]:
         add(f'replay:handheld:{run}', hand/run/'record.rec.gz', label, session,
             kind='native', group='handheld replays', input_group=session,
-            manifest_status='derived replay; see run.json', session_path=dump_root/session)
+            manifest_status='derived replay; see run.json', session_path=dump_root/session,
+            initial_calibration=dump_root/session/'calibration.initial.json')
+    for proof in sorted((repo/'.lh-evaluation/viewer-optical').glob('*/viewer-source.json')):
+        provenance = load_json(proof, {})
+        target = sources.get(provenance.get('target_id'))
+        if not target or provenance.get('returncode') != 0:
+            continue
+        add(f'replay:optical:{proof.parent.name}', proof.parent/'record.rec.gz',
+            f'{target["session"]} / optical diagnostic replay', target['session'],
+            kind='native', group='optical diagnostic replays', input_group=target['input_group'],
+            manifest_status='derived optical candidates; not original live optical poses',
+            session_path=target.get('session_path'), initial_calibration=proof.parent/'calibration.initial.json',
+            optical_provenance=provenance)
     full = repo/'.lh-evaluation/full-2026-10-24'
     for run in sorted(full.glob('replay-*')):
         if not run.is_dir():
@@ -423,11 +476,15 @@ class Store:
         self.sources = catalogue(self.dump_root, self.repo)
 
     def public(self, source):
-        return {k: v for k, v in source.items() if k not in ('path', 'session_path')}
+        return {k: v for k, v in source.items() if k not in ('path', 'session_path', 'initial_calibration')}
 
     def db_path(self, source):
         s = source['path'].stat()
         key = f'{VERSION}:{source["path"]}:{s.st_size}:{s.st_mtime_ns}'
+        calibration = source.get('initial_calibration')
+        if calibration and calibration.is_file():
+            c = calibration.stat()
+            key += f':{calibration}:{c.st_size}:{c.st_mtime_ns}'
         return self.cache/(hashlib.sha256(key.encode()).hexdigest()+'.sqlite')
 
     def ensure(self, identifier):
@@ -435,7 +492,7 @@ class Store:
         path = self.db_path(source)
         with self.lock:
             if path.exists():
-                with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as db:
+                with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as db:
                     info = json.loads(db.execute('SELECT value FROM metadata').fetchone()[0])
                 return dict(state='ready', source=self.public(source), **info)
             job = self.jobs.get(path)
@@ -458,7 +515,20 @@ class Store:
                     return dict(state='error', error=str(error), source=self.public(source))
             return dict(state='indexing', queued=not job.running(), source=self.public(source))
 
-    def window(self, identifier, track, lo, hi):
+    @staticmethod
+    def read_rows(db, track, lo, hi, preceding=False):
+        rows = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND t>=? AND t<=? ORDER BY t,rowid LIMIT 100001',
+                          (track, lo, hi)).fetchall()
+        if len(rows) > 100000:
+            raise ValueError('Too many samples; choose a shorter window')
+        if preceding:
+            before = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND t<? ORDER BY t DESC,rowid DESC LIMIT 1',
+                                (track, lo)).fetchone()
+            if before:
+                rows.insert(0, before)
+        return rows
+
+    def window(self, identifier, track, lo, hi, scene=True, anchor=None):
         if not all(map(math.isfinite, (lo, hi))) or hi <= lo or hi-lo > MAX_WINDOW:
             raise ValueError(f'Window must be > 0 and <= {MAX_WINDOW} seconds')
         info = self.ensure(identifier)
@@ -466,15 +536,79 @@ class Store:
             return info
         if track not in {x['id'] for x in info['tracks']}:
             raise ValueError('Unknown track')
+        selected = next(x for x in info['tracks'] if x['id'] == track)
         path = self.db_path(self.sources[identifier])
-        with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as db:
-            rows = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND t>=? AND t<=? ORDER BY t,rowid LIMIT 100001',
-                              (track, lo, hi)).fetchall()
-        if len(rows) > 100000:
-            raise ValueError('Too many samples; choose a shorter window')
+        context, optical = [], dict(state='unavailable', reason='光学解はこの記録に未保存です。')
+        scene_count = 0
+
+        def budget(items):
+            nonlocal scene_count
+            scene_count += len(items)
+            if scene_count > MAX_SCENE_SAMPLES:
+                raise ValueError('Too many scene samples; choose a shorter window')
+            return items
+
+        with closing(sqlite3.connect(f'file:{path}?mode=ro', uri=True)) as db:
+            rows = budget(self.read_rows(db, track, lo, hi))
+            previous = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND t<? ORDER BY t DESC,rowid DESC LIMIT 1',
+                                  (track, lo)).fetchone()
+            anchor_row = next((r for r in rows if r[20]), None)
+            if anchor == 'first':
+                anchor_row = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND valid=1 ORDER BY t,rowid LIMIT 1',
+                                        (track,)).fetchone()
+            elif anchor is not None:
+                if not math.isfinite(anchor):
+                    raise ValueError('Invalid anchor time')
+                anchor_row = db.execute(f'SELECT {SQL_COLUMNS} FROM samples WHERE track=? AND t=? AND valid=1 LIMIT 1',
+                                        (track, anchor)).fetchone()
+                if not anchor_row:
+                    raise ValueError('Anchor sample not found')
+            seen = {selected['serial']}
+            for other in info['tracks'] if scene else []:
+                same_frame = other['frame'] == selected['frame']
+                base = other['stage'] == 'LH_POSE'
+                same_reference = other['reference'] == selected['reference']
+                if other['stage'] == 'OPTICAL' and other['serial'] == selected['serial'] and same_frame and same_reference:
+                    optical = dict(state='ready', rows=budget(self.read_rows(db, other['id'], lo, hi, True)), track=other,
+                                   source_id=identifier, source_sha256=info['source_sha256'],
+                                   provenance=self.sources[identifier].get('optical_provenance'), origin='recorded')
+                elif other['serial'] not in seen and same_frame and (
+                        base and other['reference'] == 'raw world before floor' and selected['reference'] == 'raw IMU before floor' or
+                        other['stage'] == selected['stage'] and same_reference):
+                    seen.add(other['serial'])
+                    if len(context) >= 32:
+                        raise ValueError('Too many scene tracks; choose another stage')
+                    context.append(dict(track=other, rows=budget(self.read_rows(db, other['id'], lo, hi, True))))
+        # Reconstructed data is bound to an exact original SHA, never just a
+        # matching date or serial. Keep its own provenance in every response.
+        if scene and optical['state'] == 'unavailable':
+            companion_sources = list(self.sources.values())
+            for candidate in companion_sources:
+                proof = candidate.get('optical_provenance', {})
+                if proof.get('target_id') != identifier or proof.get('target_sha256') != info['source_sha256']:
+                    continue
+                companion = self.ensure(candidate['id'])
+                optical = dict(state=companion['state'], origin='reconstructed', provenance=proof)
+                if companion['state'] == 'ready':
+                    if companion['source_sha256'] != proof.get('record_sha256'):
+                        optical.update(state='unavailable', reason='光学再生ファイルの SHA-256 が生成時と異なります。')
+                        break
+                    obj = next((x for x in companion['tracks'] if x['stage'] == 'OPTICAL' and
+                                x['serial'] == selected['serial'] and x['frame'] == selected['frame'] and
+                                x['reference'] == selected['reference']), None)
+                    if obj:
+                        companion_path = self.db_path(candidate)
+                        with closing(sqlite3.connect(f'file:{companion_path}?mode=ro', uri=True)) as db:
+                            candidates = budget(self.read_rows(db, obj['id'], lo, hi, True))
+                        optical.update(rows=candidates, track=obj, source_id=candidate['id'],
+                                       source_sha256=companion['source_sha256'])
+                    else:
+                        optical.update(state='unavailable', reason='同じ参照点・座標系の光学解がありません。')
+                elif companion['state'] == 'error':
+                    optical['reason'] = companion.get('error')
+                break
         return dict(state='ready', columns=COLUMNS, rows=rows, source_sha256=info['source_sha256'],
-                    track=next(x for x in info['tracks'] if x['id'] == track),
-                    lo=lo, hi=hi, decimation=False)
+                    track=selected, anchor=anchor_row, previous=previous, context=context, optical=optical, lo=lo, hi=hi, decimation=False)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -491,7 +625,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif parsed.path == '/api/source':
                 self.json(self.server.store.ensure(query['id'][0]))
             elif parsed.path == '/api/window':
-                self.json(self.server.store.window(query['id'][0], query['track'][0], float(query['lo'][0]), float(query['hi'][0])))
+                self.json(self.server.store.window(query['id'][0], query['track'][0], float(query['lo'][0]), float(query['hi'][0]),
+                                                  anchor=('first' if query['anchor'][0] == 'first' else float(query['anchor'][0])) if 'anchor' in query else None))
             elif parsed.path in ('/', '/index.html', '/viewer.js', '/viewer.css'):
                 name = 'index.html' if parsed.path == '/' else parsed.path[1:]
                 self.send_data((ASSETS/name).read_bytes(), mimetypes.guess_type(name)[0] or 'application/octet-stream')

@@ -1,6 +1,7 @@
 """Parser / bounded-window tests for the offline viewer; no optional packages."""
 
 import gzip
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -26,7 +27,7 @@ class ViewerTests(unittest.TestCase):
         source.write_bytes(data[:-8] if truncate else data)
         output = self.root/'index.sqlite'
         meta = viewer.index_source(dict(path=source, kind=kind), output)
-        with sqlite3.connect(output) as db:
+        with closing(sqlite3.connect(output)) as db:
             rows = db.execute(f'SELECT {viewer.SQL_COLUMNS} FROM samples ORDER BY rowid').fetchall()
         self.assertEqual(meta['source_sha256'], hashlib.sha256(source.read_bytes()).hexdigest())
         return meta, rows
@@ -98,7 +99,7 @@ class ViewerTests(unittest.TestCase):
         output = self.root/'cancelled.sqlite'
         with self.assertRaises(viewer.IndexCancelled):
             viewer.index_source(dict(path=source, kind='native'), output, cancel)
-        with sqlite3.connect(output) as db:
+        with closing(sqlite3.connect(output)) as db:
             self.assertIsNone(db.execute('SELECT value FROM metadata').fetchone())
 
     @staticmethod
@@ -156,6 +157,7 @@ class ViewerTests(unittest.TestCase):
             self.assertEqual(len(result['rows']), 2)
             self.assertEqual(result['rows'][0][1], 4294967488)
             self.assertEqual(store.window(key, track, 1.003, 1.005)['rows'][0][0], 1.004)
+            self.assertEqual(store.window(key, track, 1.003, 1.005)['previous'][0], 1.0)
             for lo, hi in ((1, 1), (2, 1), (0, 61), (0, float('nan'))):
                 with self.assertRaises(ValueError):
                     store.window(key, track, lo, hi)
@@ -165,6 +167,101 @@ class ViewerTests(unittest.TestCase):
             with (folder/'native.rec.gz').open('ab') as f:
                 f.write(gzip.compress(b'2 WM0 POSE 1 2 3 1 0 0 0\n'))
             self.assertNotEqual(before, store.db_path(store.sources[key]))
+        finally:
+            store.pool.shutdown(wait=True)
+
+    def test_scene_keeps_relative_positions_timed_bases_and_raw_optical(self):
+        folder = self.root/'dumps'/'scene'
+        folder.mkdir(parents=True)
+        (folder/'manifest.json').write_text('{"status":"complete"}')
+        (folder/'calibration.initial.json').write_text('"floor-offset":"-0.1"\n')
+        text = ('0 OPTION report-in-imu b 1\n'
+                '0 WM0 CONFIG {"device_serial_number":"one","model_number":"Knuckles Left","device_class":"controller"}\n'
+                '0 WM1 CONFIG {"device_serial_number":"two","model_number":"VIVE Tracker Pro MV","device_class":"generic_tracker"}\n'
+                '0.1 14 LH_POSE 10 20 30 1 0 0 0 123\n'
+                '1 WM0 POSE 1 2 3.1 1 0 0 0\n'
+                '1 WM0 POSE_STATE 48 48 0 0 -0.1 1 2 3 1 0 0 0\n'
+                '1 WM1 POSE 4 5 6.1 1 0 0 0\n'
+                '1 WM1 POSE_STATE 48 48 0 0 -0.1 4 5 6 1 0 0 0\n'
+                '1.001 WM0-raw-obs EXTERNAL_POSE 1.01 2 3 1 0 0 0\n'
+                '3 14 LH_POSE 100 200 300 1 0 0 0 123\n'
+                '4 WM0 POSE 7 8 9.1 1 0 0 0\n'
+                '4 WM0 POSE_STATE 192 48 0 0 -0.1 7 8 9 1 0 0 0\n')
+        (folder/'native.rec.gz').write_bytes(gzip.compress(text.encode()))
+        store = viewer.Store(folder.parent, self.root/'cache', repo=self.root)
+        try:
+            key = 'dump:scene:native'
+            store.ensure(key)
+            store.pool.shutdown(wait=True)
+            meta = store.ensure(key)
+            track = next(t for t in meta['tracks'] if t['serial'] == 'one' and t['stage'] == 'POSE_STATE')
+            self.assertEqual(track['model'], 'Knuckles Left')
+            window = store.window(key, track['id'], 1, 2)
+            other = next(x for x in window['context'] if x['track']['serial'] == 'two')
+            self.assertEqual(other['rows'][0][3:6], (4, 5, 6))  # Never zero each device independently.
+            base = next(x for x in window['context'] if x['track']['stage'] == 'LH_POSE')
+            self.assertEqual(len(base['rows']), 1)  # Not the future 3 s update.
+            self.assertEqual(base['rows'][0][3:6], (10, 20, 29.9))
+            optical = window['optical']
+            self.assertEqual(optical['state'], 'ready')
+            self.assertEqual(optical['origin'], 'recorded')
+            self.assertEqual(optical['rows'][0][3], 1.01)
+            self.assertEqual(store.window(key, track['id'], 1.003, 1.01)['optical']['rows'][0][0], 1.001)
+            # Whole playback can use a fixed anchor outside the loaded window.
+            later = store.window(key, track['id'], 3, 4.1, anchor=1)
+            self.assertEqual(later['anchor'][3:6], (1, 2, 3))
+            self.assertEqual(later['rows'][0][3:6], (7, 8, 9))
+            self.assertEqual(store.window(key, track['id'], 0, .5, anchor='first')['anchor'][0], 1)
+            with self.assertRaises(ValueError):
+                store.window(key, track['id'], 3, 4.1, anchor=1.5)
+            # Calibration is a dependency of the floor conversion cache.
+            old = store.db_path(store.sources[key])
+            (folder/'calibration.initial.json').write_text('"floor-offset":"-0.25"\n')
+            self.assertNotEqual(old, store.db_path(store.sources[key]))
+        finally:
+            store.pool.shutdown(wait=True)
+
+    def test_optical_head_reference_does_not_overlay_imu_state(self):
+        meta, rows = self.index(self.native()+'1.002 WM0-raw-obs EXTERNAL_POSE 10 20 30 1 0 0 0\n')
+        optical = next(t for t in meta['tracks'] if t['stage'] == 'OPTICAL')
+        self.assertEqual(optical['reference'], 'head before floor')
+        self.assertEqual(len(rows), 3)
+
+    def test_reconstructed_optical_is_bound_to_both_file_hashes(self):
+        folder = self.root/'dumps'/'test'
+        folder.mkdir(parents=True)
+        (folder/'manifest.json').write_text('{"status":"complete"}')
+        (folder/'native.rec.gz').write_bytes(gzip.compress(self.native().encode()))
+        derived = self.root/'.lh-evaluation/viewer-optical/diagnostic'
+        derived.mkdir(parents=True)
+        (derived/'record.rec.gz').write_bytes(gzip.compress((self.native()+
+            '0 OPTION report-in-imu b 1\n1.002 WM0-raw-obs EXTERNAL_POSE 1.01 2 2.9 1 0 0 0\n').encode()))
+        proof = dict(target_id='dump:test:native', target_sha256='0'*64, returncode=0,
+                     record_sha256=hashlib.sha256((derived/'record.rec.gz').read_bytes()).hexdigest())
+        proof_path = derived/'viewer-source.json'
+        proof_path.write_text(json.dumps(proof))
+        store = viewer.Store(folder.parent, self.root/'cache', repo=self.root)
+        try:
+            for key in store.sources:
+                store.ensure(key)
+            store.pool.shutdown(wait=True)
+            meta = store.ensure('dump:test:native')
+            track = meta['tracks'][0]['id']
+            self.assertEqual(store.window('dump:test:native', track, 1, 1.01)['optical']['state'], 'unavailable')
+            proof['target_sha256'] = meta['source_sha256']
+            proof_path.write_text(json.dumps(proof))
+            store.refresh()
+            optical = store.window('dump:test:native', track, 1, 1.01)['optical']
+            self.assertEqual(optical['origin'], 'reconstructed')
+            self.assertEqual(optical['state'], 'ready')
+            self.assertEqual(optical['source_sha256'], proof['record_sha256'])
+            self.assertEqual(store.window('dump:test:native', track, 1.003, 1.01)['optical']['rows'][0][0], 1.002)
+            self.assertEqual(optical['rows'][0][3], 1.01)
+            proof['record_sha256'] = '0'*64
+            proof_path.write_text(json.dumps(proof))
+            store.refresh()
+            optical = store.window('dump:test:native', track, 1, 1.01)['optical']
+            self.assertEqual(optical['state'], 'unavailable')
         finally:
             store.pool.shutdown(wait=True)
 
