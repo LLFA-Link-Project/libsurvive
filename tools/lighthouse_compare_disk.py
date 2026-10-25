@@ -27,28 +27,33 @@ except ImportError:
 
 
 class Samples:
-    def __init__(self, db, table, serial):
+    def __init__(self, db, table, serial, bounds=None):
         self.db, self.table, self.serial = db, table, serial
+        self.where = 'serial=?'
+        self.args = (serial,)
+        if bounds is not None:
+            self.where += ' AND t BETWEEN ? AND ?'
+            self.args += tuple(bounds)
 
     @staticmethod
     def unpack(row):
         return row[0], None if row[1] is None else (tuple(row[1:4]), tuple(row[4:8]))
 
     def __iter__(self):
-        for row in self.db.execute(f'SELECT t,x,y,z,w,qx,qy,qz FROM {self.table} WHERE serial=? ORDER BY t,id', (self.serial,)):
+        for row in self.db.execute(f'SELECT t,x,y,z,w,qx,qy,qz FROM {self.table} WHERE {self.where} ORDER BY t,id', self.args):
             yield self.unpack(row)
 
     def __len__(self):
-        return self.db.execute(f'SELECT COUNT(*) FROM {self.table} WHERE serial=?', (self.serial,)).fetchone()[0]
+        return self.db.execute(f'SELECT COUNT(*) FROM {self.table} WHERE {self.where}', self.args).fetchone()[0]
 
     def __bool__(self):
-        return self.db.execute(f'SELECT 1 FROM {self.table} WHERE serial=? LIMIT 1', (self.serial,)).fetchone() is not None
+        return self.db.execute(f'SELECT 1 FROM {self.table} WHERE {self.where} LIMIT 1', self.args).fetchone() is not None
 
     def __getitem__(self, index):
         if index not in (0, -1):
             raise IndexError('Disk samples support first/last indexing only')
         order = 'ASC' if index == 0 else 'DESC'
-        row = self.db.execute(f'SELECT t,x,y,z,w,qx,qy,qz FROM {self.table} WHERE serial=? ORDER BY t {order},id {order} LIMIT 1', (self.serial,)).fetchone()
+        row = self.db.execute(f'SELECT t,x,y,z,w,qx,qy,qz FROM {self.table} WHERE {self.where} ORDER BY t {order},id {order} LIMIT 1', self.args).fetchone()
         if row is None:
             raise IndexError(index)
         return self.unpack(row)
@@ -210,16 +215,21 @@ def reference_index(db, session, time_field='pose_time_estimate_ns', allow_trunc
     return {'rows_read':rows,'integrity':integrity,'rejected':dict(rejected),'json_parser':JSON_PARSER}
 
 
-def capture_bounds(clock_rows):
+def capture_bounds(clock_rows, duration_s=None):
     """Use an independent capture window so missing trailing input is not hidden."""
     if len(clock_rows) < 2:
         raise ValueError('At least two capture clock samples required')
     times = [(row['monotonic_before_ns']+row['monotonic_after_ns'])//2 for row in clock_rows]
-    return min(times), max(times)
+    start, end = min(times), max(times)
+    if duration_s is not None:
+        if not math.isfinite(duration_s) or duration_s <= 0:
+            raise ValueError('Declared evaluation duration must be positive and finite')
+        end = min(end, start + round(duration_s*1e9))
+    return start, end
 
 
 def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncated=False,
-        reference_database=None, reference_info=None):
+        reference_database=None, reference_info=None, duration_s=None):
     db=create_db(database)
     started=time.monotonic()
     try:
@@ -241,18 +251,19 @@ def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncate
             reference_table='native.reference'
             reference=reference_info
         print(session.name,'indexed',reference['rows_read'],'reference callbacks',flush=True)
-        replay={s:Samples(db,'replay',s) for s, in db.execute('SELECT DISTINCT serial FROM replay')}
-        refs={s:Samples(db,reference_table,s) for s, in db.execute(f'SELECT DISTINCT serial FROM {reference_table}')}
+        bounds=capture_bounds(clock_rows,duration_s)
+        replay={s:Samples(db,'replay',s,bounds) for s, in db.execute('SELECT DISTINCT serial FROM replay')}
+        refs={s:Samples(db,reference_table,s,bounds) for s, in db.execute(f'SELECT DISTINCT serial FROM {reference_table}')}
         events_integrity='complete'
         try:events=comparison.load_reference_events(session)
         except (EOFError,OSError,json.JSONDecodeError):
             if not allow_truncated:raise
             events=None;events_integrity='partial; event summary unavailable'
-        bounds=capture_bounds(clock_rows)
         result=comparison.compare(replay,refs,warmup_s=warmup,evaluation_hz=evaluation_hz,
             bounds=bounds,events=events,diagnostic_bin_s=60)
         result['evaluation_window']={'basis':'capture clock-sync sample span, independent of replay output/input',
             'start_monotonic_ns':bounds[0],'end_monotonic_ns':bounds[1],
+            'declared_prefix_seconds':duration_s,
             'unsampled_capture_edges':'Outside the first/last clock sample is not evaluated'}
         result.update(timing=timing,reference_index=reference,clock_integrity=clock_integrity,events_integrity=events_integrity,wall_time_s=time.monotonic()-started,
             sampling='Replay sorted by full device ticks; 50Hz mapping/coverage, sampled error evaluation',

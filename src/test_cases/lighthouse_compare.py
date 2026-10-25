@@ -117,6 +117,18 @@ class Comparison(unittest.TestCase):
 
 
 class DiskComparison(unittest.TestCase):
+    def test_declared_prefix_does_not_follow_available_replay_output(self):
+        clock=[sample(10_000_000_000,0),sample(19_000_000_000,9_000_000_000)]
+        pose=((0,0,0),(1,0,0,0))
+        replay=[(i*1_000_000_000,pose) for i in range(3)]
+        refs=[(i*1_000_000_000,pose) for i in range(10)]
+        bounds=disk.capture_bounds(clock,duration_s=5)
+        self.assertEqual(bounds,(0,5_000_000_000))
+        result=compare.compare({'a':replay},{'a':refs},warmup_s=0,bounds=bounds)
+        self.assertEqual(result['objects']['a']['coverage']['valid_reference_bins'],6)
+        self.assertEqual(result['objects']['a']['coverage']['matched_reference_bins'],3)
+        with self.assertRaises(ValueError):disk.capture_bounds(clock,duration_s=float('nan'))
+
     def test_capture_window_keeps_tail_after_replay_input_stops(self):
         clock=[sample(10_000_000_000,0),sample(19_000_000_000,9_000_000_000)]
         pose=((0,0,0),(1,0,0,0))
@@ -204,6 +216,20 @@ class DiskComparison(unittest.TestCase):
                 actual = compare.compare({'a': disk.Samples(db, 'replay', 'a')},
                                          {'a': disk.Samples(db, 'reference', 'a')}, warmup_s=0, evaluation_hz=5)
                 expected = compare.compare({'a': replay}, {'a': refs}, warmup_s=0, evaluation_hz=5)
+                self.assertEqual(actual, expected)
+                bounds = (2_000_000_000, 5_000_000_000)
+                bounded = disk.Samples(db, 'reference', 'a', bounds)
+                self.assertEqual(list(bounded), refs[2:6])
+                self.assertEqual(len(bounded), 4)
+                self.assertTrue(bounded)
+                self.assertEqual(bounded[0], refs[2])
+                self.assertEqual(bounded[-1], refs[5])
+                empty = disk.Samples(db, 'reference', 'missing', bounds)
+                self.assertFalse(empty)
+                self.assertEqual(len(empty), 0)
+                actual = compare.compare({'a': disk.Samples(db, 'replay', 'a', bounds)},
+                                         {'a': bounded}, warmup_s=0, bounds=bounds)
+                expected = compare.compare({'a': replay[2:6]}, {'a': refs[2:6]}, warmup_s=0, bounds=bounds)
                 self.assertEqual(actual, expected)
                 samples = disk.Samples(db, 'reference', 'a')
                 self.assertIsNone(samples.interpolate(500_000_000, 20_000_000))
