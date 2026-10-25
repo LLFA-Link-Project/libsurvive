@@ -61,6 +61,7 @@ typedef struct SurviveKalmanTracker {
 	FLT obs_pos_var;
 	FLT obs_rot_var;
 	bool obs_axisangle_model;
+	bool obs_align_quaternion;
 	FLT light_var;
 
 	int light_batchsize;
@@ -81,6 +82,11 @@ typedef struct SurviveKalmanTracker {
 
 	FLT light_threshold_var, report_threshold_var, light_error_threshold;
 	FLT zvu_stationary_var;
+	FLT zvu_stationary_ramp;
+	FLT zvu_stationary_gyro_scale;
+	FLT zvu_stationary_velocity_sigma;
+	FLT zvu_motion_guard_time;
+	FLT last_unreliable_pose_time;
 	FLT zvu_no_light_time;
 	FLT zvu_no_light_var;
 	int noise_model;

@@ -46,6 +46,7 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
     STRUCT_CONFIG_ITEM("obs-cov-scale",  "Covariance matrix scaling for obs",
                        1, t->obs_cov_scale)
 	STRUCT_CONFIG_ITEM("kalman-obs-axisangle",  "Process observation updates as axis angle poses", false, t->obs_axisangle_model)
+	STRUCT_CONFIG_ITEM("kalman-align-observation-quaternion", "Experimental quaternion/covariance hemisphere alignment", false, t->obs_align_quaternion)
     STRUCT_CONFIG_ITEM("obs-pos-variance",  "Variance of position integration from light capture",
 					   1e-6, t->obs_pos_var)
 	STRUCT_CONFIG_ITEM("obs-rot-variance",  "Variance of rotation integration from light capture",
@@ -81,6 +82,10 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 
 	STRUCT_CONFIG_ITEM("kalman-zvu-moving", "", -1, t->zvu_moving_var)
 	STRUCT_CONFIG_ITEM("kalman-zvu-stationary", "", 1e-5, t->zvu_stationary_var)
+	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-ramp", "Seconds to introduce stationary constraints after detection", .5, t->zvu_stationary_ramp)
+	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-gyro-scale", "Corrected gyro rate that weakens stationary information (rad/s; 0 disables)", .02, t->zvu_stationary_gyro_scale)
+	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-velocity-sigma", "Allowed velocity during stationary ramp (m/s)", .1, t->zvu_stationary_velocity_sigma)
+	STRUCT_CONFIG_ITEM("kalman-zvu-motion-guard-time", "Stable optical tracking before relaxing stationary assumptions (s)", .5, t->zvu_motion_guard_time)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light", "", 1e-4, t->zvu_no_light_var)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light-time", "", .1, t->zvu_no_light_time)
 
@@ -752,6 +757,32 @@ static FLT integrate_pose(SurviveKalmanTracker *tracker, FLT time, const Survive
 		Rp = &R;
 	} else {
 		memcpy(cn_as_vector(&Z), pose->Pos, obs_cnt * sizeof(FLT));
+		SurvivePose predicted = tracker->state.Pose;
+		survive_kalman_tracker_predict(tracker, time, &predicted);
+		// Relax stationary assumptions only after optical tracking has settled.
+		// During acquisition or ambiguous optical solutions, preserve the old
+		// constraint strength instead of changing the recovery behavior.
+		FLT qnorm = quatmagnitude(predicted.Rot) * quatmagnitude(pose->Rot);
+		if (tracker->stats.obs_count < 16 || dist3d(predicted.Pos, pose->Pos) > .02 ||
+		    fabs(quatinnerproduct(predicted.Rot, pose->Rot)) < qnorm * cos(.05))
+			tracker->last_unreliable_pose_time = time;
+		if (tracker->obs_align_quaternion && quatinnerproduct(predicted.Rot, pose->Rot) < 0) {
+			// q and -q encode the same orientation. Choose the measurement
+			// hemisphere nearest the prior before forming a Euclidean residual.
+			for (int i = 3; i < 7; i++)
+				cnMatrixSet(&Z, i, 0, -cnMatrixGet(&Z, i, 0));
+			if (Rp) {
+				// Covariance must follow the same coordinate change: S R S^T,
+				// S = diag(1,1,1,-1,-1,-1,-1). Rotation/position cross terms flip.
+				cnCopy(R_q, &R, 0);
+				for (int i = 0; i < 7; i++)
+					for (int j = 0; j < 7; j++)
+						if ((i < 3) != (j < 3))
+							cnMatrixSet(&R, i, j, -cnMatrixGet(&R, i, j));
+				Rp = &R;
+			}
+		}
+
 	}
 
 	tracker->datalog_tag = "pose_obs";
@@ -805,8 +836,52 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 
 	bool no_light = (time - tracker->last_light_time) > tracker->zvu_no_light_time;
 	FLT zvu_var = tracker->zvu_moving_var;
-	if(isStationary && tracker->zvu_stationary_var >= 0) zvu_var = linmath_min(tracker->zvu_stationary_var, zvu_var < 0 ? INFINITY : zvu_var);
-	if(no_light && tracker->zvu_no_light_var >= 0) zvu_var = linmath_min(tracker->zvu_no_light_var, zvu_var < 0 ? INFINITY : zvu_var);
+	FLT zvu_velocity_var = zvu_var;
+	FLT zvu_acceleration_var = zvu_var;
+	if (isStationary && tracker->zvu_stationary_var >= 0) {
+		FLT stationary_var = tracker->zvu_stationary_var;
+		FLT remaining_motion = 0;
+		bool settled = time - tracker->last_unreliable_pose_time >= tracker->zvu_motion_guard_time;
+		if (settled && tracker->zvu_stationary_ramp > 0) {
+			// A short pause in handheld motion is weak evidence of a zero
+			// velocity. Introduce measurement information continuously rather
+			// than applying the full constraint at the first 100 ms crossing.
+			// Keep the ordinary Kalman gain/covariance update together.
+			FLT stationary_s = SurviveSensorActivations_stationary_time(&so->activations) / (FLT)so->timebase_hz;
+			FLT u = linmath_enforce_range((stationary_s - .1) / tracker->zvu_stationary_ramp, 0, 1);
+			FLT information = u * u * (3 - 2 * u);
+			stationary_var = information > 0 ? stationary_var / information : INFINITY;
+			remaining_motion = 1 - u;
+		}
+		if (settled && tracker->zvu_stationary_gyro_scale > 0 && tracker->gyro_var >= 0) {
+			// The activation detector tolerates slow rotation. A zero-velocity
+			// observation must remain weak when the bias-corrected IMU actually
+			// sees that motion, even if it has not reset the detector's timer.
+			FLT rate2 = 0;
+			for (int axis = 0; axis < 3; axis++) {
+				FLT rate = (data->gyro[axis] - tracker->state.IMUBias.GyroBias[axis]) / tracker->zvu_stationary_gyro_scale;
+				rate2 += rate * rate;
+			}
+			stationary_var *= 1 + rate2 * rate2;
+		}
+		if (isfinite(stationary_var)) {
+			zvu_var = linmath_min(stationary_var, zvu_var < 0 ? INFINITY : zvu_var);
+			// Quiet accelerations do not establish zero translation velocity.
+			// Allow slow motion while rest evidence accumulates. Keeping this
+			// uncertainty in R also keeps the state and covariance consistent.
+			FLT velocity_sigma = tracker->zvu_stationary_velocity_sigma * remaining_motion;
+			zvu_velocity_var = linmath_min(stationary_var + velocity_sigma * velocity_sigma,
+			                               zvu_velocity_var < 0 ? INFINITY : zvu_velocity_var);
+			FLT acceleration_sigma = tracker->zvu_stationary_ramp > 0 ? velocity_sigma / tracker->zvu_stationary_ramp : 0;
+			zvu_acceleration_var = linmath_min(stationary_var + acceleration_sigma * acceleration_sigma,
+			                                   zvu_acceleration_var < 0 ? INFINITY : zvu_acceleration_var);
+		}
+	}
+	if (no_light && tracker->zvu_no_light_var >= 0) {
+		zvu_var = linmath_min(tracker->zvu_no_light_var, zvu_var < 0 ? INFINITY : zvu_var);
+		zvu_velocity_var = linmath_min(tracker->zvu_no_light_var, zvu_velocity_var < 0 ? INFINITY : zvu_velocity_var);
+		zvu_acceleration_var = linmath_min(tracker->zvu_no_light_var, zvu_acceleration_var < 0 ? INFINITY : zvu_acceleration_var);
+	}
 
 	bool disable_ang_vel = no_light && !isStationary;
 	tracker->stats.no_light_imu_count += no_light;
@@ -837,6 +912,10 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 
 		CN_CREATE_STACK_MAT(R, row_cnt, 1)
 		cn_set_constant(&R, zvu_var);
+		for (int i = 0; i < 3; i++)
+			cnMatrixSet(&R, i, 0, zvu_velocity_var);
+		for (int i = 0; i < 3; i++)
+			cnMatrixSet(&R, idx + i, 0, zvu_acceleration_var);
 		CN_CREATE_STACK_MAT(Z, row_cnt, 1);
 		cn_set_zero(&Z);
 
@@ -1270,6 +1349,7 @@ void survive_kalman_tracker_reinit(SurviveKalmanTracker *tracker) {
 
 	tracker->report_ignore_start_cnt = 0;
 	tracker->last_light_time = 0;
+	tracker->last_unreliable_pose_time = 0;
 	tracker->light_residuals_all = 0;
 
 	memset(&tracker->state, 0, sizeof(tracker->state));
