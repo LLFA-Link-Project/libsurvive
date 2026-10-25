@@ -1,0 +1,1679 @@
+{
+  "input": {
+    "source": "/home/reina/LH-Dump/2026-10-25_211424_libsurvive_158643023_1366788",
+    "serial": "LHR-C6F86C46",
+    "native_name": "WM2",
+    "model": "VIVE Tracker Pro MV",
+    "native_sha256": "b3ec6f2a0b4d2fb76cc72eeccf04041801986223fe74e589e363ba1b48329f01",
+    "complete_gzip": false,
+    "gzip_eof_error": "Compressed file ended before the end-of-stream marker was reached",
+    "incomplete_final_rows_excluded": 0,
+    "pending_imu_excluded": 0,
+    "complete_native_rows": 3869497,
+    "last_receive_s": 310.953457,
+    "record_counts": {
+      "LOG": 12,
+      "OPTION": 217,
+      "14": 1,
+      "LH_POSE": 3,
+      "0": 1,
+      "1": 1,
+      "CONFIG": 3,
+      "IMU_SCALES": 3,
+      "i": 222244,
+      "I": 222243,
+      "INPUT_TIME": 222243,
+      "BUTTON": 60718,
+      "Y": 92551,
+      "W": 871285,
+      "B": 849716,
+      "POSE": 221426,
+      "POSE_TIMING": 221426,
+      "POSE_STATE": 221426,
+      "POSE_BIAS": 221426,
+      "POSE_BIAS_VAR": 221426,
+      "VELOCITY": 221126
+    },
+    "options": {
+      "center-on-lh0": "0",
+      "haptic-on-calibrate": "0",
+      "normalize-lighthouse-angle": "0.000000",
+      "max-error": "0.100000",
+      "max-cal-error": "0.050000",
+      "failures-to-reset": "-1",
+      "successes-to-reset": "-1",
+      "seed-poser": "BaryCentricSVD",
+      "required-meas": "8",
+      "time-window": "1613200",
+      "v": "0",
+      "blacklist-devs": "",
+      "configfile": "/tmp/wivrn-survive-angular.5uexqb/config.json",
+      "init-configfile": "(null)",
+      "disable-calibrate": "0",
+      "force-calibrate": "0",
+      "force-ootx": "0",
+      "lighthousecount": "0",
+      "lighthouse-gen": "0",
+      "output-callback-stats": "0.000000",
+      "threaded-posers": "1",
+      "lighthouse-0-disable": "0",
+      "lighthouse-1-disable": "0",
+      "lighthouse-2-disable": "0",
+      "lighthouse-3-disable": "0",
+      "lighthouse-max-update": "0.010000",
+      "lighthouse-max-nudge-distance": "0.100000",
+      "lighthouse-update-velocity": "0.100000",
+      "ignore-config-imu-bias": "0",
+      "light-error-threshold": "-1.000000",
+      "min-report-time": "-1.000000",
+      "report-covariance": "-1",
+      "report-sampled-cloud": "0.000000",
+      "report-ignore-start": "0",
+      "report-ignore-threshold": "0.100000",
+      "light-ignore-threshold": "1.000000",
+      "light-required-obs": "16",
+      "light-max-error": "-1.000000",
+      "kalman-light-variance": "0.010000",
+      "obs-cov-scale": "1.000000",
+      "kalman-obs-axisangle": "0",
+      "obs-pos-variance": "1.000000e-06",
+      "obs-rot-variance": "1.000000e-07",
+      "use-raw-obs": "0",
+      "show-raw-obs": "0",
+      "light-error-for-lh-confidence": "0",
+      "process-weight-jerk": "1874161.000000",
+      "process-weight-acc": "0.000000",
+      "process-weight-ang-vel": "60.000000",
+      "process-weight-vel": "0.000000",
+      "process-weight-pos": "0.000000",
+      "process-weight-rot": "0.000000",
+      "process-weight-acc-bias": "1.000000e-08",
+      "process-weight-gyro-bias": "1.000000e-08",
+      "kalman-minimize-state-space": "0",
+      "kalman-use-error-space": "1",
+      "kalman-joint-model-lightcap": "-1.000000",
+      "kalman-joint-lightcap-minimum-sensors": "5",
+      "kalman-lightcap-minimum-sensors": "5",
+      "kalman-initial-imu-variance": "0.000000",
+      "kalman-initial-acc-scale-variance": "1.000000e-06",
+      "kalman-initial-acc-bias-variance": "1.000000e-06",
+      "kalman-initial-gyro-variance": "1.000000e-06",
+      "kalman-zvu-moving": "-1.000000",
+      "kalman-zvu-stationary": "1.000000e-05",
+      "kalman-zvu-no-light": "1.000000e-04",
+      "kalman-zvu-no-light-time": "0.100000",
+      "kalman-noise-model": "0",
+      "imu-acc-norm-penalty": "0.000000",
+      "imu-acc-variance": "1.000000e-03",
+      "imu-gyro-variance": "3.046170e-05",
+      "light-batch-size": "32",
+      "kalman-obj-obs-adaptive": "0",
+      "kalman-obj-obs-max-error": "-1.000000",
+      "kalman-obj-obs-iterations": "10",
+      "kalman-obj-obs-step-size": "-1.000000",
+      "kalman-obj-obs-error-state-model": "1",
+      "kalman-obj-imu-adaptive": "0",
+      "kalman-obj-imu-max-error": "-1.000000",
+      "kalman-obj-imu-iterations": "0",
+      "kalman-obj-imu-step-size": "-1.000000",
+      "kalman-obj-imu-error-state-model": "1",
+      "kalman-obj-zvu-adaptive": "0",
+      "kalman-obj-zvu-max-error": "0.000000",
+      "kalman-obj-zvu-iterations": "0",
+      "kalman-obj-zvu-step-size": "-1.000000",
+      "kalman-obj-zvu-error-state-model": "1",
+      "kalman-obj-lightcap-adaptive": "0",
+      "kalman-obj-lightcap-max-error": "0.100000",
+      "kalman-obj-lightcap-iterations": "10",
+      "kalman-obj-lightcap-step-size": "-1.000000",
+      "kalman-obj-lightcap-error-state-model": "1",
+      "kalman-joint-lightcap-adaptive": "0",
+      "kalman-joint-lightcap-max-error": "0.100000",
+      "kalman-joint-lightcap-iterations": "10",
+      "kalman-joint-lightcap-step-size": "-1.000000",
+      "kalman-joint-lightcap-error-state-model": "1",
+      "optimizer-ftol": "0.000000",
+      "optimizer-xtol": "1.000000e-04",
+      "optimizer-gtol": "0.000000",
+      "optimizer-covtol": "0.000000",
+      "optimizer-epsfcn": "0.000000",
+      "optimizer-stepfactor": "0.000000",
+      "optimizer-douserscale": "0",
+      "optimizer-maxiter": "0",
+      "optimizer-maxfev": "0",
+      "optimizer-normtol": "5.000000e-05",
+      "optimizer-nprint": "0",
+      "mpfit-disable-filter": "0",
+      "mpfit-quat-model": "0",
+      "mpfit-lh-scale-correction": "0.000000",
+      "mpfit-lh-offset-correction": "0.000000",
+      "mpfit-no-pair-calc": "0",
+      "mpfit-optimize-scale-threshold": "-1.000000",
+      "mpfit-current-pos-bias": "-1.000000",
+      "mpfit-current-rot-bias": "-1.000000",
+      "record-rawlight": "1",
+      "record-imu": "1",
+      "record-cal-imu": "1",
+      "record-angle": "1",
+      "record-pose-timing": "1",
+      "record-tracking-state": "1",
+      "record-data-matrices": "0",
+      "record": "/home/reina/LH-Dump/2026-10-25_211424_libsurvive_158643023_1366788/native.rec.gz",
+      "record-stdout": "0",
+      "report-in-imu": "1",
+      "use-external-lighthouse": "0",
+      "serialize-device-config": "0",
+      "serialize-ootx": "0",
+      "move-threshold-gyro": "0.075000",
+      "move-threshold-acc": "0.030000",
+      "move-threshold-ang": "0.020000",
+      "filter-threshold-ang-per-sec": "50.000000",
+      "filter-light-outlier-criteria": "0.500000",
+      "filter-variance-minimum": "0.050000",
+      "filter-outlier-minimum-count": "11",
+      "kalman-lighthouse-up-variance": "-1.000000",
+      "kalman-lighthouse-initial-pos-variance": "0.100000",
+      "kalman-lighthouse-initial-rot-variance": "0.010000",
+      "kalman-pos-variance-per-sec": "0.000000",
+      "kalman-rot-variance-per-sec": "0.000000",
+      "kalman-bsd-variance": "0.000000",
+      "kalman-bsd-phase-variance": "0.000000",
+      "kalman-bsd-curve-variance": "0.000000",
+      "kalman-bsd-tilt-variance": "0.000000",
+      "kalman-bsd-ogeephase-variance": "-100.000000",
+      "kalman-bsd-ogeemag-variance": "-100.000000",
+      "kalman-bsd-gibpha-variance": "0.000000",
+      "kalman-bsd-gibmag-variance": "0.000000",
+      "kalman-lighthouse-imu-adaptive": "0",
+      "kalman-lighthouse-imu-max-error": "0.100000",
+      "kalman-lighthouse-imu-iterations": "10",
+      "kalman-lighthouse-imu-step-size": "-1.000000",
+      "kalman-lighthouse-imu-error-state-model": "1",
+      "kalman-lighthouse-obs-adaptive": "0",
+      "kalman-lighthouse-obs-max-error": "0.000000",
+      "kalman-lighthouse-obs-iterations": "10",
+      "kalman-lighthouse-obs-step-size": "-1.000000",
+      "kalman-lighthouse-obs-error-state-model": "1",
+      "dummy-driver-enable": "0",
+      "libusb-log-level": "2",
+      "pair-device": "0",
+      "usb-hz-output": "-1",
+      "simulator": "0",
+      "simulator-attractors": "3",
+      "simulator-obj-sensors": "20",
+      "simulator-fcal-noise": "1.000000e-03",
+      "simulator-init-time": "2.000000",
+      "simulator-gyro-noise": "1.000000e-03",
+      "simulator-acc-noise": "1.000000e-04",
+      "simulator-gyro-bias": "0.100000",
+      "simulator-sensor-time-jitter": "0.010000",
+      "simulator-show-gt": "1",
+      "simulator-sensor-noise": "1.000000e-04",
+      "simulator-obj-radius": "0.050000",
+      "simulator-time": "0.000000",
+      "simulator-sensor-droprate": "0.200000",
+      "simulator-noise-scale": "1.000000",
+      "simulator-lh-gen": "1",
+      "simulator-lh-duty-cycle": "1.000000",
+      "playback-replay-pose": "0",
+      "playback-replay-external-pose": "0",
+      "playback": "(null)",
+      "playback-factor": "1.000000",
+      "playback-start-time": "-1.000000",
+      "playback-time": "-1.000000",
+      "run-time": "-1.000000",
+      "light-min-length": "100",
+      "disambiguator-verbosity": "1000",
+      "serialize-lh-mpfit": "(null)",
+      "use-jacobian-function": "1",
+      "sensor-variance-per-sec": "0.000000",
+      "sensor-variance": "1.000000e-04",
+      "disable-lighthouse": "-1",
+      "syncs-per-run": "1",
+      "poser-async": "0",
+      "precise": "0",
+      "use-stationary-sensor-window": "1",
+      "mpfit-use-cov": "1",
+      "mpfit-cal-sensor-variance": "1.000000e-04",
+      "mpfit-model-velocity": "1",
+      "mpfit-record-reprojection-error": "0.000000",
+      "mpfit-object-up-variance": "-1.000000",
+      "mpfit-stationary-object-up-variance": "0.010000",
+      "mpfit-cal-stationary-object-up-variance": "1.000000e-03",
+      "mpfit-lighthouse-up-variance": "0.010000",
+      "globalscenesolver": "1",
+      "gss-threaded": "1",
+      "gss-desired-coverage": "30",
+      "gss-auto-floor-height": "1",
+      "usbmon-record": "(null)",
+      "usbmon-playback": "(null)",
+      "usbmon-record-all": "0",
+      "usbmon-output-all": "0",
+      "usbmon-output": "0",
+      "usbmon-only-record": "0",
+      "usbmon-allow-fs-config": "0"
+    },
+    "markers": [
+      {
+        "label": "tracker-desk-start",
+        "native_receive_s": 200.822707968
+      },
+      {
+        "label": "tracker-held-start",
+        "native_receive_s": 213.683011072
+      },
+      {
+        "label": "slow-translation-start",
+        "native_receive_s": 235.176186112
+      },
+      {
+        "label": "index-fast-start",
+        "native_receive_s": 278.089456128
+      },
+      {
+        "label": "index-down",
+        "native_receive_s": 292.542946304
+      },
+      {
+        "label": "test-end",
+        "native_receive_s": 296.843706624
+      }
+    ],
+    "scene_and_info_records": [
+      "0.001000 INFO LOG Recording to '/home/reina/LH-Dump/2026-10-25_211424_libsurvive_158643023_1366788/native.rec.gz' Compression: 1",
+      "0.015121 INFO LOG Loaded drivers: GlobalSceneSolver, HTCVive",
+      "0.015316 14 LH_POSE 2.512539 -2.240130 0.405199 -0.591254 -0.607806 -0.363140 -0.386160  1809635439",
+      "0.015396 0 LH_POSE -0.553545 -1.671744 0.402105 0.612323 0.616726 -0.346721 -0.352836  611009826",
+      "0.015481 1 LH_POSE 0.006906 1.184860 0.422489 -0.128613 -0.125970 0.686845 0.704155  2377198145",
+      "0.038745 INFO LOG Adding tracked object \u001b[0;31mWM0\u001b[0m from \u001b[0;34mHTC\u001b[0m",
+      "0.039025 INFO LOG Adding tracked object \u001b[0;32mWM1\u001b[0m from \u001b[0;34mHTC\u001b[0m",
+      "1.270580 INFO LOG Detected LH gen 2 system.",
+      "1.270676 INFO LOG LightcapMode (WM1) 1 -> 2 (ff)",
+      "1.272540 INFO LOG LightcapMode (WM0) 1 -> 2 (ff)",
+      "1.384541 INFO LOG OOTX not set for LH in channel 1; attaching ootx decoder using device WM1",
+      "1.680542 INFO LOG OOTX not set for LH in channel 14; attaching ootx decoder using device WM0",
+      "1.828553 INFO LOG OOTX not set for LH in channel 0; attaching ootx decoder using device WM1",
+      "40.787171 INFO LOG Adding tracked object \u001b[0;33mWM2\u001b[0m from \u001b[0;34mHTC\u001b[0m",
+      "41.793136 INFO LOG LightcapMode (WM2) 1 -> 2 (ff)"
+    ],
+    "clock_mapping": {
+      "native_epoch_ns": 1.792930464470037e+18,
+      "anchor_range_us": 223.232
+    },
+    "companion_sha256": {
+      "calibration.initial.json": "c0fd8d7485628f0471b3001e13786cf092bfb06ce66bd384d0740188087dd9da",
+      "scene-markers.jsonl": "219cddf2984adcd41c137f1ac3d63a347160d94a1000fb24bf4f1686117f0b4e",
+      "clock_sync.jsonl.gz": "fba6ebc90798a5a0c74009fc96fe111b957a1728de7856b28098ea140b75d086"
+    }
+  },
+  "joins": {
+    "native_state_rows": 67026,
+    "matched_rows": 66925,
+    "unmatched_rows_excluded": 101,
+    "quaternion_sign_changes": 1
+  },
+  "windows": {
+    "desk": {
+      "window_receive_s": [
+        202.0,
+        212.0
+      ],
+      "samples": 2499,
+      "pairs": 2498,
+      "first_sensor_tick": 10115700736,
+      "last_sensor_tick": 10595367680,
+      "first_q_wxyz": [
+        0.018210380597266197,
+        -0.39600752455539345,
+        -0.9130603042179899,
+        0.0957460359250656
+      ],
+      "last_q_wxyz": [
+        0.018365722187962227,
+        -0.39583996127637566,
+        -0.9131095514951575,
+        0.0959394198103397
+      ],
+      "max_sensor_gap_ms": 4.005333333333333,
+      "max_receive_gap_ms": 8.975000000020827,
+      "stationary_fraction": 1.0,
+      "optical_inputs": {
+        "records": 13191,
+        "by_lighthouse": {
+          "0": 6608,
+          "1": 6583
+        },
+        "max_receive_gap_ms": 14.081000000004451
+      },
+      "position_radial_rms_mm": 0.025717164548859032,
+      "residual_acc_body_mean_mg": [
+        3.434767655195255,
+        -0.7513364931086656,
+        0.24538158517944497
+      ],
+      "residual_acc_body_std_mg": [
+        5.713572871289817,
+        2.697534256315266,
+        6.528794731833321
+      ],
+      "factory_acc_norm_mean_g": 0.9362314300993678,
+      "factory_gyro_rms_rad_s": 0.02067241182954568,
+      "corrected_gyro_rms_rad_s": 0.006528541040528079,
+      "factory_gyro_mean_rad_s": [
+        -0.001969205682272912,
+        0.007959304921968684,
+        -0.017817247298919203
+      ],
+      "corrected_gyro_mean_rad_s": [
+        3.434548203345554e-06,
+        3.3389644164308796e-05,
+        5.715590136704316e-05
+      ],
+      "pose_angular_rate_rms_rad_s": 0.022842040510084413,
+      "pose_gyro_disagreement_rms_rad_s": 0.022816250681823115,
+      "model_velocity_body_mean_mm_s": [
+        0.0010404796076116907,
+        2.9852512453412548e-05,
+        -0.00013405708971906243
+      ],
+      "output_velocity_body_mean_mm_s": [
+        0.001371590190473832,
+        0.0009532472364983099,
+        -0.000623109013226199
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        0.000331110582862124,
+        0.0009233947240448944,
+        -0.0004890519235071348
+      ],
+      "residual_against_feedback_cosine": -0.08373783051747884,
+      "acc_bias_first_mg": [
+        22.132457075035102,
+        -2.502959335863164,
+        35.84624539388359
+      ],
+      "acc_bias_last_mg": [
+        23.84736455505432,
+        -2.8760493385644894,
+        35.9653951125699
+      ],
+      "acc_scale_first": [
+        0.9940689620492474,
+        0.9885927834132864,
+        0.9710938646398674
+      ],
+      "acc_scale_last": [
+        0.9940681641898844,
+        0.9887933875916733,
+        0.9710936410932677
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.4499371369109467,
+        0.4482083869696672,
+        0.8866032157046686
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        26.464709218258623,
+        -3.4444963201008227,
+        36.17587560620457
+      ],
+      "onsets": [],
+      "onset_count": 0,
+      "onset_step_mm_median": null,
+      "onset_step_mm_max": null,
+      "other_step_mm_median": 0.0003233252513741476,
+      "onset_step_energy_fraction": 0.0
+    },
+    "held-1": {
+      "window_receive_s": [
+        219.0,
+        227.0
+      ],
+      "samples": 1998,
+      "pairs": 1997,
+      "first_sensor_tick": 10931596032,
+      "last_sensor_tick": 11315446272,
+      "first_q_wxyz": [
+        0.03459330762184443,
+        -0.793653521043625,
+        -0.6045612346848862,
+        0.05850730825394986
+      ],
+      "last_q_wxyz": [
+        -0.002191857604751559,
+        -0.7512047576229999,
+        -0.6582069362113708,
+        0.0494998687680179
+      ],
+      "max_sensor_gap_ms": 8.0,
+      "max_receive_gap_ms": 8.115000000003647,
+      "stationary_fraction": 0.011011011011011011,
+      "optical_inputs": {
+        "records": 14959,
+        "by_lighthouse": {
+          "0": 7146,
+          "1": 7813
+        },
+        "max_receive_gap_ms": 8.555999999998676
+      },
+      "position_radial_rms_mm": 19.981593949377846,
+      "residual_acc_body_mean_mg": [
+        -1.833275661587527,
+        4.486324111720981,
+        -3.3005446248615504
+      ],
+      "residual_acc_body_std_mg": [
+        12.033348143917532,
+        14.847454731618337,
+        20.957429222939815
+      ],
+      "factory_acc_norm_mean_g": 0.9373242602277596,
+      "factory_gyro_rms_rad_s": 0.12258603972108936,
+      "corrected_gyro_rms_rad_s": 0.11902702365196377,
+      "factory_gyro_mean_rad_s": [
+        -0.008799984484484479,
+        0.0036690645645645666,
+        -0.033115187187187194
+      ],
+      "corrected_gyro_mean_rad_s": [
+        -0.007380452115289905,
+        -0.00299384174149073,
+        -0.016123816553720277
+      ],
+      "pose_angular_rate_rms_rad_s": 0.16688701700542924,
+      "pose_gyro_disagreement_rms_rad_s": 0.1243405819834836,
+      "model_velocity_body_mean_mm_s": [
+        1.5581469545895725,
+        6.291223705111863,
+        -7.91963398432184
+      ],
+      "output_velocity_body_mean_mm_s": [
+        2.565736435104588,
+        1.931719452551286,
+        -4.329241060199699
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        1.0075894805150052,
+        -4.359504252560573,
+        3.5903929241221553
+      ],
+      "residual_against_feedback_cosine": 0.9886173295897704,
+      "acc_bias_first_mg": [
+        23.558064777539958,
+        -2.878501927216697,
+        36.17086558783796
+      ],
+      "acc_bias_last_mg": [
+        23.547790284968595,
+        -2.852217338476778,
+        36.130403602555454
+      ],
+      "acc_scale_first": [
+        0.9938468995488329,
+        0.9886987023726916,
+        0.9708811444171607
+      ],
+      "acc_scale_last": [
+        0.993840040660963,
+        0.9886859161280749,
+        0.9708650748552317
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.4956636545070814,
+        0.4938178683728827,
+        0.9119586074293007
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        21.73761675123322,
+        1.573444972341697,
+        32.941908177808244
+      ],
+      "onsets": [
+        {
+          "receive_s": 219.763832,
+          "previous_receive_s": 219.759836,
+          "sensor_tick": 10968272128,
+          "previous_sensor_tick": 10968080128,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            0.09119523763833975,
+            -0.30128591073612704,
+            0.2748374121601218
+          ],
+          "step_mm": 0.4178820102599338,
+          "velocity_before_body_mm_s": [
+            -2.4947217118484537,
+            9.23850535740705,
+            -6.901109210959729
+          ],
+          "velocity_after_body_mm_s": [
+            -0.38871678070948285,
+            1.8184920289053337,
+            -1.3304687163562399
+          ],
+          "residual_before_body_mg": [
+            -2.8469910332008244,
+            9.734912573877791,
+            -15.151793419474702
+          ],
+          "step_against_velocity_cosine": 0.9954040870790642,
+          "step_against_residual_cosine": 0.9655566407926137,
+          "gyro_norm_rad_s": 0.040529827449845804,
+          "orientation_step_deg": 0.07648544431293039
+        },
+        {
+          "receive_s": 221.69602,
+          "previous_receive_s": 221.693844,
+          "sensor_tick": 11061018112,
+          "previous_sensor_tick": 11060826112,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            0.03040091317131513,
+            0.14228258672070784,
+            0.06374488231548943
+          ],
+          "step_mm": 0.1588457113900189,
+          "velocity_before_body_mm_s": [
+            -0.6098630309012489,
+            -4.484050187162845,
+            -1.5256349506172182
+          ],
+          "velocity_after_body_mm_s": [
+            -0.10667169180967402,
+            -0.9374231541161602,
+            -0.35538989897487566
+          ],
+          "residual_before_body_mg": [
+            -2.186559882322893,
+            -4.5114459557771545,
+            10.476581913007376
+          ],
+          "step_against_velocity_cosine": 0.9936896138587199,
+          "step_against_residual_cosine": 0.021977011446113682,
+          "gyro_norm_rad_s": 0.07779350103388948,
+          "orientation_step_deg": 0.03057193156982397
+        },
+        {
+          "receive_s": 222.029859,
+          "previous_receive_s": 222.023802,
+          "sensor_tick": 11076955904,
+          "previous_sensor_tick": 11076763904,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            -0.07052251837164959,
+            0.12659839734281592,
+            0.05641660377505599
+          ],
+          "step_mm": 0.15551017004929554,
+          "velocity_before_body_mm_s": [
+            3.3066126448558775,
+            -6.452413880186895,
+            -4.1978153765560835
+          ],
+          "velocity_after_body_mm_s": [
+            0.6866634639754381,
+            -1.5916890121677516,
+            -1.085128276189364
+          ],
+          "residual_before_body_mg": [
+            -6.535231470190139,
+            -4.095931839115649,
+            -8.490451361981899
+          ],
+          "step_against_velocity_cosine": 0.9877466805665367,
+          "step_against_residual_cosine": 0.3008540171919883,
+          "gyro_norm_rad_s": 0.05021091158843193,
+          "orientation_step_deg": 0.12946262326786107
+        }
+      ],
+      "onset_count": 3,
+      "onset_step_mm_median": 0.1588457113900189,
+      "onset_step_mm_max": 0.4178820102599338,
+      "other_step_mm_median": 0.05044023486445634,
+      "onset_step_energy_fraction": 0.01058195547731101
+    },
+    "held-2": {
+      "window_receive_s": [
+        229.0,
+        235.0
+      ],
+      "samples": 1500,
+      "pairs": 1499,
+      "first_sensor_tick": 11411648768,
+      "last_sensor_tick": 11699489024,
+      "first_q_wxyz": [
+        0.05339959583931187,
+        -0.7550811289510508,
+        -0.6533891926177489,
+        0.009139739412647332
+      ],
+      "last_q_wxyz": [
+        0.07527146987650005,
+        -0.736482287376327,
+        -0.6721176229065337,
+        0.013636245158946009
+      ],
+      "max_sensor_gap_ms": 4.005333333333333,
+      "max_receive_gap_ms": 6.623999999987973,
+      "stationary_fraction": 0.008666666666666666,
+      "optical_inputs": {
+        "records": 11768,
+        "by_lighthouse": {
+          "0": 5710,
+          "1": 6058
+        },
+        "max_receive_gap_ms": 8.114000000006172
+      },
+      "position_radial_rms_mm": 17.72654796851135,
+      "residual_acc_body_mean_mg": [
+        -2.70046123540945,
+        11.695798898163599,
+        -2.1595952049876463
+      ],
+      "residual_acc_body_std_mg": [
+        16.497355231424134,
+        17.565235621899898,
+        20.018190943100297
+      ],
+      "factory_acc_norm_mean_g": 0.9388461035658485,
+      "factory_gyro_rms_rad_s": 0.12698906860402853,
+      "corrected_gyro_rms_rad_s": 0.12413498346280306,
+      "factory_gyro_mean_rad_s": [
+        0.005443863999999993,
+        0.01163118133333335,
+        -0.027234877333333303
+      ],
+      "corrected_gyro_mean_rad_s": [
+        0.007688734750216953,
+        0.005611362651348987,
+        -0.010139148961073863
+      ],
+      "pose_angular_rate_rms_rad_s": 0.17202786680696594,
+      "pose_gyro_disagreement_rms_rad_s": 0.12442041566813852,
+      "model_velocity_body_mean_mm_s": [
+        -5.134318803413733,
+        18.536121979240274,
+        -0.6624191686481773
+      ],
+      "output_velocity_body_mean_mm_s": [
+        -2.4232836853248423,
+        7.8885393828054315,
+        1.5263717318880456
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        2.711035118088888,
+        -10.64758259643483,
+        2.1887909005362283
+      ],
+      "residual_against_feedback_cosine": 0.9995843111177402,
+      "acc_bias_first_mg": [
+        23.53925068092517,
+        -2.8486278871203683,
+        36.10663619500975
+      ],
+      "acc_bias_last_mg": [
+        23.51719809391111,
+        -2.807616630712261,
+        36.11611907639571
+      ],
+      "acc_scale_first": [
+        0.9938334623795066,
+        0.9886816056907538,
+        0.9708572069990233
+      ],
+      "acc_scale_last": [
+        0.993819782568884,
+        0.9886677689449831,
+        0.9708474739831201
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.5068482011451231,
+        0.5062422871253014,
+        0.9199016200222602
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        20.847505320833648,
+        8.73120570296967,
+        34.01332844395571
+      ],
+      "onsets": [
+        {
+          "receive_s": 230.172435,
+          "previous_receive_s": 230.16997,
+          "sensor_tick": 11467911168,
+          "previous_sensor_tick": 11467719168,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            0.18878063279388213,
+            -0.3697011310834549,
+            0.07782912747305198
+          ],
+          "step_mm": 0.42234396731297236,
+          "velocity_before_body_mm_s": [
+            -4.959016799059584,
+            10.780053557901116,
+            -1.387390239056198
+          ],
+          "velocity_after_body_mm_s": [
+            -0.8657443438519065,
+            2.283792823568412,
+            -0.3078767125098214
+          ],
+          "residual_before_body_mg": [
+            -8.626788948988494,
+            -3.8505619592006104,
+            8.377978572341904
+          ],
+          "step_against_velocity_cosine": 0.9968053415997896,
+          "step_against_residual_cosine": -0.08382630117448772,
+          "gyro_norm_rad_s": 0.03798752752715935,
+          "orientation_step_deg": 0.05403872535382361
+        },
+        {
+          "receive_s": 230.439949,
+          "previous_receive_s": 230.437885,
+          "sensor_tick": 11480776448,
+          "previous_sensor_tick": 11480584448,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            0.15340458500122123,
+            -0.2491936277048064,
+            0.24774884688536436
+          ],
+          "step_mm": 0.3834187292257725,
+          "velocity_before_body_mm_s": [
+            -3.9409536790879227,
+            7.467599569175344,
+            -6.2530237304631715
+          ],
+          "velocity_after_body_mm_s": [
+            -0.6803617245015032,
+            1.463718163304461,
+            -1.2033478558779063
+          ],
+          "residual_before_body_mg": [
+            -5.093572310687203,
+            13.226983385539848,
+            -13.09091549913255
+          ],
+          "step_against_velocity_cosine": 0.9965367553999275,
+          "step_against_residual_cosine": 0.9895812542528006,
+          "gyro_norm_rad_s": 0.06004136964376785,
+          "orientation_step_deg": 0.06906000478120079
+        },
+        {
+          "receive_s": 234.965972,
+          "previous_receive_s": 234.962051,
+          "sensor_tick": 11697952768,
+          "previous_sensor_tick": 11697760768,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            0.036181155697308,
+            -0.2653698097681884,
+            -0.27390802902476774
+          ],
+          "step_mm": 0.383087222872586,
+          "velocity_before_body_mm_s": [
+            -0.7766231127744978,
+            7.755593314004269,
+            7.7826907229104725
+          ],
+          "velocity_after_body_mm_s": [
+            -0.24398743788274566,
+            1.6076932949690987,
+            1.5963199552304093
+          ],
+          "residual_before_body_mg": [
+            7.510569068254355,
+            10.537034800048472,
+            20.456067373368136
+          ],
+          "step_against_velocity_cosine": 0.9996129837969695,
+          "step_against_residual_cosine": 0.8765053431167057,
+          "gyro_norm_rad_s": 0.027963498161548042,
+          "orientation_step_deg": 0.021759984337284707
+        }
+      ],
+      "onset_count": 3,
+      "onset_step_mm_median": 0.3834187292257725,
+      "onset_step_mm_max": 0.42234396731297236,
+      "other_step_mm_median": 0.09126270129093898,
+      "onset_step_energy_fraction": 0.026362982871498426
+    },
+    "turned": {
+      "window_receive_s": [
+        260.0,
+        266.0
+      ],
+      "samples": 1499,
+      "pairs": 1498,
+      "first_sensor_tick": 12899627776,
+      "last_sensor_tick": 13187470080,
+      "first_q_wxyz": [
+        0.10065069685479375,
+        -0.7786264642458965,
+        0.6181771097119154,
+        0.03830571010698895
+      ],
+      "last_q_wxyz": [
+        0.08499667214549897,
+        -0.7635245646527504,
+        0.6370351332428006,
+        0.06318262348419898
+      ],
+      "max_sensor_gap_ms": 8.005333333333333,
+      "max_receive_gap_ms": 8.650000000045566,
+      "stationary_fraction": 0.4549699799866578,
+      "optical_inputs": {
+        "records": 6802,
+        "by_lighthouse": {
+          "0": 3236,
+          "1": 3566
+        },
+        "max_receive_gap_ms": 16.100999999991927
+      },
+      "position_radial_rms_mm": 5.181480073008621,
+      "residual_acc_body_mean_mg": [
+        -34.86003095591651,
+        16.01298689190387,
+        0.14773547090235756
+      ],
+      "residual_acc_body_std_mg": [
+        10.534998406691834,
+        9.235817660102402,
+        9.092357453248857
+      ],
+      "factory_acc_norm_mean_g": 0.9388235031542578,
+      "factory_gyro_rms_rad_s": 0.056535244432731634,
+      "corrected_gyro_rms_rad_s": 0.05531449466418605,
+      "factory_gyro_mean_rad_s": [
+        -0.010356480987324905,
+        0.003882134089392928,
+        -0.009951767845230162
+      ],
+      "corrected_gyro_mean_rad_s": [
+        -0.0007830411827985366,
+        0.0012311881123412128,
+        -0.00716513492557357
+      ],
+      "pose_angular_rate_rms_rad_s": 0.4139164548550487,
+      "pose_gyro_disagreement_rms_rad_s": 0.4133560264981765,
+      "model_velocity_body_mean_mm_s": [
+        -16.81601073607921,
+        5.775209863627566,
+        1.2268503412839715
+      ],
+      "output_velocity_body_mean_mm_s": [
+        -1.9009636723766359,
+        -0.8303043106332636,
+        0.666214488453189
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        14.915047063702534,
+        -6.605514174260828,
+        -0.5606358528307843
+      ],
+      "residual_against_feedback_cosine": 0.9994411412595144,
+      "acc_bias_first_mg": [
+        23.3064118310319,
+        -2.122580599426553,
+        35.90175329708716
+      ],
+      "acc_bias_last_mg": [
+        17.288021794256725,
+        0.7196130442190766,
+        35.88963439035393
+      ],
+      "acc_scale_first": [
+        0.9937583441141536,
+        0.9884603292482894,
+        0.9707378474254477
+      ],
+      "acc_scale_last": [
+        0.9965555028526718,
+        0.9880472735851565,
+        0.9707357654860382
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.5081282565074164,
+        0.5035656018424469,
+        0.9170658126888745
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        -14.728589227209664,
+        15.29648811704964,
+        36.08019457055715
+      ],
+      "onsets": [
+        {
+          "receive_s": 260.636343,
+          "previous_receive_s": 260.632329,
+          "sensor_tick": 12930159360,
+          "previous_sensor_tick": 12929967360,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            3.0433726890924273,
+            -0.6335089365598172,
+            -0.06529418123495812
+          ],
+          "step_mm": 3.109294811933723,
+          "velocity_before_body_mm_s": [
+            -60.311106026661015,
+            16.407875912218152,
+            0.8195095424121321
+          ],
+          "velocity_after_body_mm_s": [
+            -9.176742910311477,
+            3.082691007518429,
+            -0.25369215638854536
+          ],
+          "residual_before_body_mg": [
+            -48.34572561226122,
+            23.538673514517384,
+            -2.9646233692399715
+          ],
+          "step_against_velocity_cosine": 0.9981461543992424,
+          "step_against_residual_cosine": 0.9665978912402483,
+          "gyro_norm_rad_s": 0.042593191365338366,
+          "orientation_step_deg": 0.32839671138777665
+        },
+        {
+          "receive_s": 260.786384,
+          "previous_receive_s": 260.782383,
+          "sensor_tick": 12937264384,
+          "previous_sensor_tick": 12937072384,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.2467696829762478,
+            -0.5483313927688667,
+            0.10665942914264866
+          ],
+          "step_mm": 1.3661911259079287,
+          "velocity_before_body_mm_s": [
+            -41.05283022820591,
+            16.65430986225861,
+            -0.159684895900865
+          ],
+          "velocity_after_body_mm_s": [
+            -8.013563608524912,
+            3.5826720490289317,
+            -0.18414744427224958
+          ],
+          "residual_before_body_mg": [
+            -33.3897070301773,
+            4.004916200206071,
+            7.7235715351970935
+          ],
+          "step_against_velocity_cosine": 0.9968050850459002,
+          "step_against_residual_cosine": 0.9122115114597109,
+          "gyro_norm_rad_s": 0.017883075277928238,
+          "orientation_step_deg": 0.27573842181572283
+        },
+        {
+          "receive_s": 260.920407,
+          "previous_receive_s": 260.918695,
+          "sensor_tick": 12943793152,
+          "previous_sensor_tick": 12943601152,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.1478310253097355,
+            -0.6341922238152468,
+            0.16307311614764355
+          ],
+          "step_mm": 1.3214797314455602,
+          "velocity_before_body_mm_s": [
+            -36.15571692170655,
+            19.337403886187094,
+            -3.3832769351471863
+          ],
+          "velocity_after_body_mm_s": [
+            -7.443895289456584,
+            4.134490734788163,
+            -0.8440736244883584
+          ],
+          "residual_before_body_mg": [
+            -28.869071698611055,
+            22.769139711258767,
+            6.9661692312166235
+          ],
+          "step_against_velocity_cosine": 0.9990515436789381,
+          "step_against_residual_cosine": 0.9391086425029389,
+          "gyro_norm_rad_s": 0.03731114010426843,
+          "orientation_step_deg": 0.18033685683284376
+        },
+        {
+          "receive_s": 261.692478,
+          "previous_receive_s": 261.68636,
+          "sensor_tick": 12980853504,
+          "previous_sensor_tick": 12980661504,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.4315491989438007,
+            -0.824728099095116,
+            0.10105042810928873
+          ],
+          "step_mm": 1.6552101786343483,
+          "velocity_before_body_mm_s": [
+            -38.60898889991722,
+            23.332565518098853,
+            -3.240859217814446
+          ],
+          "velocity_after_body_mm_s": [
+            -7.677365883419581,
+            4.976204046108357,
+            -0.9063886493110365
+          ],
+          "residual_before_body_mg": [
+            -43.72277462473331,
+            21.144658297015653,
+            -1.1832421251383174
+          ],
+          "step_against_velocity_cosine": 0.9997254517051427,
+          "step_against_residual_cosine": 0.9967244835006925,
+          "gyro_norm_rad_s": 0.03452920061148369,
+          "orientation_step_deg": 0.1783357960253232
+        },
+        {
+          "receive_s": 261.952381,
+          "previous_receive_s": 261.946339,
+          "sensor_tick": 12993335040,
+          "previous_sensor_tick": 12993142784,
+          "sensor_dt_ms": 4.005333333333333,
+          "step_body_mm": [
+            1.5026979203596873,
+            -0.37744392720707737,
+            0.29055062590386355
+          ],
+          "step_mm": 1.576383400144761,
+          "velocity_before_body_mm_s": [
+            -39.73495520193653,
+            11.5617353649656,
+            -7.086707236128816
+          ],
+          "velocity_after_body_mm_s": [
+            -8.253488480476117,
+            2.6924020011495147,
+            -1.4639950023323558
+          ],
+          "residual_before_body_mg": [
+            -20.771258172914585,
+            9.814627658983083,
+            3.7612334396875946
+          ],
+          "step_against_velocity_cosine": 0.9992101867380562,
+          "step_against_residual_cosine": 0.9217289967850129,
+          "gyro_norm_rad_s": 0.020171039453763022,
+          "orientation_step_deg": 0.056294307388457865
+        },
+        {
+          "receive_s": 262.712452,
+          "previous_receive_s": 262.706378,
+          "sensor_tick": 13029819392,
+          "previous_sensor_tick": 13029627136,
+          "sensor_dt_ms": 4.005333333333333,
+          "step_body_mm": [
+            1.42235628043891,
+            -0.4494082018524257,
+            0.1226199709837406
+          ],
+          "step_mm": 1.496696621790901,
+          "velocity_before_body_mm_s": [
+            -42.93608833949136,
+            13.588540383386398,
+            -1.4952519361201895
+          ],
+          "velocity_after_body_mm_s": [
+            -8.999902208869814,
+            2.9129892441413197,
+            -0.13375310948609329
+          ],
+          "residual_before_body_mg": [
+            -44.987015708064014,
+            16.43216470796261,
+            -3.220311086548411
+          ],
+          "step_against_velocity_cosine": 0.9988079773776887,
+          "step_against_residual_cosine": 0.9989192195779865,
+          "gyro_norm_rad_s": 0.03363230631389823,
+          "orientation_step_deg": 0.2740913556441861
+        },
+        {
+          "receive_s": 263.144803,
+          "previous_receive_s": 263.140416,
+          "sensor_tick": 13050557696,
+          "previous_sensor_tick": 13050365696,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            2.4200231790767615,
+            -0.35647181308619486,
+            -0.2994680609228768
+          ],
+          "step_mm": 2.4643996145728195,
+          "velocity_before_body_mm_s": [
+            -48.256832404741424,
+            6.811783990491885,
+            8.886068204080926
+          ],
+          "velocity_after_body_mm_s": [
+            -7.984446843396673,
+            1.0166458694043117,
+            1.8552570660682228
+          ],
+          "residual_before_body_mg": [
+            -26.619347434168912,
+            19.756815289390044,
+            2.0597810341751455
+          ],
+          "step_against_velocity_cosine": 0.9982697083433376,
+          "step_against_residual_cosine": 0.8805980208564653,
+          "gyro_norm_rad_s": 0.052492114000789104,
+          "orientation_step_deg": 0.1925329177169336
+        },
+        {
+          "receive_s": 263.552427,
+          "previous_receive_s": 263.550399,
+          "sensor_tick": 13070144000,
+          "previous_sensor_tick": 13069952000,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            3.2833892098649553,
+            0.20305519673557026,
+            -0.770053900608036
+          ],
+          "step_mm": 3.3785883333458355,
+          "velocity_before_body_mm_s": [
+            -54.54316913689194,
+            -2.7592509693318763,
+            15.592743780125518
+          ],
+          "velocity_after_body_mm_s": [
+            -7.573780380814337,
+            -0.4605897715528537,
+            2.555550978856173
+          ],
+          "residual_before_body_mg": [
+            -45.20974035182676,
+            10.3888547396737,
+            5.0880207230799
+          ],
+          "step_against_velocity_cosine": 0.9987810506151381,
+          "step_against_residual_cosine": 0.9529621899760756,
+          "gyro_norm_rad_s": 0.052001614223615183,
+          "orientation_step_deg": 0.40234717806099735
+        },
+        {
+          "receive_s": 264.000435,
+          "previous_receive_s": 263.9965,
+          "sensor_tick": 13091650560,
+          "previous_sensor_tick": 13091458560,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.6146560001282688,
+            -0.49847990770039186,
+            -0.32739785657981263
+          ],
+          "step_mm": 1.72127440392991,
+          "velocity_before_body_mm_s": [
+            -30.549898745324406,
+            12.195853504525568,
+            3.9716966080729006
+          ],
+          "velocity_after_body_mm_s": [
+            -4.1889066287959595,
+            2.5189699501935907,
+            -0.08492729391053236
+          ],
+          "residual_before_body_mg": [
+            -27.615686041322252,
+            8.757515880723592,
+            5.920511465569489
+          ],
+          "step_against_velocity_cosine": 0.9943179640437546,
+          "step_against_residual_cosine": 0.9999197189509241,
+          "gyro_norm_rad_s": 0.042401578803458066,
+          "orientation_step_deg": 0.5147054630792108
+        },
+        {
+          "receive_s": 264.184398,
+          "previous_receive_s": 264.180439,
+          "sensor_tick": 13100483584,
+          "previous_sensor_tick": 13100291584,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.1105088149265676,
+            -0.44208379429310607,
+            0.3063271244353489
+          ],
+          "step_mm": 1.233897976483886,
+          "velocity_before_body_mm_s": [
+            -34.528514139777016,
+            16.368911420328548,
+            -8.899305490467036
+          ],
+          "velocity_after_body_mm_s": [
+            -6.90015626331596,
+            3.9033728458808734,
+            -2.254554494320637
+          ],
+          "residual_before_body_mg": [
+            -33.823950833230974,
+            16.470444816912106,
+            -3.2285841937471638
+          ],
+          "step_against_velocity_cosine": 0.997835272803999,
+          "step_against_residual_cosine": 0.9837111509107447,
+          "gyro_norm_rad_s": 0.008056843620005295,
+          "orientation_step_deg": 0.3090059338922322
+        },
+        {
+          "receive_s": 264.356874,
+          "previous_receive_s": 264.352374,
+          "sensor_tick": 13108740608,
+          "previous_sensor_tick": 13108548608,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.2998665081999474,
+            -0.8585625825737881,
+            0.09747062877664506
+          ],
+          "step_mm": 1.5608597537286337,
+          "velocity_before_body_mm_s": [
+            -32.95032343907277,
+            25.03333065490813,
+            -2.4966542777342107
+          ],
+          "velocity_after_body_mm_s": [
+            -5.945498936084837,
+            5.249643803117559,
+            -0.6698569559267868
+          ],
+          "residual_before_body_mg": [
+            -44.006536315046226,
+            26.098900285228822,
+            -10.125027957338272
+          ],
+          "step_against_velocity_cosine": 0.9978299945100121,
+          "step_against_residual_cosine": 0.990036843000927,
+          "gyro_norm_rad_s": 0.07817531365752692,
+          "orientation_step_deg": 0.23717723885163214
+        },
+        {
+          "receive_s": 264.580402,
+          "previous_receive_s": 264.576842,
+          "sensor_tick": 13119493888,
+          "previous_sensor_tick": 13119301888,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.9793832432283982,
+            -0.8433903252908468,
+            -0.0058509786223451135
+          ],
+          "step_mm": 2.151580697607787,
+          "velocity_before_body_mm_s": [
+            -41.120613833675485,
+            21.605197317949298,
+            0.0906685955166641
+          ],
+          "velocity_after_body_mm_s": [
+            -6.740525488264844,
+            4.426391075979915,
+            -0.256640184962044
+          ],
+          "residual_before_body_mg": [
+            -34.01201159268891,
+            -6.471492012977046,
+            1.023346830521965
+          ],
+          "step_against_velocity_cosine": 0.9967228532365544,
+          "step_against_residual_cosine": 0.830201908534055,
+          "gyro_norm_rad_s": 0.036919562274219,
+          "orientation_step_deg": 0.22577311216823603
+        },
+        {
+          "receive_s": 265.202429,
+          "previous_receive_s": 265.198742,
+          "sensor_tick": 13149449472,
+          "previous_sensor_tick": 13149257472,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            2.5441445548961794,
+            -0.7025665093474102,
+            0.09443704389301157
+          ],
+          "step_mm": 2.6410584188017756,
+          "velocity_before_body_mm_s": [
+            -50.841333314535305,
+            18.439344503119486,
+            -1.1257224771671972
+          ],
+          "velocity_after_body_mm_s": [
+            -7.669355471278602,
+            3.3353093235799354,
+            -0.5013395767438792
+          ],
+          "residual_before_body_mg": [
+            -44.26030666460542,
+            33.09595921428844,
+            -5.834236000757498
+          ],
+          "step_against_velocity_cosine": 0.9968117478482772,
+          "step_against_residual_cosine": 0.9293883547211983,
+          "gyro_norm_rad_s": 0.025228381859722242,
+          "orientation_step_deg": 0.38084484795653195
+        },
+        {
+          "receive_s": 265.590446,
+          "previous_receive_s": 265.586445,
+          "sensor_tick": 13168075776,
+          "previous_sensor_tick": 13167883776,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            2.383216956309532,
+            -0.8255311598593232,
+            0.2794453874763747
+          ],
+          "step_mm": 2.5375804383943716,
+          "velocity_before_body_mm_s": [
+            -53.013934649286135,
+            19.750768746612827,
+            -7.351118616852837
+          ],
+          "velocity_after_body_mm_s": [
+            -8.972633667028894,
+            3.8623572946161158,
+            -1.9501167160006863
+          ],
+          "residual_before_body_mg": [
+            -39.24183973190337,
+            0.3202499383195348,
+            3.806815236859884
+          ],
+          "step_against_velocity_cosine": 0.9995574464843037,
+          "step_against_residual_cosine": 0.9267597867070785,
+          "gyro_norm_rad_s": 0.03457482084482743,
+          "orientation_step_deg": 0.377052706778112
+        },
+        {
+          "receive_s": 265.91247,
+          "previous_receive_s": 265.908506,
+          "sensor_tick": 13183437568,
+          "previous_sensor_tick": 13183245568,
+          "sensor_dt_ms": 4.0,
+          "step_body_mm": [
+            1.7699251475692108,
+            -0.4637856694553796,
+            0.17267716262542027
+          ],
+          "step_mm": 1.837811083240721,
+          "velocity_before_body_mm_s": [
+            -42.96301261726892,
+            12.927673420878712,
+            -3.6495030855579964
+          ],
+          "velocity_after_body_mm_s": [
+            -7.831478058935489,
+            2.6292808201062203,
+            -0.8519341414884047
+          ],
+          "residual_before_body_mg": [
+            -36.84952485401951,
+            21.39168985241954,
+            -2.2233638825827073
+          ],
+          "step_against_velocity_cosine": 0.9992730919460854,
+          "step_against_residual_cosine": 0.9631810097596053,
+          "gyro_norm_rad_s": 0.05427353691053058,
+          "orientation_step_deg": 0.1903637109906188
+        }
+      ],
+      "onset_count": 15,
+      "onset_step_mm_median": 1.72127440392991,
+      "onset_step_mm_max": 3.3785883333458355,
+      "other_step_mm_median": 0.06349328556567692,
+      "onset_step_energy_fraction": 0.6387862232323037
+    },
+    "rest-after": {
+      "window_receive_s": [
+        275.0,
+        285.0
+      ],
+      "samples": 2497,
+      "pairs": 2496,
+      "first_sensor_tick": 13619714048,
+      "last_sensor_tick": 14099580160,
+      "first_q_wxyz": [
+        0.014707522310713088,
+        -0.946305178960033,
+        0.3206211030328003,
+        0.03863036824740896
+      ],
+      "last_q_wxyz": [
+        0.01491362458344183,
+        -0.9467109379189655,
+        0.3196023864578641,
+        0.03701754174462267
+      ],
+      "max_sensor_gap_ms": 8.005333333333333,
+      "max_receive_gap_ms": 8.545000000026448,
+      "stationary_fraction": 1.0,
+      "optical_inputs": {
+        "records": 12903,
+        "by_lighthouse": {
+          "0": 6131,
+          "1": 6772
+        },
+        "max_receive_gap_ms": 14.22900000000027
+      },
+      "position_radial_rms_mm": 0.06708899788747065,
+      "residual_acc_body_mean_mg": [
+        -17.31918621938868,
+        0.42489293215857565,
+        -2.4998024311408744
+      ],
+      "residual_acc_body_std_mg": [
+        6.033219406715081,
+        3.5306759819826294,
+        4.83955719165136
+      ],
+      "factory_acc_norm_mean_g": 0.9390703228634284,
+      "factory_gyro_rms_rad_s": 0.020215355916356998,
+      "corrected_gyro_rms_rad_s": 0.006245482528936365,
+      "factory_gyro_mean_rad_s": [
+        -0.0018174028834601565,
+        0.007797100520624655,
+        -0.017615472567080185
+      ],
+      "corrected_gyro_mean_rad_s": [
+        0.0006118297276779106,
+        0.0005778339909423257,
+        -0.0013984502812244206
+      ],
+      "pose_angular_rate_rms_rad_s": 0.05231190398065746,
+      "pose_gyro_disagreement_rms_rad_s": 0.05227458887866635,
+      "model_velocity_body_mean_mm_s": [
+        -0.006425515131963463,
+        0.001810929996145766,
+        0.00036983146261013904
+      ],
+      "output_velocity_body_mean_mm_s": [
+        -0.00920236349825349,
+        0.008384068194769539,
+        0.0024864291515523263
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        -0.0027768483662900497,
+        0.006573138198623769,
+        0.0021165976889421794
+      ],
+      "residual_against_feedback_cosine": -0.34997493729709683,
+      "acc_bias_first_mg": [
+        15.346259318113212,
+        1.7581497389350256,
+        35.666019683934444
+      ],
+      "acc_bias_last_mg": [
+        5.195238651696006,
+        2.014143308958084,
+        34.28328147409643
+      ],
+      "acc_scale_first": [
+        0.9970657684424339,
+        0.987733565121535,
+        0.9705444506008686
+      ],
+      "acc_scale_last": [
+        0.9966839473171227,
+        0.9877310042295601,
+        0.9705756848845005
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.47435008137701623,
+        0.46775697098792407,
+        0.9002675455865241
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        -7.602442928860507,
+        2.396795519494525,
+        32.47161325148734
+      ],
+      "onsets": [],
+      "onset_count": 0,
+      "onset_step_mm_median": null,
+      "onset_step_mm_max": null,
+      "other_step_mm_median": 0.0006834841780294046,
+      "onset_step_energy_fraction": 0.0
+    },
+    "desk-after": {
+      "window_receive_s": [
+        293.55,
+        295.8
+      ],
+      "samples": 562,
+      "pairs": 561,
+      "first_sensor_tick": 14510126592,
+      "last_sensor_tick": 14618043904,
+      "first_q_wxyz": [
+        0.013150052574624501,
+        -0.9470021505980774,
+        0.31865155073342416,
+        0.038408229522918905
+      ],
+      "last_q_wxyz": [
+        0.01357914693009396,
+        -0.9467420742803295,
+        0.31950681340008275,
+        0.037555928253135154
+      ],
+      "max_sensor_gap_ms": 8.0,
+      "max_receive_gap_ms": 8.186000000023341,
+      "stationary_fraction": 1.0,
+      "optical_inputs": {
+        "records": 2796,
+        "by_lighthouse": {
+          "0": 1375,
+          "1": 1421
+        },
+        "max_receive_gap_ms": 16.47600000001148
+      },
+      "position_radial_rms_mm": 0.03486417300520573,
+      "residual_acc_body_mean_mg": [
+        -8.133471834126976,
+        -1.4917771564779392,
+        -1.2008833508341932
+      ],
+      "residual_acc_body_std_mg": [
+        5.914408917014964,
+        4.011982326492634,
+        4.521682573016446
+      ],
+      "factory_acc_norm_mean_g": 0.9393869228832513,
+      "factory_gyro_rms_rad_s": 0.02056965366717545,
+      "corrected_gyro_rms_rad_s": 0.007019625474043701,
+      "factory_gyro_mean_rad_s": [
+        -0.001961697508896796,
+        0.007872491103202857,
+        -0.017549161921708155
+      ],
+      "corrected_gyro_mean_rad_s": [
+        5.947996466187587e-05,
+        2.4953819036142154e-05,
+        6.986842231797266e-05
+      ],
+      "pose_angular_rate_rms_rad_s": 0.033669331626474786,
+      "pose_gyro_disagreement_rms_rad_s": 0.03343013007215535,
+      "model_velocity_body_mean_mm_s": [
+        -0.00838891101706,
+        0.001114994081231195,
+        -7.901604512320139e-05
+      ],
+      "output_velocity_body_mean_mm_s": [
+        -0.030796154211043345,
+        0.006141931914420719,
+        0.00013651621923938982
+      ],
+      "feedback_velocity_body_mean_mm_s": [
+        -0.02240724319398337,
+        0.005026937833189526,
+        0.00021553226436258537
+      ],
+      "residual_against_feedback_cosine": -0.9093044106770894,
+      "acc_bias_first_mg": [
+        0.33731808756047676,
+        1.6104758321101136,
+        33.47875253097426
+      ],
+      "acc_bias_last_mg": [
+        -0.6074171785078231,
+        1.4395814205133428,
+        33.34315380252264
+      ],
+      "acc_scale_first": [
+        0.9965536318043537,
+        0.9877326997210323,
+        0.9705873782667042
+      ],
+      "acc_scale_last": [
+        0.9965338013595316,
+        0.987733317987067,
+        0.9705888968822782
+      ],
+      "acc_bias_sigma_last_mg": [
+        0.4608177841436521,
+        0.4547147967478261,
+        0.8954292773020712
+      ],
+      "equivalent_constant_bias_at_estimated_attitude_mg": [
+        -8.249893193524143,
+        0.0519881089928191,
+        32.234224599394814
+      ],
+      "onsets": [],
+      "onset_count": 0,
+      "onset_step_mm_median": null,
+      "onset_step_mm_max": null,
+      "other_step_mm_median": 0.00045812525841402063,
+      "onset_step_energy_fraction": 0.0
+    }
+  },
+  "analysis": {
+    "tool_sha256": "2732be4a4794d2acc11c3a3d2cc32b5c313df98d1aef8125979370dbade9214b",
+    "python": "3.14.8 (main, Oct  2 2026, 10:23:31) [GCC 16.2.1 20260810]",
+    "numpy": "2.5.4"
+  },
+  "method": {
+    "acceleration": "(I.acc - POSE_BIAS.AccBias) / AccScale - R(POSE_STATE.q)^-1 [0,0,1]",
+    "derivative": "adjacent full-precision raw IMU poses / positive full sensor tick delta",
+    "feedback": "body-frame pose derivative minus midpoint model VELOCITY; includes all measurement updates and output timing effects",
+    "means": "pair velocities are sensor-dt weighted; IMU residual means use matched output samples",
+    "onset": "recorded stationary duration crosses from <=100 ms to >100 ms",
+    "limitations": [
+      "No independent physical ground truth; actual hand acceleration contributes.",
+      "Residual acceleration also contains attitude/gravity, scale and optical-model errors.",
+      "Output-minus-model velocity is not an isolated optical innovation or proof of its cause.",
+      "Stationary-onset association is observational, not a replay that isolates the update.",
+      "Equivalent constant bias assumes recorded attitude and zero physical acceleration; not a calibration to apply.",
+      "Native rows used by this analysis are checked; this is not a full native grammar validator.",
+      "Prefix observations cannot establish final queue loss or full gzip CRC validity."
+    ]
+  }
+}

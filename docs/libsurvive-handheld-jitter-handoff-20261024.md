@@ -1,5 +1,11 @@
 # WiVRn Codex: 新規較正成功後の手持ちジッター A/B
 
+**2026-10-25 更新:** この A/B は実測済み。WiVRn の引継ぎ
+`~/WiVRn/docs/libsurvive-handheld-ab-results-20261025.txt` では B=0.6 は不安定で、
+ユーザーは A=60 を好んだ。0.6 を既定値に採用しない。
+[A の滑り・戻りと IMU 残差の調査](lighthouse-body-drift-results-20261025.md)を参照。
+以下は比較時の手順として保持する。
+
 まず libsurvive を `f8886a2` 以降へ更新する。
 `612629c` の native recorder 排他修正と `f8886a2` の加速度逆算修正を含む。
 Monado の座標変換・履歴・予測・追加 clamp を変える必要はない。
