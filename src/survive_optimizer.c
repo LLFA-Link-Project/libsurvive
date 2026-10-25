@@ -642,7 +642,84 @@ static void run_single_measurement(survive_optimizer *mpfunc_ctx, size_t meas_id
 	}
 }
 
+static int compare_scalar(const void *a, const void *b) {
+	FLT x = *(const FLT *)a, y = *(const FLT *)b;
+	return (x > y) - (x < y);
+}
+
+static FLT initial_light_huber(survive_optimizer *optimizer, const FLT *deviates) {
+	FLT floor = -optimizer->light_huber;
+	FLT *errors = alloca(optimizer->measurementsCnt * sizeof(FLT));
+	int count = 0, residual = 0;
+	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+		const survive_optimizer_measurement *meas = &optimizer->measurements[i];
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid)
+			errors[count++] = fabs(deviates[residual] * meas->variance);
+		residual += meas->size;
+	}
+	if (!count)
+		return floor;
+	qsort(errors, count, sizeof(FLT), compare_scalar);
+	FLT median = (errors[(count - 1) / 2] + errors[count / 2]) * .5;
+	return linmath_max(floor, 6 * median);
+}
+
+static void filter_isolated_light_outliers(survive_optimizer *optimizer, FLT *deviates) {
+	if (!(optimizer->light_outlier_ratio > 1) || optimizer->poseLength != 1)
+		return;
+	FLT *errors = alloca(optimizer->measurementsCnt * sizeof(FLT));
+	int count = 0, residual = 0;
+	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+		const survive_optimizer_measurement *meas = &optimizer->measurements[i];
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid)
+			errors[count++] = fabs(deviates[residual] * meas->variance);
+		residual += meas->size;
+	}
+	if (count < 12)
+		return;
+	qsort(errors, count, sizeof(FLT), compare_scalar);
+	FLT median = (errors[(count - 1) / 2] + errors[count / 2]) * .5;
+	FLT threshold = linmath_max(optimizer->light_outlier_floor, median * optimizer->light_outlier_ratio);
+	if (!(threshold > 0) || !isfinite(threshold))
+		return;
+	int rejected = 0, axis_count = 0;
+	bool axes[NUM_GEN2_LIGHTHOUSES * 2] = {0};
+	for (int i = 0; i < count; i++)
+		rejected += errors[i] > threshold;
+	// A small minority may be corrupt. A large disagreement can instead be
+	// genuine motion or a poor initial pose: do not prune that observation.
+	if (!rejected || rejected * 4 > count || count - rejected < 8)
+		return;
+	residual = 0;
+	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+		const survive_optimizer_measurement *meas = &optimizer->measurements[i];
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid &&
+			fabs(deviates[residual] * meas->variance) <= threshold) {
+			int axis = 2 * meas->light.lh + meas->light.axis;
+			if (!axes[axis]) {
+				axes[axis] = true;
+				axis_count++;
+			}
+		}
+		residual += meas->size;
+	}
+	if (axis_count < 2)
+		return;
+	residual = 0;
+	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+		survive_optimizer_measurement *meas = &optimizer->measurements[i];
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid &&
+			fabs(deviates[residual] * meas->variance) > threshold) {
+			meas->invalid = true;
+			deviates[residual] = 0;
+			optimizer->stats.dropped_meas_cnt++;
+		}
+		residual += meas->size;
+	}
+}
+
 static void filter_measurements(survive_optimizer *optimizer, FLT *deviates) {
+	filter_isolated_light_outliers(optimizer, deviates);
 	struct SurviveObject *so = optimizer->sos[0];
 	SurviveContext *ctx = optimizer->sos[0] ? optimizer->sos[0]->ctx : 0;
 
@@ -1067,9 +1144,39 @@ static int mpfunc(int m, int n, FLT *p, FLT *deviates, FLT **derivs, void *priva
 		meas_idx += meas->size;
 	}
 
+	// Select the transition once from the unmodified initial residuals. A
+	// coherent seed error must not cause most beams to lose weight. Holding
+	// this scale fixed during optimization also keeps the Jacobian valid.
+	if (mpfunc_ctx->light_huber < 0)
+		mpfunc_ctx->light_huber = initial_light_huber(mpfunc_ctx, deviates);
+
 	if (mpfunc_ctx->needsFiltering) {
 		assert(derivs == 0);
 		filter_measurements(mpfunc_ctx, deviates);
+	}
+
+	// Transform each scalar light residual so its square is the Huber loss.
+	// Apply its derivative to *all* parameter Jacobians, including sensor scale
+	// and lighthouse corrections. This remains a single-time optical solve;
+	// there is no averaging or regularization against earlier output poses.
+	const FLT delta = mpfunc_ctx->light_huber;
+	if (delta > 0) {
+		int residual = 0;
+		for (int i = 0; i < mpfunc_ctx->measurementsCnt; i++) {
+			const survive_optimizer_measurement *meas = &mpfunc_ctx->measurements[i];
+			if (!meas->invalid && meas->meas_type == survive_optimizer_measurement_type_light) {
+				FLT error = deviates[residual] * meas->variance;
+				if (fabs(error) > delta) {
+					FLT root = sqrt(delta * (2 * fabs(error) - delta));
+					deviates[residual] = copysign(root, error) / meas->variance;
+					FLT factor = delta / root;
+					for (int j = 0; derivs && j < n; j++)
+						if (derivs[j])
+							derivs[j][residual] *= factor;
+				}
+			}
+			residual += meas->size;
+		}
 	}
 
 	if (mpfunc_ctx->iteration_cb) {

@@ -203,6 +203,55 @@ TEST(Optimizer, ReducedChiSquareUsesResidualDegreesOfFreedom) {
 	return 0;
 }
 
+TEST(Optimizer, OpticalHuberLossLeavesSmallResidualsAndPriorsUnchanged) {
+	for (int gen2 = 0; gen2 < 2; gen2++) {
+		for (int separate = 0; separate < 2; separate++) {
+			survive_optimizer_settings config = {.use_quat_model = true, .disable_filter = true,
+				.optimize_scale_threshold = -1, .disallow_pair_calc = separate};
+			survive_optimizer opt = {.settings = &config, .poseLength = 1, .cameraLength = 1,
+				.ptsLength = 1, .disableVelocity = true, .objectUpVectorVariance = -1, .light_huber = .0005,
+				.reprojectModel = gen2 ? &survive_reproject_gen2_model : &survive_reproject_gen1_model};
+			SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+			SurvivePose pose = {.Rot = {1}}, lh = {.Pos = {0, 0, 4}, .Rot = {1}};
+			survive_optimizer_setup_pose(&opt, &pose, true, 1);
+			survive_optimizer_setup_camera(&opt, 0, &lh, true, 1);
+			FLT point[3] = {.02, .07, .01}, angles[2], errors[2] = {.0001, -.003};
+			SurvivePose inverse = InvertPoseRtn(&lh);
+			LinmathPoint3d in_lh;
+			ApplyPoseToPoint(in_lh, &inverse, point);
+			BaseStationCal bcal[2] = {0};
+			opt.reprojectModel->reprojectXY(bcal, in_lh, angles);
+			survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_obj_points, 1);
+			memcpy(pts->p, point, sizeof(point));
+			survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_camera_parameters, 1);
+			memset(cal->p, 0, cal->size * sizeof(FLT));
+			// Ordinary priors are not part of the robust optical loss.
+			survive_optimizer_measurement *prior = survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+			prior->parameter_bias.parameter_index = 0;
+			prior->parameter_bias.expected_value = 1;
+			prior->variance = .1;
+			for (int axis = 0; axis < 2; axis++) {
+				survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_light);
+				meas->light.axis = axis;
+				meas->light.value = angles[axis]-errors[axis];
+				meas->variance = .0001;
+			}
+			ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 100 + 1 + 275.);
+			opt.light_huber = 0;
+			ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 100 + 1 + 900.);
+			// A coherent initial discrepancy widens the transition. Its scale
+			// remains fixed when the objective is evaluated again.
+			opt.light_huber = -.0005;
+			ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 100 + 1 + 900.);
+			ASSERT_DOUBLE_EQ(opt.light_huber, 6 * (.0001 + .003) / 2);
+			FLT transition = opt.light_huber;
+			ASSERT_DOUBLE_EQ(survive_optimizer_current_norm(&opt), 100 + 1 + 900.);
+			ASSERT_DOUBLE_EQ(opt.light_huber, transition);
+		}
+	}
+	return 0;
+}
+
 TEST(Optimizer, LighthouseResidualsFollowScalarOffsetsAfterGravity) {
 	for (int gen2 = 0; gen2 < 2; gen2++) {
 		SurviveContext ctx = {0};
@@ -262,6 +311,74 @@ TEST(Optimizer, LighthouseResidualsFollowScalarOffsetsAfterGravity) {
 	return 0;
 }
 
+TEST(Optimizer, OpticalHuberRecoversPoseWithContaminatedBeam) {
+	for (int gen2 = 0; gen2 < 2; gen2++) {
+		for (int quaternion = 0; quaternion < 2; quaternion++) {
+			SurviveContext ctx = {0};
+			SurviveObject so = {.ctx = &ctx};
+			FLT errors[6] = {0};
+			int retained[6] = {0};
+			for (int mode = 0; mode < 6; mode++) {
+				survive_optimizer_settings config = {.use_quat_model = quaternion, .disable_filter = mode < 3,
+					.optimize_scale_threshold = -1};
+				survive_optimizer opt = {.settings = &config, .poseLength = 1, .cameraLength = 3,
+					.ptsLength = 6, .disableVelocity = true, .objectUpVectorVariance = -1,
+					.light_huber = mode == 5 ? -.0003 : (mode == 1 || mode == 2 ? .0003 : 0),
+					.light_outlier_ratio = mode == 3 || mode == 4 ? 6 : 0,
+					.light_outlier_floor = .01, .cfg = survive_optimizer_precise_config(),
+					.reprojectModel = gen2 ? &survive_reproject_gen2_model : &survive_reproject_gen1_model};
+				SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+				opt.sos[0] = &so;
+				SurvivePose truth = {.Pos = {.1, -.2, .3}}, start;
+				FLT axis[] = {.2, -.1, .3};
+				quatfromaxisanglemag(truth.Rot, axis);
+				start = truth;
+				start.Pos[0] += mode >= 4 ? .3 : .01;
+				survive_optimizer_setup_pose(&opt, &start, false, mode == 2 ? 0 : 1);
+				SurvivePose cameras[3] = {{.Pos = {0, 0, 3}, .Rot = {1}},
+					{.Pos = {-1, -.5, 2}, .Rot = {1}}, {.Pos = {1, .5, 2.5}, .Rot = {1}}};
+				for (int lh = 0; lh < 3; lh++)survive_optimizer_setup_camera(&opt, lh, &cameras[lh], true, 1);
+				survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_obj_points, 6);
+				memcpy(pts->p, points, sizeof(points));
+				survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_camera_parameters, 3);
+				memset(cal->p, 0, cal->size * sizeof(FLT));
+				BaseStationCal bcal[2] = {0};
+				for (int lh = 0; lh < 3; lh++)for (int sensor = 0; sensor < 6; sensor++) {
+					SurvivePose inverse = InvertPoseRtn(&cameras[lh]);
+					LinmathPoint3d world, in_lh;
+					ApplyPoseToPoint(world, &truth, points + sensor*3);
+					ApplyPoseToPoint(in_lh, &inverse, world);
+					FLT angles[2];
+					opt.reprojectModel->reprojectXY(bcal, in_lh, angles);
+					for (int axis = 0; axis < 2; axis++) {
+						survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_light);
+						meas->light.lh = lh;
+						meas->light.sensor_idx = sensor;
+						meas->light.axis = axis;
+						meas->light.value = angles[axis]+(mode < 4 && lh == 0 && sensor == 0 && axis == 1 ? .08 : 0);
+						meas->variance = .0001;
+					}
+				}
+				mp_result result = {0};
+				ASSERT_GT(survive_optimizer_run(&opt, &result, 0), 0);
+				retained[mode] = opt.measurementsCnt;
+				errors[mode] = dist3d(survive_optimizer_get_pose(&opt)->Pos, truth.Pos);
+			}
+			ASSERT_GT(errors[0], errors[1]*10);
+			ASSERT_GT(.001, errors[1]);
+			ASSERT_GT(.001, errors[2]);
+			if (!quaternion) ASSERT_GT(.00002, fabs(errors[1]-errors[2]));
+			ASSERT_GT(.00001, errors[3]);
+			ASSERT_EQ(retained[3], 35);
+			// A coherent large initial-pose disagreement must keep every beam.
+			ASSERT_GT(.0001, errors[4]);
+			ASSERT_EQ(retained[4], 36);
+			ASSERT_GT(.0001, errors[5]);
+			ASSERT_EQ(retained[5], 36);
+		}
+	}
+	return 0;
+}
 
 TEST(Optimizer, GravityResidualDoesNotCancelBetweenAxes) {
 	for (int camera = 0; camera < 2; camera++) {

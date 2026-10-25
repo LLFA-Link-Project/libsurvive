@@ -94,6 +94,8 @@ typedef struct MPFITData {
   FLT record_reprojection_error;
   FLT obj_up_variance, lh_up_variance, calibration_stationary_obj_up_variance, stationary_obj_up_variance;
   FLT sensor_variance_cal;
+  FLT light_huber;
+  FLT light_outlier_ratio, light_outlier_floor;
   bool model_velocity;
   bool globalDataAvailable;
   struct survive_async_optimizer *async_optimizer;
@@ -104,6 +106,9 @@ typedef struct MPFITData {
 STRUCT_CONFIG_SECTION(MPFITData)
 STRUCT_CONFIG_ITEM("mpfit-cal-sensor-variance", "Light sensor variance for calibration", 1e-4, t->sensor_variance_cal)
 STRUCT_CONFIG_ITEM("mpfit-model-velocity", "Model velocity in non mpfit process", true, t->model_velocity)
+STRUCT_CONFIG_ITEM("mpfit-light-huber", "Optical Huber transition (radians); 0 disables, -1 selects tracker-only adaptive .003 floor", -1, t->light_huber)
+STRUCT_CONFIG_ITEM("mpfit-light-outlier-ratio", "Experimental isolated beam rejection relative to median residual; 0 disables", 0, t->light_outlier_ratio)
+STRUCT_CONFIG_ITEM("mpfit-light-outlier-floor", "Minimum angular residual for isolated beam rejection (radians)", .01, t->light_outlier_floor)
 STRUCT_CONFIG_ITEM("mpfit-record-reprojection-error", "", 0, t->record_reprojection_error)
 STRUCT_CONFIG_ITEM("mpfit-object-up-variance",
 				   "How much to weight having the accel direction on tracked objects pointing up", -1,
@@ -719,6 +724,16 @@ static FLT run_mpfit_find_3d_structure(MPFITData *d, PoserDataLight *pdl, Surviv
 	int setup_results = setup_optimizer(&user_data, &mpfitctx, scene);
 	if (setup_results < 0) {
 		return setup_results;
+	}
+	// Do not alter initial calibration / lighthouse refinement with a tracking
+	// outlier model. Those solves can legitimately start far from the answer.
+	if (user_data.worldEstablished && !user_data.canPossiblySolveLHS)
+		mpfitctx.light_huber = d->light_huber < 0 ?
+			(so->object_type == SURVIVE_OBJECT_TYPE_OTHER ? -.003 : 0) : d->light_huber;
+	if (user_data.worldEstablished && !user_data.canPossiblySolveLHS &&
+		d->opt.lastSuccessTime > 0 && survive_run_time(ctx) - d->opt.lastSuccessTime < .05) {
+		mpfitctx.light_outlier_ratio = d->light_outlier_ratio;
+		mpfitctx.light_outlier_floor = d->light_outlier_floor;
 	}
 
 	mp_result result = {0};

@@ -123,6 +123,13 @@ typedef struct survive_optimizer {
 	size_t measurementsCnt, parametersCnt, parameterBlockCnt;
 
 	FLT objectUpVectorVariance;
+	// Optional Huber transition in radians for optical residuals only. Zero
+	// retains ordinary least squares; priors/gravity are never robustified.
+	// Negative selects a transition once from initial light residuals, with
+	// abs(light_huber) as its minimum. Positive uses a fixed transition.
+	FLT light_huber;
+	FLT light_outlier_ratio;
+	FLT light_outlier_floor;
 	FLT timecode;
 
 	struct mp_par_struct *mp_parameters_info;
