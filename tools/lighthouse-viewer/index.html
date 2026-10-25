@@ -31,14 +31,18 @@
   <div class="pair"><label>開始（秒）<input id="lo" type="number" step="0.001" value="260"></label><label>終了（秒）<input id="hi" type="number" step="0.001" value="266"></label></div>
   <button id="load" class="primary">この区間を開く</button>
   <div class="muted fine">1 回に最大 60 秒。グラフ上のドラッグでも範囲を指定できます。</div>
-  <label>記録全体から移動<input id="overview" type="range" min="0" max="310" step="0.001" value="260"></label>
+  <div class="range-caption">記録全体から範囲を指定 <output id="overviewLabel"></output></div>
+  <div class="range-pair" id="overviewRange"><div class="range-fill"></div><input id="overviewLo" class="range-start" type="range" min="0" max="310" step="0.001" value="260" aria-label="読込範囲の開始"><input id="overviewHi" class="range-end" type="range" min="0" max="310" step="0.001" value="266" aria-label="読込範囲の終了"></div>
   <div id="extent" class="muted fine"></div>
   <div class="section-label">03 <span>見え方</span></div>
   <div class="pair"><label>表示<select id="view"><option value="micro">微動を拡大</option><option value="room">実寸 / 広域</option></select></label><label>位置の倍率<select id="gain"><option>1</option><option>5</option><option>10</option><option selected>30</option><option>100</option><option>300</option></select></label></div>
   <label>座標軸<select id="basis"><option value="world">記録の world 軸</option><option value="body">区間先頭のデバイス軸（固定）</option></select></label>
   <div class="pair"><label>回転の倍率<select id="rotationGain"><option selected>1</option><option>5</option><option>10</option><option>30</option></select></label><label>軌跡の長さ<select id="trail"><option value="0.25">0.25 秒</option><option value="1" selected>1 秒</option><option value="3">3 秒</option><option value="60">区間全体</option></select></label></div>
   <label>サンプル間の表示<select id="interpolation"><option value="sample">実サンプルを保持（補間なし）</option><option value="linear">線形 / quaternion slerp 補間</option></select></label>
-  <div class="presets"><button id="fitCamera">軌跡全体を収める</button><button id="resetCamera">カメラを戻す</button></div>
+  <label class="check"><input id="showContext" type="checkbox" checked> 他のデバイス・BS を控えめに表示</label>
+  <label class="check"><input id="showOptical" type="checkbox" checked> 光学解を重ねる（紫）</label>
+  <div id="opticalNotice" class="metadata"></div>
+  <div class="presets"><button id="fitCamera">軌跡全体を収める</button><button id="fitRoom">他デバイス・BS も収める</button><button id="resetCamera">カメラを戻す</button></div>
   <p class="muted fine">手の実際の動きも含まれます。SteamVR は参照値です。表示から真の誤差・遅延は決められません。</p>
 </aside>
 <main>
@@ -49,12 +53,15 @@
   <div class="scene-help"><span>ドラッグ: 視点を回転 · ホイール: 拡大 · ダブルクリック: 視点を戻す</span><span id="frameLabel">各区間の先頭位置を原点として固定</span></div>
   <div class="transport">
     <button id="play" class="primary" aria-label="再生">▶ 再生</button><button id="prev" title="前の実サンプル">Ⅰ◀</button><button id="next" title="次の実サンプル">▶Ⅰ</button>
-    <select id="speed" aria-label="再生速度"><option value="0.05">0.05×</option><option value="0.1">0.1×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option></select>
-    <label class="check"><input id="loop" type="checkbox" checked> ループ</label><output id="time">0.000000 s</output>
+    <select id="speed" aria-label="再生速度"><option value="0.05">0.05×</option><option value="0.1">0.1×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+    <label class="check"><input id="loop" type="checkbox" checked> ループ</label><button id="playFull">記録全体を再生</button><output id="time">0.000000 s</output>
   </div>
+  <div id="fullStatus" class="muted fine" role="status"></div>
   <input id="scrub" type="range" min="260" max="266" step="0.000001" value="260" aria-label="表示時刻">
   <div class="plots-head"><h3>元サンプルの時系列</h3><span class="muted fine">クリック: 時刻を移動 · ドラッグ: 共有する範囲を選択</span></div>
   <canvas id="plots" aria-label="位置・回転・サンプル間変位の時系列"></canvas>
+  <div class="range-caption">共有する範囲（両端をドラッグ / 矢印キーで調整）<output id="selectionLabel"></output></div>
+  <div class="range-pair" id="selectionRange"><div class="range-fill"></div><input id="selectionLo" class="range-start" type="range" step="0.000001" aria-label="共有範囲の開始"><input id="selectionHi" class="range-end" type="range" step="0.000001" aria-label="共有範囲の終了"></div>
   <div id="stats" class="stats"></div>
   <section class="share">
     <div class="section-label">04 <span>この区間について伝える</span></div>
@@ -64,7 +71,7 @@
     <details id="shareDetails"><summary>コピーする内容 / 手動コピー</summary><textarea id="shareText" rows="10" readonly aria-label="共有テキスト"></textarea></details>
     <p class="muted fine">ダンプ名、元ファイルの SHA-256、デバイス、時刻の基準、範囲、センサー tick、表示設定を含めます。URL はこのサーバーに接続できる PC から開けます。</p>
   </section>
-  <details class="method"><summary>表示と時刻について</summary><p>元データの位置を平滑化・間引きせずに読み込みます。画面更新より速い変化は軌跡とグラフで確認してください。20 ms を超える欠測、無効姿勢、センサー時刻の逆行をまたぐ線や補間は描きません。</p><p>native の時間軸は記録の受信秒です。tick / Hz は別のセンサー時計で、1 サンプルの変化量はセンサー時計があるときはその時間差で判定します。Monado / Valve JSONL は clock_sync 先頭からの callback 秒です。この二つを自動的に同期させません。</p><p>位置は表示区間の最初の有効姿勢からの変位です。B も独立した先頭位置を原点にするため、絶対位置の較正差は比較できません。デバイス軸表示も区間先頭で固定します。回転倍率を変えると実際より大きく回転して表示します。</p><p>3D の箱は IMU / 記録参照点を中心とする模式図で、実機形状・grip の再現ではありません。グラフには倍率を適用しません。静止判定時間はフィルター内の判定値です。</p></details>
+  <details class="method"><summary>表示と時刻について</summary><p>透視投影で表示します。元データの位置を平滑化・間引きせずに読み込みます。画面更新より速い変化は軌跡とグラフで確認してください。20 ms を超える欠測、無効姿勢、センサー時刻の逆行をまたぐ線や補間は描きません。</p><p>native の時間軸は記録の受信秒です。tick / Hz は別のセンサー時計で、1 サンプルの変化量はセンサー時計があるときはその時間差で判定します。Monado / Valve JSONL は clock_sync 先頭からの callback 秒です。この二つを自動的に同期させません。</p><p>位置は表示区間の先頭位置を原点とします。全体再生では読み込み区間が変わっても原点を保ちます。B は独立した原点です。他デバイスと BS の相対配置は実寸で、位置・回転倍率は選択デバイスとその光学解だけに適用します。</p><p>コントローラー・トラッカー・BS の形状は機種を区別する模式図です。IMU / 記録参照点を中心に描き、実機寸法・grip の向きを再現する CAD ではありません。形状のサイズは見やすく調整します。グラフには倍率を適用しません。</p><p>紫は融合前の光学ソルバー候補です。元記録の値とオフライン再生値を区別します。光学解にも IMU・直前姿勢による初期化があり、独立した真値ではありません。光学解は受信から 50 ms まで保持し、補間しません。表示する差には受信時刻の違いも含まれます。BS の位置は次の更新まで保持します。</p></details>
 </main>
 </div>
 </body>

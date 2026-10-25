@@ -2,9 +2,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const A_COLOR = '#58d9c0', B_COLOR = '#ffb877';
+const OPTICAL_COLOR = '#d997ff';
 const AXIS_COLORS = ['#ff8b8b', '#8fdd97', '#83b9ff'];
 const S = {sources: [], meta: {}, data: {}, generation: {A: 0, B: 0},
-  windowGeneration: 0,
+  windowGeneration: 0, full: null,
   time: 260, lo: 260, hi: 266, playing: false, lastFrame: 0,
   camera: {yaw: -.7, pitch: .48, zoom: 1, target: [0,0,0]}, drag: null, loading: false};
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -98,11 +99,12 @@ function updateTrack(side) {
   if (side==='A') {
     const track=selectedTrack('A');
     if (!track) return;
-    $('overview').min=track.start; $('overview').max=track.end; $('overview').value=num('lo');
     $('extent').textContent=`${track.start.toFixed(3)} – ${track.end.toFixed(3)} 秒 · ${track.count.toLocaleString()} サンプル`;
+    syncRanges();
   }
 }
 async function prepare(side, preferred) {
+  endFull();
   const id=$('source'+side).value, generation=++S.generation[side];
   ++S.windowGeneration;pause();
   $('track'+side).replaceChildren(new Option('インデックスを準備中…',''));
@@ -115,7 +117,7 @@ async function prepare(side, preferred) {
     if (meta.state==='ready') {
       S.meta[side]=meta;
       const select=$('track'+side); select.replaceChildren();
-      for (const track of meta.tracks) select.append(new Option(track.label,track.id));
+      for (const track of meta.tracks.filter(t=>!['LH_POSE','OPTICAL'].includes(t.stage))) select.append(new Option(track.label,track.id));
       const preferredTrack=meta.tracks.find(t=>t.id===preferred) || meta.tracks.find(t=>t.serial===preferred && t.stage==='POSE_STATE') ||
         meta.tracks.find(t=>t.serial==='LHR-C6F86C46' && t.stage==='POSE_STATE') ||
         meta.tracks.find(t=>t.serial==='LHR-C6F86C46' && t.stage==='backend_received') || meta.tracks[0];
@@ -146,29 +148,42 @@ function toggleCompare() {
   $('compareControls').hidden=!enabled; $('panelB').hidden=!enabled;
   $('scenes').classList.toggle('comparing',enabled);
 }
-async function loadWindow({selection=true, time=null, fit=true}={}) {
+async function fetchWindow(lo,hi,anchors={}) {
+  const sides=$('compare').checked?['A','B']:['A'];
+  return Promise.all(sides.map(async side=>{
+    const shift=side==='B'?num('offsetB'):0;
+    const query={id:$('source'+side).value,track:$('track'+side).value,lo:lo+shift,hi:hi+shift};
+    if(Number.isFinite(anchors[side])||anchors[side]==='first')query.anchor=anchors[side];
+    let data=await api('/api/window',query);
+    while(data.optical?.state==='indexing') {
+      status(`${side}: 光学診断のキャッシュを準備中…`);
+      await sleep(1000);data=await api('/api/window',query);
+    }
+    return data;
+  }));
+}
+async function loadWindow({selection=true, time=null, fit=true, full=false, anchors={}, buffer=null}={}) {
   const generation=++S.windowGeneration;
   const lo=num('lo'),hi=num('hi');
   if (!(hi>lo&&hi-lo<=60)) throw new Error('開始 < 終了、区間の長さは最大 60 秒にしてください。');
+  if(!full)endFull();
   pause(); S.loading=true; $('load').disabled=true;
   const sides=$('compare').checked?['A','B']:['A'];
   try {
     for (const side of sides) if (!selectedTrack(side)) throw new Error(`${side} のデバイスを選択してください。`);
-    const data=await Promise.all(sides.map(side=>{
-      const shift=side==='B'?num('offsetB'):0;
-      return api('/api/window',{id:$('source'+side).value,track:$('track'+side).value,lo:lo+shift,hi:hi+shift});
-    }));
+    const data=buffer||await fetchWindow(lo,hi,anchors);
     if(generation!==S.windowGeneration)return;
     sides.forEach((side,i)=>{
       if(data[i].state!=='ready') throw new Error('インデックス作成が終わるまで待ってください。');
       const d=data[i]; d.offset=side==='B'?num('offsetB'):0;
       d.sourceId=$('source'+side).value;
-      d.anchor=d.rows.find(valid); d.label=S.meta[side].source.label;
+      d.anchor=d.anchor||d.rows.find(valid); d.label=S.meta[side].source.label;
+      d.context=(d.context||[]).map(c=>({...c,offset:d.offset}));
+      if(d.optical)d.optical.offset=d.offset;
       S.data[side]=d;
     });
     S.lo=lo; S.hi=hi; S.time=clamp(time??S.data.A.anchor?.[0]??lo,lo,hi);
     $('scrub').min=lo; $('scrub').max=hi; $('scrub').value=S.time;
-    $('overview').value=lo;
     if(selection){$('selectLo').value=lo; $('selectHi').value=hi;}
     $('windowTitle').textContent=`${lo.toFixed(3)} – ${hi.toFixed(3)} 秒`;
     $('sourceSummary').textContent=sides.map(side=>{const s=S.meta[side].source;return `${side}: ${s.label.includes(s.session)?s.label:s.session+' · '+s.label}`;}).join(' / ');
@@ -183,6 +198,11 @@ async function loadWindow({selection=true, time=null, fit=true}={}) {
       if(meta.source.manifest_status!=='complete'&&meta.source.group==='recordings') warnings.push(`${side}: manifest ${meta.source.manifest_status}`);
     }
     status(warnings.length?warnings.join(' · '):'原記録のサンプルを表示しています。選んだ区間を低速再生し、グラフの範囲をコピーできます。');
+    const descriptions=sides.map(side=>{
+      const o=S.data[side].optical;
+      return `${side}: ${o?.state==='ready'?(o.origin==='reconstructed'||o.provenance?'再生で求めた光学解（元の実行とは処理順が異なります）':'記録済みの光学解'):(o?.reason||'光学解の表示にはサーバーの再起動が必要です')}`;
+    });
+    $('opticalNotice').textContent=descriptions.join(' / ');
     if(fit)fitCamera();
     rebuild(); updateShare();
   } finally { if(generation===S.windowGeneration){S.loading=false; $('load').disabled=false;} }
@@ -190,13 +210,13 @@ async function loadWindow({selection=true, time=null, fit=true}={}) {
 function basisVector(v,d) { return $('basis').value==='body'?rot(inv(quaternion(d.anchor)),v):v; }
 function displacement(row,d) {return basisVector(sub(position(row),position(d.anchor)),d);}
 function angleVector(row,d) {return basisVector(rotationVector(mul(quaternion(row),inv(quaternion(d.anchor)))),d);}
-function sampleAt(d,t) {
-  if(!d?.rows.length) return null;
+function sampleAt(d,t,maxAge=.02,interpolate=true) {
+  if(!d) return null;
   const target=t+d.offset, i=lowerBound(d.rows,target);
   if(i<d.rows.length&&d.rows[i][0]===target) return d.rows[i];
-  const a=d.rows[i-1], b=d.rows[i];
-  if(!valid(a)||target-a[0]>.02) return null;
-  if($('interpolation').value==='linear'&&b&&connected(a,b)&&b[0]>a[0]) {
+  const a=d.rows[i-1]||(i===0?d.previous:null), b=d.rows[i];
+  if(!valid(a)||target<a[0]||target-a[0]>maxAge) return null;
+  if(interpolate&&$('interpolation').value==='linear'&&b&&connected(a,b)&&b[0]>a[0]) {
     const f=(target-a[0])/(b[0]-a[0]), row=a.slice();
     row.splice(3,3,...position(a).map((x,j)=>x+(b[3+j]-x)*f));
     row.splice(6,4,...slerp(quaternion(a),quaternion(b),f));
@@ -215,79 +235,185 @@ function visualVector(v,d) {
   if($('basis').value==='world'&&/Y-up|y_up/.test(d.track.frame)) return [v[0],-v[2],v[1]];
   return v;
 }
-function fitCamera() {
+function scenePosition(row,d,magnified=false) {
+  return scale(displacement(row,d),magnified?num('gain',30):1);
+}
+function deviceKind(track) {
+  const name=`${track.model||''} ${track.role||''}`.toLowerCase();
+  if(/base|lighthouse|trackingreference/.test(name)||track.role==='4')return 'base';
+  if(/tracker|tundra|generic/.test(name)||track.role==='3')return 'tracker';
+  if(/knuckle|index|controller|hand/.test(name)||track.role==='2')return 'controller';
+  if(/head|hmd/.test(name)||track.role==='1')return 'hmd';
+  return 'unknown';
+}
+function deviceName(track) {
+  const model=track.model||({controller:'Controller',tracker:'Tracker',base:'BS',hmd:'HMD',unknown:'Device'}[deviceKind(track)]);
+  return `${model}${/left/.test(`${track.role}`)?' L':/right/.test(`${track.role}`)?' R':''} · ${track.serial}`;
+}
+// Wire schematics distinguish device classes; they are not CAD/grip models.
+function modelLines(track) {
+  const lines=[],kind=deviceKind(track);
+  const ring=(center,radii,plane='xy')=>{
+    const points=[];
+    for(let i=0;i<=24;i++) {
+      const a=i/24*Math.PI*2,c=Math.cos(a),s=Math.sin(a);
+      points.push(add(center,plane==='xy'?[radii[0]*c,radii[1]*s,0]:[radii[0]*c,0,radii[1]*s]));
+    }
+    lines.push(points);
+  };
+  const box=(x,y,z)=>{
+    const vertices=Array.from({length:8},(_,i)=>[i&1?x:-x,i&2?y:-y,i&4?z:-z]);
+    for(let i=0;i<8;i++)for(const bit of [1,2,4])if(!(i&bit))lines.push([vertices[i],vertices[i|bit]]);
+  };
+  if(kind==='tracker') {
+    ring([0,0,.25],[.55,.55]);ring([0,0,-.2],[.55,.55]);
+    for(let i=0;i<3;i++) {
+      const a=i*Math.PI*2/3;
+      const local=[[.4,-.3,.25],[1.25,-.3,.12],[1.45,0,0],[1.25,.3,.12],[.4,.3,.25]];
+      lines.push(local.map(([x,y,z])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a),z]));
+    }
+  } else if(kind==='controller') {
+    box(.33,.95,.3);
+    ring([0,-.75,.25],[.65,.5]);
+    const side=/left/i.test(`${track.model} ${track.role}`)?-1:1;
+    lines.push([[side*.3,-.85,.25],[side*1.05,-.7,.3],[side*1.25,.45,.15],[side*.3,.95,.1]]);
+    ring([0,-.85,.38],[.22,.17]);
+  } else if(kind==='base') {
+    box(.7,.55,.65);
+    lines.push([[-.55,-.6,-.5],[.55,-.6,-.5],[.55,-.6,.5],[-.55,-.6,.5],[-.55,-.6,-.5]]);
+    lines.push([[0,-.6,0],[0,-1.7,0]]);
+  } else if(kind==='hmd') {box(1,.5,.5);ring([0,.1,0],[1,.9]);}
+  else box(1,.7,.45);
+  return lines;
+}
+function makeProjection(w,h,d) {
+  const span=$('view').value==='micro'?.12:3;
+  const focal=Math.min(w,h)/(2*Math.tan(42*Math.PI/360));
+  const distance=focal/(Math.min(w,h)/span*S.camera.zoom),near=Math.max(1e-8,distance*.001);
+  const {yaw,pitch}=S.camera;
+  const camera=v=>{
+    const [x,y,z]=sub(visualVector(v,d),S.camera.target);
+    const depth=x*Math.sin(yaw)+y*Math.cos(yaw);
+    return [x*Math.cos(yaw)-y*Math.sin(yaw),depth*Math.sin(pitch)-z*Math.cos(pitch),distance-depth*Math.cos(pitch)-z*Math.sin(pitch)];
+  };
+  const screen=v=>[w/2+v[0]*focal/v[2],h*.53+v[1]*focal/v[2],v[2]];
+  return {camera,near,distance,focal,project:v=>{const p=camera(v);return p[2]>=near?screen(p):null;},
+    segment:(a,b)=>{
+      a=camera(a);b=camera(b);
+      if(a[2]<near&&b[2]<near)return null;
+      if(a[2]<near||b[2]<near) {
+        const f=(near-a[2])/(b[2]-a[2]),cut=a.map((x,i)=>x+f*(b[i]-x));
+        cut[2]=near;if(a[2]<near)a=cut;else b=cut;
+      }
+      return [screen(a),screen(b)];
+    }};
+}
+function fitCamera(includeContext=false) {
   const min=[0,0,0],max=[0,0,0];
+  const extend=p=>p.forEach((x,i)=>{min[i]=Math.min(min[i],x);max[i]=Math.max(max[i],x);});
   for(const side of ($('compare').checked?['A','B']:['A'])) {
     const d=S.data[side];if(!d?.anchor)continue;
-    for(const row of d.rows)if(valid(row)) {
-      const p=visualVector(scale(displacement(row,d),num('gain',30)),d);
-      p.forEach((x,i)=>{min[i]=Math.min(min[i],x);max[i]=Math.max(max[i],x);});
-    }
+    for(const row of d.rows)if(valid(row))extend(visualVector(scenePosition(row,d,true),d));
+    if(includeContext&&$('showContext').checked)for(const other of d.context||[])
+      for(const row of other.rows)if(valid(row))extend(visualVector(scenePosition(row,d),d));
+    if(includeContext&&$('showOptical').checked)for(const row of d.optical?.rows||[])
+      if(valid(row))extend(visualVector(scenePosition(row,d,true),d));
   }
   S.camera.target=min.map((x,i)=>(x+max[i])/2);
-  const radius=norm(sub(max,min))/2;
-  const span=$('view').value==='micro'?.12:3;
-  S.camera.zoom=clamp(span/Math.max(span,radius*2.6),1e-6,20);
+  const radius=norm(sub(max,min))/2,span=$('view').value==='micro'?.12:3;
+  S.camera.zoom=clamp(span/Math.max(span,radius*3.3),1e-6,20);
 }
 function drawScene(side) {
-  const canvas=$('scene'+side), {ctx,w,h}=canvasContext(canvas),d=S.data[side];
+  const canvas=$('scene'+side),{ctx,w,h}=canvasContext(canvas),d=S.data[side];
   ctx.fillStyle='#0e1823';ctx.fillRect(0,0,w,h);
   if(!d?.anchor) {ctx.fillStyle='#91a5b9';ctx.font='13px system-ui';ctx.fillText('この区間に有効な姿勢がありません',24,h/2);return;}
-  const gain=num('gain',30),micro=$('view').value==='micro';
-  const span=micro?.12:3, pixels=Math.min(w,h)/span*S.camera.zoom;
-  const {yaw,pitch}=S.camera;
-  const project=v=>{
-    const [x,y,z]=sub(visualVector(v,d),S.camera.target),u=x*Math.cos(yaw)-y*Math.sin(yaw),depth=x*Math.sin(yaw)+y*Math.cos(yaw);
-    return [w/2+u*pixels,h*.53+(depth*Math.sin(pitch)-z*Math.cos(pitch))*pixels];
-  };
+  const projection=makeProjection(w,h,d),{project}=projection,micro=$('view').value==='micro';
+  const span=micro?.12:3;
   function line(points,color,width=1,dashed=false) {
     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dashed?[4,5]:[]);ctx.beginPath();
-    points.forEach((v,i)=>{const p=project(v);i?ctx.lineTo(...p):ctx.moveTo(...p);});ctx.stroke();ctx.setLineDash([]);
+    for(let i=1;i<points.length;i++) {
+      const edge=projection.segment(points[i-1],points[i]);
+      if(edge){ctx.moveTo(...edge[0].slice(0,2));ctx.lineTo(...edge[1].slice(0,2));}
+    }
+    ctx.stroke();ctx.setLineDash([]);
   }
-  const idealGrid=span/S.camera.zoom/12,grid=10**Math.floor(Math.log10(idealGrid))*Math.ceil(idealGrid/10**Math.floor(Math.log10(idealGrid)));
-  const gridExtent=grid*12,cx=Math.round(S.camera.target[0]/grid)*grid,cy=Math.round(S.camera.target[1]/grid)*grid;
+  const idealGrid=span/S.camera.zoom/12,base=10**Math.floor(Math.log10(idealGrid)),grid=base*Math.ceil(idealGrid/base);
+  const extent=grid*12,cx=Math.round(S.camera.target[0]/grid)*grid,cy=Math.round(S.camera.target[1]/grid)*grid;
   const fromVisual=v=>$('basis').value==='world'&&/Y-up|y_up/.test(d.track.frame)?[v[0],v[2],-v[1]]:v;
   for(let i=-12;i<=12;i++) {
-    const t=i*grid;
-    line([fromVisual([cx-gridExtent,cy+t,0]),fromVisual([cx+gridExtent,cy+t,0])],'#1d3040');
-    line([fromVisual([cx+t,cy-gridExtent,0]),fromVisual([cx+t,cy+gridExtent,0])],'#1d3040');
+    line([fromVisual([cx-extent,cy+i*grid,0]),fromVisual([cx+extent,cy+i*grid,0])],'#1d3040');
+    line([fromVisual([cx+i*grid,cy-extent,0]),fromVisual([cx+i*grid,cy+extent,0])],'#1d3040');
   }
   const axisLength=micro?.025/S.camera.zoom:.35;
-  ['X','Y','Z'].forEach((label,i)=>{const v=[0,0,0];v[i]=axisLength;line([[0,0,0],v],AXIS_COLORS[i],1.5);ctx.fillStyle=AXIS_COLORS[i];ctx.font='11px ui-monospace,monospace';ctx.fillText(label,...project(scale(v,1.1)));});
-  const trail=num('trail',1),start=S.time-trail+d.offset,end=S.time+d.offset;
-  let previous=null;
-  ctx.strokeStyle=side==='A'?A_COLOR:B_COLOR;ctx.lineWidth=1.2;ctx.globalAlpha=.6;ctx.beginPath();
-  for(let i=lowerBound(d.rows,start);i<d.rows.length&&d.rows[i][0]<=end;i++) {
-    const row=d.rows[i]; if(!valid(row)){previous=null;continue;}
-    const p=project(scale(displacement(row,d),gain));
-    if(previous&&connected(previous,row))ctx.lineTo(...p);else ctx.moveTo(...p);
-    previous=row;
-  }
-  ctx.stroke();ctx.globalAlpha=1;
-  const drawBox=(p,q,color,ghost=false)=>{
-    const size=micro?.009/S.camera.zoom:.045;
-    const vertices=[];
-    for(let i=0;i<8;i++) {const v=[i&1?size:-size,i&2?size*.7:-size*.7,i&4?size*.45:-size*.45];vertices.push(add(p,basisVector(rot(q,v),d)));}
-    for(let i=0;i<8;i++)for(const bit of [1,2,4])if(!(i&bit))line([vertices[i],vertices[i|bit]],color,ghost?1:2,ghost);
-    if(!ghost) {
-      for(let i=0;i<3;i++){const v=[0,0,0];v[i]=size*2;line([p,add(p,basisVector(rot(q,v),d))],AXIS_COLORS[i],2);}
-      const screen=project(p);ctx.fillStyle=color;ctx.beginPath();ctx.arc(...screen,3.5,0,Math.PI*2);ctx.fill();
+  ['X','Y','Z'].forEach((label,i)=>{
+    const v=[0,0,0];v[i]=axisLength;line([[0,0,0],v],AXIS_COLORS[i],1.5);
+    const p=project(scale(v,1.1));if(p){ctx.fillStyle=AXIS_COLORS[i];ctx.font='11px ui-monospace,monospace';ctx.fillText(label,p[0],p[1]);}
+  });
+  const trail=(rows,color,magnified)=>{
+    let previous=null;
+    for(let i=lowerBound(rows,S.time-num('trail',1)+d.offset);i<rows.length&&rows[i][0]<=S.time+d.offset;i++) {
+      const row=rows[i];
+      if(previous&&connected(previous,row))line([scenePosition(previous,d,magnified),scenePosition(row,d,magnified)],color,1.25);
+      previous=valid(row)?row:null;
     }
   };
-  drawBox([0,0,0],quaternion(d.anchor),'#546477',true);
-  const row=sampleAt(d,S.time);
+  ctx.globalAlpha=.65;trail(d.rows,side==='A'?A_COLOR:B_COLOR,true);
+  if($('showOptical').checked&&d.optical?.state==='ready')trail(d.optical.rows,OPTICAL_COLOR,true);
+  ctx.globalAlpha=1;
+  const objects=[],edgeLabels=[];
+  const addObject=(row,track,color,kind,magnified=false)=>{
+    if(!row)return;
+    const p=scenePosition(row,d,magnified),q0=quaternion(d.anchor);
+    const q=magnified?mul(q0,qpower(mul(inv(q0),quaternion(row)),num('rotationGain',1))):quaternion(row);
+    objects.push({p,q,track,color,kind,depth:projection.camera(p)[2]});
+  };
+  if($('showContext').checked)for(const other of d.context||[]) {
+    const row=sampleAt(other,S.time,other.track.persistent||deviceKind(other.track)==='base'?Infinity:.02,false);
+    addObject(row,other.track,'#8395a9','context');
+  }
+  if(S.time+d.offset>=d.anchor[0])addObject(d.anchor,d.track,'#4c5c6d','ghost',true);
+  const row=sampleAt(d,S.time),optical=$('showOptical').checked&&d.optical?.state==='ready'?sampleAt(d.optical,S.time,.05,false):null;
+  addObject(row,d.track,side==='A'?A_COLOR:B_COLOR,'selected',true);
+  addObject(optical,d.track,OPTICAL_COLOR,'optical',true);
+  if(row&&optical)line([scenePosition(row,d,true),scenePosition(optical,d,true)],OPTICAL_COLOR,1,true);
+  objects.sort((a,b)=>b.depth-a.depth);
+  for(const obj of objects) {
+    const {p,q,track,color,kind}=obj;
+    const size=micro&&kind!=='context'?.009/S.camera.zoom:
+      Math.max(.045,obj.depth/projection.focal*(kind==='context'?7:10));
+    const transform=v=>add(p,basisVector(rot(q,scale(v,size)),d));
+    ctx.globalAlpha=kind==='context'?.36:kind==='ghost'?.4:kind==='optical'?.8:1;
+    if(kind==='optical') {
+      for(let i=0;i<3;i++){const v=[0,0,0];v[i]=size*.65;line([sub(p,v),add(p,v)],color,2);}
+    } else for(const points of modelLines(track))line(points.map(transform),color,kind==='selected'?2:1,kind==='ghost');
+    const screen=project(p);
+    if(kind==='selected')for(let i=0;i<3;i++) {
+      const axis=[0,0,0];axis[i]=2*size;line([p,add(p,basisVector(rot(q,axis),d))],AXIS_COLORS[i],1.5);
+    }
+    if(kind!=='ghost') {
+      const name=kind==='optical'?'光学解':deviceName(track);
+      if(screen&&screen[0]>12&&screen[0]<w-12&&screen[1]>30&&screen[1]<h-30) {
+        ctx.fillStyle=color;ctx.beginPath();ctx.arc(screen[0],screen[1],kind==='selected'?3.5:2.5,0,Math.PI*2);ctx.fill();
+        ctx.font='11px system-ui';ctx.fillText(name,clamp(screen[0]+10,8,Math.max(8,w-ctx.measureText(name).width-8)),screen[1]-12);
+      } else if(kind!=='selected') {
+        const c=projection.camera(p),sign=c[2]<projection.near?-1:1;
+        const x=c[0]*sign,y=c[1]*sign,r=Math.max(Math.abs(x)/(w/2-18),Math.abs(y)/(h/2-35),1e-12);
+        const edge=[w/2+x/r,h/2+y/r];
+        ctx.fillStyle=color;ctx.beginPath();ctx.arc(edge[0],edge[1],3,0,Math.PI*2);ctx.fill();
+        edgeLabels.push({name,color});
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.font='11px system-ui';
+  edgeLabels.forEach((item,i)=>{ctx.fillStyle=item.color;ctx.globalAlpha=.65;ctx.fillText(`画面外 · ${item.name}`,12,48+i*17);});
+  ctx.globalAlpha=1;ctx.fillStyle='#91a5b9';ctx.font='11px ui-monospace,monospace';
+  ctx.fillText(`透視投影 · 位置 ${num('gain')}× / 回転 ${num('rotationGain')}× · ${$('interpolation').value==='sample'?'実サンプル':'補間'}`,14,22);
+  ctx.fillText(`grid ${grid>=1?grid.toPrecision(2)+' m':(grid*1000).toPrecision(2)+' mm'} · 模式図`,14,h-15);
   if(row) {
-    const q0=quaternion(d.anchor),q=mul(q0,qpower(mul(inv(q0),quaternion(row)),num('rotationGain',1)));
-    drawBox(scale(displacement(row,d),gain),q,side==='A'?A_COLOR:B_COLOR);
-    const delta=norm(displacement(row,d))*1000;
-    $('readout'+side).textContent=`Δp ${delta.toFixed(3)} mm · ${norm(angleVector(row,d)).toFixed(3)}°${row[10]===null?'':` · 静止判定 ${(row[10]*1000).toFixed(0)} ms`}`;
-  } else { $('readout'+side).textContent='欠測 / 無効姿勢';ctx.fillStyle='#ffbca3';ctx.font='12px system-ui';ctx.fillText('欠測 / 無効姿勢',18,25); }
-  ctx.font='11px ui-monospace,monospace';ctx.fillStyle='#91a5b9';
-  ctx.fillText(`位置 ${gain}×  /  回転 ${num('rotationGain',1)}×`,16,h-37);
-  ctx.fillText(`grid ${(grid/gain*1000).toPrecision(3)} mm (元の変位)`,16,h-19);
-  const bar=50, original=bar/pixels/gain*1000;
-  ctx.strokeStyle='#d0dfed';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(w-78,h-24);ctx.lineTo(w-28,h-24);ctx.stroke();
-  ctx.textAlign='right';ctx.fillText(`${original.toPrecision(3)} mm`,w-23,h-35);ctx.textAlign='left';
+    const diff=optical?` · ${d.optical.origin==='reconstructed'||d.optical.provenance?'再生光学':'光学'}との差 ${(norm(sub(position(optical),position(row)))*1000).toFixed(2)} mm (${((S.time+d.offset-optical[0])*1000).toFixed(0)} ms 前)`:'';
+    $('readout'+side).textContent=`Δp ${(norm(displacement(row,d))*1000).toFixed(3)} mm · ${norm(angleVector(row,d)).toFixed(3)}°${diff}`;
+  } else $('readout'+side).textContent='欠測 / 無効姿勢';
 }
 function rebuild() {
   S.plotCache=null;
@@ -313,7 +439,7 @@ function rebuild() {
     addStat(`${side} · p95 サンプル間変位`,steps.length?`${steps[Math.floor((steps.length-1)*.95)].toFixed(3)} mm`:'—');
     addStat(`${side} · 接続しない区間`,String(gaps));
   }
-  $('frameLabel').textContent=`各区間の先頭位置を原点として固定 · ${$('basis').value==='body'?'先頭デバイス軸':'world 軸'} · 灰色: 先頭姿勢`;
+  $('frameLabel').textContent=`原点 ${S.data.A?.anchor?.[0].toFixed(6)??'—'} s · ${$('basis').value==='body'?'先頭デバイス軸':'world 軸'} · 灰色: 先頭姿勢 · 紫: 光学解`;
   drawAll();
 }
 function drawPlots() {
@@ -377,11 +503,66 @@ function drawAll() {
   $('time').textContent=`${S.time.toFixed(6)} s`;$('scrub').value=S.time;
 }
 function pause() {S.playing=false;$('play').textContent='▶ 再生';}
+function captureExtent() {
+  const selected=selectedTrack('A');
+  const tracks=(S.meta.A?.tracks||[]).filter(t=>t.frame===selected?.frame&&
+    (t.stage===selected.stage||t.stage==='LH_POSE'));
+  return {start:Math.min(0,...tracks.map(t=>t.start)),end:Math.max(0,...tracks.map(t=>t.end))};
+}
+function endFull() {
+  if(S.full)S.full.cancelled=true;
+  S.full=null;
+  $('playFull').textContent='記録全体を再生';$('fullStatus').textContent='';
+}
+async function startFull() {
+  if(S.full){pause();endFull();return;}
+  const track=selectedTrack('A');if(!track||S.loading)return;
+  const full={...captureExtent(),anchors:{A:'first',B:'first'},cancelled:false,next:null,switching:false};
+  S.full=full;$('playFull').textContent='全体再生を終了';
+  $('view').value='room';$('gain').value='1';$('rotationGain').value='1';
+  $('lo').value=full.start;$('hi').value=Math.min(full.start+30,full.end);
+  await loadWindow({full:true,anchors:full.anchors,time:full.start});
+  if(S.full!==full)return;
+  for(const side of ($('compare').checked?['A','B']:['A']))full.anchors[side]=S.data[side].anchor?.[0];
+  fitCamera(true);drawAll();S.playing=true;$('play').textContent='Ⅱ 一時停止';
+  prefetchFull();
+}
+function prefetchFull() {
+  const full=S.full;
+  if(!full||full.next||S.hi>=full.end)return;
+  // Include the boundary sample in both windows. Selection and sample stepping
+  // stay local; playback retains the original anchor across every window.
+  const lo=S.hi,hi=Math.min(lo+30,full.end);
+  full.next={lo,hi,promise:fetchWindow(lo,hi,full.anchors).then(data=>({data}),error=>({error}))};
+}
+async function advanceFull(time) {
+  const full=S.full;if(!full||full.switching)return;
+  prefetchFull();if(!full.next)return;
+  full.switching=true;pause();
+  $('fullStatus').textContent='次の区間を読み込み中…';
+  try {
+    const next=full.next,result=await next.promise;
+    if(S.full!==full||full.cancelled)return;
+    if(result.error)throw result.error;
+    $('lo').value=next.lo;$('hi').value=next.hi;full.next=null;
+    await loadWindow({full:true,fit:false,time,anchors:full.anchors,buffer:result.data});
+    if(S.full!==full)return;
+    S.playing=true;$('play').textContent='Ⅱ 一時停止';prefetchFull();
+  } catch(error) {endFull();errorMessage(error);}
+  finally {full.switching=false;}
+}
 function animate(ts) {
   if(S.playing&&!document.hidden&&!S.loading) {
     const delta=Math.min((ts-S.lastFrame)/1000,.15)*num('speed',.25);
     S.time+=delta;
-    if(S.time>S.hi) {if($('loop').checked)S.time=S.lo+(S.time-S.lo)%(S.hi-S.lo);else{S.time=S.hi;pause();}}
+    if(S.full) {
+      $('fullStatus').textContent=`全体再生 ${S.full.start.toFixed(3)} – ${S.full.end.toFixed(3)} s · 原点固定 · 読込 ${S.lo.toFixed(3)} – ${S.hi.toFixed(3)} s`;
+      if(S.time>S.hi) {
+        if(S.hi<S.full.end){const time=S.time;S.time=S.hi;advanceFull(time);}
+        else if($('loop').checked){endFull();startFull().catch(errorMessage);}
+        else {S.time=S.hi;pause();endFull();}
+      }
+    } else if(S.time>S.hi) {if($('loop').checked)S.time=S.lo+(S.time-S.lo)%(S.hi-S.lo);else{S.time=S.hi;pause();}}
     drawAll();
   }
   S.lastFrame=ts;requestAnimationFrame(animate);
@@ -391,13 +572,18 @@ function snapshot() {
     shaA:S.meta.A?.source_sha256,shaB:$('compare').checked?S.meta.B?.source_sha256:null,
     offset:num('offsetB'),lo:num('selectLo',S.lo),hi:num('selectHi',S.hi),windowLo:S.lo,windowHi:S.hi,time:S.time,
     gain:num('gain'),rotation:num('rotationGain'),basis:$('basis').value,view:$('view').value,
-    speed:num('speed'),trail:num('trail'),interpolation:$('interpolation').value,camera:{...S.camera},comment:$('comment').value};
+    speed:num('speed'),trail:num('trail'),interpolation:$('interpolation').value,camera:{...S.camera},comment:$('comment').value,
+    projection:'perspective',context:$('showContext').checked,optical:$('showOptical').checked,
+    anchorA:S.data.A?.anchor?.[0]??null,anchorB:$('compare').checked?S.data.B?.anchor?.[0]??null:null,
+    opticalShaA:$('showOptical').checked?S.data.A?.optical?.source_sha256??null:null,
+    opticalShaB:$('compare').checked&&$('showOptical').checked?S.data.B?.optical?.source_sha256??null:null};
   return state;
 }
 function shareLink(state) {
   return `${location.origin}${location.pathname}#${new URLSearchParams({review:JSON.stringify(state)})}`;
 }
 function updateShare() {
+  syncRanges();
   const state=snapshot(),lines=['Lighthouse motion review v1'];
   for(const side of (state.b?['A','B']:['A'])) {
     const meta=S.meta[side],track=selectedTrack(side);if(!meta||!track)continue;
@@ -410,9 +596,15 @@ function updateShare() {
       `range: ${(state.lo+shift).toFixed(6)} – ${(state.hi+shift).toFixed(6)} s`,
       `integrity: ${meta.health.stream_integrity}; damaged rows: ${meta.health.damaged_rows}; manifest: ${meta.source.manifest_status}`);
     if(selected.length&&selected[0][1]!==null) lines.push(`sensor ticks in loaded selection: ${selected[0][1]} – ${selected.at(-1)[1]} @ ${selected[0][2]} Hz`);
+    if(S.data[side]?.anchor)lines.push(`fixed anchor: ${S.data[side].anchor[0].toFixed(6)} s`);
+    const optical=S.data[side]?.optical;
+    if(state.optical&&optical?.state==='ready') {
+      lines.push(`optical: ${optical.origin}; source: ${optical.source_id}; SHA-256: ${optical.source_sha256}`);
+      if(optical.provenance)lines.push(`optical provenance: ${JSON.stringify(optical.provenance)}`);
+    }
     if(state.lo<S.lo||state.hi>S.hi)lines.push('NOTE: selection extends beyond loaded window; reload selection to include its sample ticks.');
   }
-  lines.push(`display: position ${state.gain}x; rotation ${state.rotation}x; basis ${state.basis}; ${state.interpolation}; speed ${state.speed}x`,
+  lines.push(`display: perspective; position ${state.gain}x; rotation ${state.rotation}x; basis ${state.basis}; ${state.interpolation}; speed ${state.speed}x; context ${state.context}; optical ${state.optical}`,
     `cursor: ${state.time.toFixed(6)} s`,`comment: ${state.comment || '(未記入)'}`,`reopen: ${shareLink(state)}`,
     `review-state: ${JSON.stringify(state)}`);
   $('shareText').value=lines.join('\n');
@@ -456,6 +648,7 @@ function restoreControls(state) {
       target:Array.isArray(state.camera.target)&&state.camera.target.length===3&&state.camera.target.every(Number.isFinite)?state.camera.target:[0,0,0]};
   }
   $('offsetB').value=Number.isFinite(state.offset)?state.offset:0;$('comment').value=state.comment||'';
+  $('showContext').checked=state.context!==false;$('showOptical').checked=state.optical!==false;
 }
 async function restore(state) {
   if(state.v!==1)throw new Error('未対応の共有データです。');
@@ -472,8 +665,38 @@ async function restore(state) {
   }
   $('lo').value=Number.isFinite(state.windowLo)?state.windowLo:state.lo;
   $('hi').value=Number.isFinite(state.windowHi)?state.windowHi:state.hi;
-  await loadWindow({time:state.time,fit:false});
+  await loadWindow({time:state.time,fit:false,anchors:{A:state.anchorA,B:state.anchorB}});
+  for(const side of (state.b?['A','B']:['A'])) {
+    const expected=state['opticalSha'+side];
+    if(expected&&expected!==S.data[side].optical?.source_sha256)throw new Error(`光学解 ${side} の SHA-256 が共有時と異なるか、見つかりません。`);
+  }
   $('selectLo').value=state.lo;$('selectHi').value=state.hi;drawAll();updateShare();
+}
+function syncRange(prefix,lo,hi,min,max) {
+  for(const [suffix,value] of [['Lo',lo],['Hi',hi]]) {
+    const input=$(prefix+suffix);input.min=min;input.max=max;input.value=clamp(value,min,max);
+    input.setAttribute('aria-valuetext',`${value.toFixed(6)} 秒`);
+  }
+  const span=max-min||1,range=$(prefix+'Range');
+  range.style.setProperty('--start',`${clamp((lo-min)/span*100,0,100)}%`);
+  range.style.setProperty('--end',`${clamp((hi-min)/span*100,0,100)}%`);
+  $(prefix+'Label').textContent=`${lo.toFixed(3)} – ${hi.toFixed(3)} s`;
+}
+function syncRanges() {
+  const track=selectedTrack('A');
+  if(track){const extent=captureExtent();syncRange('overview',num('lo'),num('hi'),extent.start,extent.end);}
+  syncRange('selection',num('selectLo',S.lo),num('selectHi',S.hi),S.lo,S.hi);
+}
+function bindRange(prefix,loId,hiId) {
+  for(const endpoint of ['Lo','Hi'])$(prefix+endpoint).oninput=()=>{
+    pause();
+    const input=$(prefix+endpoint),min=+input.min,max=+input.max,epsilon=Math.min(.000001,(max-min)/2);
+    let lo=num(prefix+'Lo'),hi=num(prefix+'Hi');
+    if(endpoint==='Lo') {lo=clamp(lo,min,hi-epsilon);if(hi-lo>60)hi=lo+60;}
+    else {hi=clamp(hi,lo+epsilon,max);if(hi-lo>60)lo=hi-60;}
+    $(loId).value=lo.toFixed(6);$(hiId).value=hi.toFixed(6);
+    syncRanges();updateShare();drawPlots();
+  };
 }
 function bind() {
   $('refreshSources').onclick=action(async()=>{await refreshSources();status('記録一覧を更新しました。');});
@@ -492,7 +715,9 @@ function bind() {
   $('compare').onchange=action(async()=>{toggleCompare();if($('compare').checked)await prepare('B');await loadWindow();});
   $('load').onclick=action(()=>loadWindow());$('offsetB').onchange=action(()=>loadWindow());
   $('markers').onchange=action(async()=>{if(!$('markers').value)return;const t=+$('markers').value;$('lo').value=Math.max(0,t-1).toFixed(6);$('hi').value=(t+5).toFixed(6);await loadWindow();});
-  $('overview').onchange=action(async()=>{const lo=num('overview'),track=selectedTrack('A');$('lo').value=lo.toFixed(6);$('hi').value=Math.min(track.end,lo+6).toFixed(6);await loadWindow();});
+  bindRange('overview','lo','hi');bindRange('selection','selectLo','selectHi');
+  for(const id of ['lo','hi'])$(id).oninput=syncRanges;
+  $('playFull').onclick=action(startFull);
   $('play').onclick=()=>{if(S.loading)return;S.playing=!S.playing;$('play').textContent=S.playing?'Ⅱ 一時停止':'▶ 再生';if(S.playing&&S.time>=S.hi)S.time=S.lo;};
   $('scrub').oninput=()=>{pause();S.time=num('scrub');drawAll();};
   for(const [id,direction] of [['prev',-1],['next',1]])$(id).onclick=()=>{
@@ -501,8 +726,10 @@ function bind() {
     S.time=clamp(rows[clamp(i,0,rows.length-1)][0],S.lo,S.hi);drawAll();
   };
   for(const id of ['gain','rotationGain','basis','trail','interpolation'])$(id).onchange=()=>{if(id==='basis')fitCamera();rebuild();updateShare();};
+  for(const id of ['showContext','showOptical'])$(id).onchange=()=>{drawAll();updateShare();};
   $('view').onchange=()=>{$('gain').value=$('view').value==='room'?'1':'30';fitCamera();rebuild();updateShare();};
   $('fitCamera').onclick=()=>{fitCamera();drawAll();};
+  $('fitRoom').onclick=()=>{fitCamera(true);drawAll();};
   $('resetCamera').onclick=()=>{S.camera={yaw:-.7,pitch:.48,zoom:1,target:[0,0,0]};fitCamera();drawAll();};
   for(const side of ['A','B']) {
     const canvas=$('scene'+side);
