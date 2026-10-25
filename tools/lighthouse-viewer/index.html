@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lighthouse · Motion review</title>
+  <link rel="stylesheet" href="viewer.css">
+  <script defer src="viewer.js"></script>
+</head>
+<body>
+<header><div><span class="eyebrow">LIBSURVIVE / RECORDED MOTION</span><h1>Lighthouse <span>Motion review</span></h1></div><div id="catalogStatus" class="muted">記録を確認中…</div></header>
+<div class="layout">
+<aside>
+  <div class="section-label">01 <span>記録とデバイス</span></div>
+  <label>ダンプを検索<input id="search" type="search" placeholder="日付、libsurvive、replay…"></label>
+  <button id="refreshSources">記録一覧を更新</button>
+  <div class="presets"><button id="presetA">A の滑りを見る</button><button id="presetCompare">変更前後</button><button id="presetLatest">最新の記録</button></div>
+  <label><span class="dot a"></span> 記録 A<select id="sourceA" aria-label="記録 A"></select></label>
+  <label>デバイス / 記録段階<select id="trackA" aria-label="デバイス A"></select></label>
+  <div id="metaA" class="metadata"></div>
+  <label class="check"><input type="checkbox" id="compare"> もう一つの記録を並べる</label>
+  <div id="compareControls" hidden>
+    <label><span class="dot b"></span> 記録 B<select id="sourceB" aria-label="記録 B"></select></label>
+    <label>デバイス / 記録段階<select id="trackB" aria-label="デバイス B"></select></label>
+    <label>B の時刻差（秒）<input id="offsetB" type="number" step="0.001" value="0"></label>
+    <div id="metaB" class="metadata"></div>
+    <div id="compareNotice" class="notice"></div>
+  </div>
+  <div class="section-label">02 <span>見る区間</span></div>
+  <label>動作マーカー<select id="markers"><option value="">マーカーを選択…</option></select></label>
+  <div class="pair"><label>開始（秒）<input id="lo" type="number" step="0.001" value="260"></label><label>終了（秒）<input id="hi" type="number" step="0.001" value="266"></label></div>
+  <button id="load" class="primary">この区間を開く</button>
+  <div class="muted fine">1 回に最大 60 秒。グラフ上のドラッグでも範囲を指定できます。</div>
+  <label>記録全体から移動<input id="overview" type="range" min="0" max="310" step="0.001" value="260"></label>
+  <div id="extent" class="muted fine"></div>
+  <div class="section-label">03 <span>見え方</span></div>
+  <div class="pair"><label>表示<select id="view"><option value="micro">微動を拡大</option><option value="room">実寸 / 広域</option></select></label><label>位置の倍率<select id="gain"><option>1</option><option>5</option><option>10</option><option selected>30</option><option>100</option><option>300</option></select></label></div>
+  <label>座標軸<select id="basis"><option value="world">記録の world 軸</option><option value="body">区間先頭のデバイス軸（固定）</option></select></label>
+  <div class="pair"><label>回転の倍率<select id="rotationGain"><option selected>1</option><option>5</option><option>10</option><option>30</option></select></label><label>軌跡の長さ<select id="trail"><option value="0.25">0.25 秒</option><option value="1" selected>1 秒</option><option value="3">3 秒</option><option value="60">区間全体</option></select></label></div>
+  <label>サンプル間の表示<select id="interpolation"><option value="sample">実サンプルを保持（補間なし）</option><option value="linear">線形 / quaternion slerp 補間</option></select></label>
+  <div class="presets"><button id="fitCamera">軌跡全体を収める</button><button id="resetCamera">カメラを戻す</button></div>
+  <p class="muted fine">手の実際の動きも含まれます。SteamVR は参照値です。表示から真の誤差・遅延は決められません。</p>
+</aside>
+<main>
+  <div class="main-top"><div><span class="eyebrow">MOTION INSPECTOR</span><h2 id="windowTitle">区間を読み込み中</h2></div><span id="sampleBadge" class="badge">元のサンプル密度</span></div>
+  <div id="sourceSummary" class="muted fine"></div>
+  <div id="status" role="status">データを準備しています…</div>
+  <div id="scenes" class="scenes"><section class="scene-panel"><div class="scene-title"><span class="dot a"></span><b id="titleA">記録 A</b><span id="readoutA"></span></div><canvas id="sceneA" aria-label="記録 A の 3D 姿勢"></canvas></section><section class="scene-panel" id="panelB" hidden><div class="scene-title"><span class="dot b"></span><b id="titleB">記録 B</b><span id="readoutB"></span></div><canvas id="sceneB" aria-label="記録 B の 3D 姿勢"></canvas></section></div>
+  <div class="scene-help"><span>ドラッグ: 視点を回転 · ホイール: 拡大 · ダブルクリック: 視点を戻す</span><span id="frameLabel">各区間の先頭位置を原点として固定</span></div>
+  <div class="transport">
+    <button id="play" class="primary" aria-label="再生">▶ 再生</button><button id="prev" title="前の実サンプル">Ⅰ◀</button><button id="next" title="次の実サンプル">▶Ⅰ</button>
+    <select id="speed" aria-label="再生速度"><option value="0.05">0.05×</option><option value="0.1">0.1×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option></select>
+    <label class="check"><input id="loop" type="checkbox" checked> ループ</label><output id="time">0.000000 s</output>
+  </div>
+  <input id="scrub" type="range" min="260" max="266" step="0.000001" value="260" aria-label="表示時刻">
+  <div class="plots-head"><h3>元サンプルの時系列</h3><span class="muted fine">クリック: 時刻を移動 · ドラッグ: 共有する範囲を選択</span></div>
+  <canvas id="plots" aria-label="位置・回転・サンプル間変位の時系列"></canvas>
+  <div id="stats" class="stats"></div>
+  <section class="share">
+    <div class="section-label">04 <span>この区間について伝える</span></div>
+    <div class="share-controls"><label>範囲の開始<input id="selectLo" type="number" step="0.000001"></label><button id="markLo">現在位置を開始に</button><label>範囲の終了<input id="selectHi" type="number" step="0.000001"></label><button id="markHi">現在位置を終了に</button><button id="zoomSelection">選択範囲を開く</button></div>
+    <label>観測したこと<textarea id="comment" rows="2" placeholder="例: 263.55 秒付近でデバイスの X 方向へ滑って戻る。倍率 30× で目立つ。"></textarea></label>
+    <div class="copy-actions"><button id="copy" class="primary">区間・コメント・リンクをコピー</button><button id="copyLink">再現リンクだけコピー</button><span id="copied" role="status" class="muted"></span></div>
+    <details id="shareDetails"><summary>コピーする内容 / 手動コピー</summary><textarea id="shareText" rows="10" readonly aria-label="共有テキスト"></textarea></details>
+    <p class="muted fine">ダンプ名、元ファイルの SHA-256、デバイス、時刻の基準、範囲、センサー tick、表示設定を含めます。URL はこのサーバーに接続できる PC から開けます。</p>
+  </section>
+  <details class="method"><summary>表示と時刻について</summary><p>元データの位置を平滑化・間引きせずに読み込みます。画面更新より速い変化は軌跡とグラフで確認してください。20 ms を超える欠測、無効姿勢、センサー時刻の逆行をまたぐ線や補間は描きません。</p><p>native の時間軸は記録の受信秒です。tick / Hz は別のセンサー時計で、1 サンプルの変化量はセンサー時計があるときはその時間差で判定します。Monado / Valve JSONL は clock_sync 先頭からの callback 秒です。この二つを自動的に同期させません。</p><p>位置は表示区間の最初の有効姿勢からの変位です。B も独立した先頭位置を原点にするため、絶対位置の較正差は比較できません。デバイス軸表示も区間先頭で固定します。回転倍率を変えると実際より大きく回転して表示します。</p><p>3D の箱は IMU / 記録参照点を中心とする模式図で、実機形状・grip の再現ではありません。グラフには倍率を適用しません。静止判定時間はフィルター内の判定値です。</p></details>
+</main>
+</div>
+</body>
+</html>

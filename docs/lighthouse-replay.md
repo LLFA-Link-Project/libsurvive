@@ -4,6 +4,9 @@
 accessing USB hardware. It requires Python 3 and a libsurvive build containing
 `driver_usbmon`, `driver_vive`, the posers, and `survive-cli`.
 
+To inspect existing recorded poses in a LAN browser, including micro-motion,
+side-by-side replay and shareable time ranges, see [the offline motion viewer](lighthouse-viewer.md).
+
 ```sh
 python3 tools/lighthouse_replay.py /path/to/survive-cli \
   ~/LH-Dump/2026-10-18_220701_114777916_3198653 \
