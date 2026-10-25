@@ -152,6 +152,8 @@ CRC が通っても入力の無損失、較正の正しさ、追跡精度の証�
 - native は `POSE_STATE` があれば床補正前の IMU 原点の高精度状態を使います。
   なければ `POSE` を使い、床・profile の補正が含まれる可能性を表示します。
   `POSE_TIMING` / `POSE_STATE` の full tick と Hz はそのまま残します。
+  `OPTICAL_TIMING` がある診断再生では、直後の光学候補にも full tick / Hz を残します。
+  ない場合は光学候補のセンサー時刻を推測せず、受信秒として表示します。
   native の quaternion は wxyz です。
 - JSONL の xyzw を wxyz へ並べ替えます。SteamVR は記録された
   world-from-driver / driver-from-head を合成し、chaperone / stabilization 前の

@@ -227,6 +227,22 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(optical['reference'], 'head before floor')
         self.assertEqual(len(rows), 3)
 
+    def test_optical_timing_keeps_full_ticks_and_is_consumed_once(self):
+        meta, rows = self.index('0 OPTION report-in-imu b 1\n'
+            '0 WM0 CONFIG {"device_serial_number":"one"}\n'
+            '1 WM0-raw-obs OPTICAL_TIMING 4294967488 48000000\n'
+            '1 WM0-raw-obs EXTERNAL_POSE 1 2 3 1 0 0 0\n'
+            '2 WM0-raw-obs EXTERNAL_POSE 4 5 6 1 0 0 0\n'
+            '3 WM0-raw-obs OPTICAL_TIMING 4295159488 48000000\n'
+            '3 WM0-raw-obs EXTERNAL_POSE nan 5 6 1 0 0 0\n'
+            '4 WM0-raw-obs EXTERNAL_POSE 4 5 6 1 0 0 0\n')
+        self.assertEqual(rows[0][1:3], (4294967488, 48000000))
+        self.assertEqual(rows[1][1:3], (None, None))
+        self.assertEqual(rows[2][20], 0)
+        self.assertEqual(rows[2][1], 4295159488)
+        self.assertEqual(rows[3][1:3], (None, None))
+        self.assertEqual(meta['tracks'][0]['reference'], 'raw IMU before floor')
+
     def test_reconstructed_optical_is_bound_to_both_file_hashes(self):
         folder = self.root/'dumps'/'test'
         folder.mkdir(parents=True)

@@ -27,7 +27,7 @@ import zlib
 
 REPO = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).with_name('lighthouse-viewer')
-VERSION = 4
+VERSION = 5
 MAX_WINDOW = 60
 MAX_SCENE_SAMPLES = 300000
 COLUMNS = ['t', 'tick', 'hz', 'x', 'y', 'z', 'qw', 'qx', 'qy', 'qz',
@@ -149,7 +149,7 @@ class Writer:
 
 def native_index(source, writer, health, cancel=None):
     identities, pending, configs, options, epochs = {}, {}, {}, {}, []
-    bases = {}
+    bases, optical_timing = {}, {}
     # LH_POSE is recorded *after* floor subtraction. POSE_STATE and raw-obs
     # with report-in-imu are before it. Never silently mix those origins.
     floor = None
@@ -181,7 +181,7 @@ def native_index(source, writer, health, cancel=None):
             continue
         ts, device, kind, value = fields
         if kind not in ('CONFIG', 'POSE', 'POSE_STATE', 'POSE_TIMING', 'POSE_BIAS',
-                        'VELOCITY', 'I', 'INPUT_TIME', 'LH_POSE', 'EXTERNAL_POSE') and device != 'OPTION':
+                        'VELOCITY', 'I', 'INPUT_TIME', 'LH_POSE', 'EXTERNAL_POSE', 'OPTICAL_TIMING') and device != 'OPTION':
             continue
         try:
             t = float(ts)
@@ -214,17 +214,32 @@ def native_index(source, writer, health, cancel=None):
                             label=f'BS channel {device}', model='Lighthouse', role='base_station', persistent=True)
                 writer.add(key, desc, [t, None, None, *p[:3], *unit(p[3:]), *([None]*10), 1])
                 bases[device] = dict(t=t, position=p[:3], quaternion=unit(p[3:]), reference=reference)
+            elif kind == 'OPTICAL_TIMING' and device.endswith('-raw-obs'):
+                tick, hz = map(int, f)
+                if tick < 0 or hz <= 0:
+                    raise ValueError('invalid optical sensor clock')
+                optical_timing[device] = (tick, hz)
             elif kind == 'EXTERNAL_POSE' and device.endswith('-raw-obs'):
                 obj = device.removesuffix('-raw-obs')
                 serial, segment = identities.get(obj, (obj, 0))
-                p = numbers(f, 7)
+                tick, hz = optical_timing.pop(device, (None, None))
                 desc = description(obj, serial, 'OPTICAL')
                 imu = options.get('report-in-imu') == '1'
                 desc.update(reference='raw IMU before floor' if imu else 'head before floor',
                             label=f'{serial} · optical solver candidate',
                             clock='native receive seconds; optical measurement tick unavailable')
+                if tick is not None:
+                    desc['clock'] = 'native receive seconds; optical sensor tick/Hz retained'
+                try:
+                    p = numbers(f, 7)
+                    q = unit(p[3:])
+                except (ValueError, TypeError):
+                    health['damaged_rows'] += 1
+                    writer.add(f'{obj}:{serial}:{segment}:OPTICAL', desc,
+                               [t, tick, hz, 0, 0, 0, 1, 0, 0, 0, *([None]*10), 0])
+                    continue
                 writer.add(f'{obj}:{serial}:{segment}:OPTICAL', desc,
-                           [t, None, None, *p[:3], *unit(p[3:]), *([None]*10), 1])
+                           [t, tick, hz, *p[:3], *q, *([None]*10), 1])
             elif kind == 'POSE':
                 flush(device)
                 p = numbers(f, 7)
@@ -255,6 +270,8 @@ def native_index(source, writer, health, cancel=None):
                     row[17:20] = numbers(f[5:8], 3)
         except (ValueError, TypeError, IndexError, OverflowError):
             health['damaged_rows'] += 1
+            if kind == 'OPTICAL_TIMING':
+                optical_timing.pop(device, None)
             # Retain an explicit invalid sample when its callback is known, so
             # short invalid intervals cannot disappear behind interpolation.
             item = pending.get(device) if kind in ('POSE', 'POSE_STATE', 'POSE_TIMING', 'POSE_BIAS', 'VELOCITY', 'I') else None

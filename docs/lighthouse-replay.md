@@ -97,6 +97,30 @@ rejected. The report retains clock mapping estimates and input arrival spread.
 These do not bound unknown device-to-USB latency, Valve prediction or driver
 latency. The report's capture start/end fields mean first/last recorded input.
 
+`--show-raw-obs` also writes `OPTICAL_TIMING` immediately before each diagnostic
+`EXTERNAL_POSE` named `WMn-raw-obs`. Its payload is the full 64-bit optical
+measurement tick and device frequency. The viewer preserves that clock; older
+recordings without it retain receive-time-only optical diagnostics. This flag
+does not enable raw observations as filter inputs.
+
+To measure candidate continuity and compare its rotation increments against
+calibrated gyro at matching sensor times (requires NumPy):
+
+```sh
+python3 tools/lighthouse_optical_metrics.py /tmp/before.rec.gz /tmp/after.rec.gz \
+  --window held:260:266 --output /tmp/optical-metrics.json
+```
+
+Use `--report-in-imu --record-tracking-state --record-cal-imu
+--kalman-minimize-state-space 0 --show-raw-obs` for these diagnostic replays.
+The tool subtracts the recorded gyro bias, integrates gyro between optical
+measurement epochs and excludes gaps over 20 ms (10 ms within gyro integration).
+The position midpoint residual uses actual uneven sample times and vanishes for
+constant velocity. It still includes physical acceleration. Step sizes,
+continuity and gyro disagreement are internal diagnostics, not ground-truth
+position errors or latency measurements. Counts and gaps accompany the metrics
+so that suppressing output cannot be mistaken for better continuity.
+
 After ten seconds of warmup from the first input, the first third of the remaining
 capture fits one common rigid transform, with equal total weight per object and
 orientation axes of length 0.25 m. Only the remaining two thirds are evaluated.

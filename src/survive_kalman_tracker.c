@@ -8,6 +8,7 @@
 #include <cnkalman/kalman.h>
 
 #include <assert.h>
+#include <inttypes.h>
 #if !defined(__FreeBSD__) && !defined(__APPLE__)
 #include <malloc.h>
 #endif
@@ -1271,6 +1272,10 @@ void survive_kalman_tracker_integrate_observation(PoserData *pd, SurviveKalmanTr
 		if(!report_in_imu) {
             ApplyPoseToPose(&head2world, pose, &so->head2imu);
 		}
+        // The external-pose callback has no sensor timestamp. Keep the exact
+        // observation epoch beside this opt-in diagnostic, before any fusion.
+        survive_recording_write_to_output(ctx->recptr, "%s OPTICAL_TIMING %" PRIu64 " %d\n",
+                                          external_name, pd->timecode, so->timebase_hz);
         SURVIVE_INVOKE_HOOK(external_pose, ctx, external_name, &head2world);
 	}
 
