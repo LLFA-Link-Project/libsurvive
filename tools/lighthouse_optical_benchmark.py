@@ -41,7 +41,7 @@ def main():
     p.add_argument('--timeout', type=float, default=1200)
     p.add_argument('--resume', action='store_true')
     p.add_argument('--session', action='append', default=[])
-    p.add_argument('--outlier-ratio', type=float, default=6)
+    p.add_argument('--outlier-ratio', type=float, default=0)
     p.add_argument('--huber', type=float, default=-1)
     args = p.parse_args()
     if args.prefix_seconds <= 0 or args.jobs < 1 or args.timeout <= 0:

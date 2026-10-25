@@ -121,6 +121,13 @@ continuity and gyro disagreement are internal diagnostics, not ground-truth
 position errors or latency measurements. Counts and gaps accompany the metrics
 so that suppressing output cannot be mistaken for better continuity.
 
+The [2026-10-26 optical fitting audit](lighthouse-optical-fitting-20261026.md)
+covers all 73 USB captures (36 full, 37 declared 180-second prefixes) and seven
+native recordings. Adaptive optical Huber fitting improves the selected handheld
+window but still has regressions elsewhere, so `mpfit-light-huber=0` remains the
+default. The viewer can compare the experimental `-1` mode directly; the report
+also links a WiVRn measurement handoff. Isolated beam rejection stays disabled.
+
 After ten seconds of warmup from the first input, the first third of the remaining
 capture fits one common rigid transform, with equal total weight per object and
 orientation axes of length 0.25 m. Only the remaining two thirds are evaluated.
