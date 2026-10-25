@@ -462,7 +462,7 @@ def catalogue(dump_root, repo):
         if not target or provenance.get('returncode') != 0:
             continue
         add(f'replay:optical:{proof.parent.name}', proof.parent/'record.rec.gz',
-            f'{target["session"]} / optical diagnostic replay', target['session'],
+            provenance.get('label') or f'{target["session"]} / optical diagnostic replay', target['session'],
             kind='native', group='optical diagnostic replays', input_group=target['input_group'],
             manifest_status='derived optical candidates; not original live optical poses',
             session_path=target.get('session_path'), initial_calibration=proof.parent/'calibration.initial.json',

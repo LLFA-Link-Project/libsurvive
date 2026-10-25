@@ -126,8 +126,21 @@ const output = process.env.LH_VIEWER_TEST_OUTPUT || '/tmp/lh-viewer-browser';
       return sampleAt({rows:d.rows,previous,offset:0},t-.002)===previous;
     }),true);
 
+    await page.locator('#presetOptical').click();
+    await page.waitForFunction(() => S.data.A?.sourceId === 'replay:optical:A-optical-before' &&
+      S.data.B?.sourceId === 'replay:optical:A-optical-after' && !S.loading, {timeout: 240000});
+    assert.match(await page.locator('#sourceA option:checked').innerText(), /光学フィット変更前/);
+    assert.match(await page.locator('#sourceB option:checked').innerText(), /光学フィット変更後/);
+    assert.equal(await page.evaluate(() => S.data.A.optical.origin), 'recorded');
+    assert.equal(await page.evaluate(() => S.data.B.optical.origin), 'recorded');
+    assert.equal(await page.evaluate(() => S.data.A.optical.rows.filter(r => r[0] >= S.lo).length), 622);
+    assert.equal(await page.evaluate(() => S.data.B.optical.rows.filter(r => r[0] >= S.lo).length), 622);
+    assert.equal(await page.evaluate(() => S.data.B.optical.rows.every(r => r[1] > 4294967296 && r[2] === 48000000)), true);
+    await page.screenshot({path:output+'/optical-comparison.png',fullPage:true});
+
     await page.locator('#presetCompare').click();
-    await page.waitForFunction(() => !!S.data.B?.points, {timeout: 240000});
+    await page.waitForFunction(() => S.data.A?.sourceId === 'replay:handheld:baseline' &&
+      S.data.B?.sourceId === 'replay:handheld:tracker-final' && !!S.data.B?.points && !S.loading, {timeout: 240000});
     assert.equal(await page.evaluate(() => S.data.B.rows.length), 1499);
     await page.locator('#basis').selectOption('body');
     await page.locator('#rotationGain').selectOption('5');

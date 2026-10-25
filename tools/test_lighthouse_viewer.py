@@ -252,12 +252,13 @@ class ViewerTests(unittest.TestCase):
         derived.mkdir(parents=True)
         (derived/'record.rec.gz').write_bytes(gzip.compress((self.native()+
             '0 OPTION report-in-imu b 1\n1.002 WM0-raw-obs EXTERNAL_POSE 1.01 2 2.9 1 0 0 0\n').encode()))
-        proof = dict(target_id='dump:test:native', target_sha256='0'*64, returncode=0,
+        proof = dict(target_id='dump:test:native', target_sha256='0'*64, returncode=0, label='Optical fit after',
                      record_sha256=hashlib.sha256((derived/'record.rec.gz').read_bytes()).hexdigest())
         proof_path = derived/'viewer-source.json'
         proof_path.write_text(json.dumps(proof))
         store = viewer.Store(folder.parent, self.root/'cache', repo=self.root)
         try:
+            self.assertEqual(store.sources['replay:optical:diagnostic']['label'], 'Optical fit after')
             for key in store.sources:
                 store.ensure(key)
             store.pool.shutdown(wait=True)

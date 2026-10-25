@@ -753,6 +753,7 @@ function bind() {
   const a='2026-10-25_211424_libsurvive_158643023_1366788';
   $('presetA').onclick=action(()=>choose(`dump:${a}:native`,260,266));
   $('presetCompare').onclick=action(()=>choose('replay:handheld:baseline',260,266,'replay:handheld:tracker-final'));
+  $('presetOptical').onclick=action(()=>choose('replay:optical:A-optical-before',260,266,'replay:optical:A-optical-after'));
   $('presetLatest').onclick=action(async()=>{const id=S.sources.find(s=>s.group==='recordings'&&s.kind==='native')?.id||S.sources[0].id;await choose(id,0,6);const t=selectedTrack('A');$('lo').value=t.start.toFixed(6);$('hi').value=Math.min(t.start+6,t.end).toFixed(6);await loadWindow();});
   addEventListener('resize',drawAll);
   addEventListener('hashchange',action(async()=>{const value=new URLSearchParams(location.hash.slice(1)).get('review');if(value)await restore(JSON.parse(value));}));
