@@ -106,7 +106,7 @@ typedef struct MPFITData {
 STRUCT_CONFIG_SECTION(MPFITData)
 STRUCT_CONFIG_ITEM("mpfit-cal-sensor-variance", "Light sensor variance for calibration", 1e-4, t->sensor_variance_cal)
 STRUCT_CONFIG_ITEM("mpfit-model-velocity", "Model velocity in non mpfit process", true, t->model_velocity)
-STRUCT_CONFIG_ITEM("mpfit-light-huber", "Optical Huber transition (radians); 0 disables, -1 selects tracker-only adaptive .003 floor", -1, t->light_huber)
+STRUCT_CONFIG_ITEM("mpfit-light-huber", "Experimental optical Huber transition (radians); 0 disables, -1 selects tracker-only adaptive .003 floor", 0, t->light_huber)
 STRUCT_CONFIG_ITEM("mpfit-light-outlier-ratio", "Experimental isolated beam rejection relative to median residual; 0 disables", 0, t->light_outlier_ratio)
 STRUCT_CONFIG_ITEM("mpfit-light-outlier-floor", "Minimum angular residual for isolated beam rejection (radians)", .01, t->light_outlier_floor)
 STRUCT_CONFIG_ITEM("mpfit-record-reprojection-error", "", 0, t->record_reprojection_error)
