@@ -86,6 +86,7 @@ typedef struct SurviveKalmanTracker {
 	FLT zvu_stationary_gyro_scale;
 	FLT zvu_stationary_velocity_sigma;
 	FLT zvu_motion_guard_time;
+	bool zvu_motion_all_devices;
 	FLT last_unreliable_pose_time;
 	FLT zvu_no_light_time;
 	FLT zvu_no_light_var;

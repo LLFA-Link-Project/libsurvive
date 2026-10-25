@@ -6,17 +6,18 @@
 // Exercise the actual joint Kalman update, with a position/velocity covariance
 // and a small velocity drift that a handheld detector can classify as still.
 static int stationary_update(FLT ramp, FLT stationary_seconds, bool no_light,
-                             bool error_state, FLT *position, FLT *velocity, bool recent_bad_pose) {
+                             bool error_state, FLT *position, FLT *velocity, bool recent_bad_pose, bool controller) {
 	SurviveContext ctx = {0};
 	config_group temporary = {.write_lock = OGCreateMutex(), .ctx = &ctx};
 	ctx.temporary_config_values = &temporary;
 	survive_configi(&ctx, "kalman-minimize-state-space", SC_SET | SC_OVERRIDE, 0);
 	survive_configi(&ctx, "kalman-use-error-space", SC_SET | SC_OVERRIDE, error_state);
 	survive_configf(&ctx, "kalman-zvu-stationary-ramp", SC_SET | SC_OVERRIDE, ramp);
-	SurviveObject so = {.ctx = &ctx, .timebase_hz = 48000000, .imu_freq = 250};
+	SurviveObject so = {.ctx = &ctx, .object_type = SURVIVE_OBJECT_TYPE_OTHER, .timebase_hz = 48000000, .imu_freq = 250};
 	SurviveKalmanTracker tracker;
 	survive_kalman_tracker_init(&tracker, &so);
 	tracker.model.t = tracker.imu_bias_model.t = 1;
+	so.object_type = controller ? SURVIVE_OBJECT_TYPE_CONTROLLER : SURVIVE_OBJECT_TYPE_OTHER;
 	tracker.stats.obs_count = 16;
 	tracker.last_unreliable_pose_time = recent_bad_pose ? .95 : 0;
 	tracker.acc_var = tracker.gyro_var = -1; // isolate the stationary observation
@@ -53,8 +54,8 @@ static int stationary_update(FLT ramp, FLT stationary_seconds, bool no_light,
 TEST(KalmanStationary, SoftOnsetAvoidsPositionSnap) {
 	for (int error_state = 0; error_state <= 1; error_state++) {
 		FLT hard_p, hard_v, soft_p, soft_v;
-		ASSERT_EQ(stationary_update(0, .104, false, error_state, &hard_p, &hard_v, false), 0);
-		ASSERT_EQ(stationary_update(.1, .104, false, error_state, &soft_p, &soft_v, false), 0);
+		ASSERT_EQ(stationary_update(0, .104, false, error_state, &hard_p, &hard_v, false, false), 0);
+		ASSERT_EQ(stationary_update(.1, .104, false, error_state, &soft_p, &soft_v, false, false), 0);
 		ASSERT_EQ((fabs(hard_p) > .002), true);
 		ASSERT_EQ((fabs(soft_p) < .0001), true);
 		ASSERT_EQ((soft_v > hard_v && soft_v < .05), true);
@@ -64,8 +65,8 @@ TEST(KalmanStationary, SoftOnsetAvoidsPositionSnap) {
 
 TEST(KalmanStationary, SustainedRestReachesFullConstraint) {
 	FLT hard_p, hard_v, soft_p, soft_v;
-	ASSERT_EQ(stationary_update(0, .4, false, true, &hard_p, &hard_v, false), 0);
-	ASSERT_EQ(stationary_update(.1, .4, false, true, &soft_p, &soft_v, false), 0);
+	ASSERT_EQ(stationary_update(0, .4, false, true, &hard_p, &hard_v, false, false), 0);
+	ASSERT_EQ(stationary_update(.1, .4, false, true, &soft_p, &soft_v, false, false), 0);
 	ASSERT_DOUBLE_EQ(hard_p, soft_p);
 	ASSERT_DOUBLE_EQ(hard_v, soft_v);
 	return 0;
@@ -74,8 +75,8 @@ TEST(KalmanStationary, SustainedRestReachesFullConstraint) {
 TEST(KalmanStationary, MovingAndNoLightBehaviorIsPreserved) {
 	for (int no_light = 0; no_light <= 1; no_light++) {
 		FLT hard_p, hard_v, soft_p, soft_v;
-		ASSERT_EQ(stationary_update(0, .05, no_light, true, &hard_p, &hard_v, false), 0);
-		ASSERT_EQ(stationary_update(.1, .05, no_light, true, &soft_p, &soft_v, false), 0);
+		ASSERT_EQ(stationary_update(0, .05, no_light, true, &hard_p, &hard_v, false, false), 0);
+		ASSERT_EQ(stationary_update(.1, .05, no_light, true, &soft_p, &soft_v, false, false), 0);
 		ASSERT_DOUBLE_EQ(hard_p, soft_p);
 		ASSERT_DOUBLE_EQ(hard_v, soft_v);
 	}
@@ -92,7 +93,7 @@ static int micro_motion(FLT ramp, bool rotate, FLT velocity_sigma, struct micro_
 	survive_configf(&ctx, "kalman-zvu-stationary-ramp", SC_SET | SC_OVERRIDE, ramp);
 	survive_configf(&ctx, "kalman-zvu-stationary-gyro-scale", SC_SET | SC_OVERRIDE, ramp > 0 ? .02 : 0);
 	survive_configf(&ctx, "kalman-zvu-stationary-velocity-sigma", SC_SET | SC_OVERRIDE, velocity_sigma);
-	SurviveObject so = {.ctx = &ctx, .timebase_hz = 48000000, .imu_freq = 250};
+	SurviveObject so = {.ctx = &ctx, .object_type = SURVIVE_OBJECT_TYPE_OTHER, .timebase_hz = 48000000, .imu_freq = 250};
 	SurviveKalmanTracker tracker;
 	survive_kalman_tracker_init(&tracker, &so);
 	so.tracker = &tracker;
@@ -169,8 +170,17 @@ TEST(KalmanStationary, SmallTranslationDoesNotRequireRotation) {
 
 TEST(KalmanStationary, OpticalRecoveryRetainsOriginalConstraint) {
 	FLT hard_p, hard_v, soft_p, soft_v;
-	ASSERT_EQ(stationary_update(0, .104, false, true, &hard_p, &hard_v, true), 0);
-	ASSERT_EQ(stationary_update(.5, .104, false, true, &soft_p, &soft_v, true), 0);
+	ASSERT_EQ(stationary_update(0, .104, false, true, &hard_p, &hard_v, true, false), 0);
+	ASSERT_EQ(stationary_update(.5, .104, false, true, &soft_p, &soft_v, true, false), 0);
+	ASSERT_DOUBLE_EQ(hard_p, soft_p);
+	ASSERT_DOUBLE_EQ(hard_v, soft_v);
+	return 0;
+}
+
+TEST(KalmanStationary, ControllersRetainValidatedOriginalConstraint) {
+	FLT hard_p, hard_v, soft_p, soft_v;
+	ASSERT_EQ(stationary_update(0, .104, false, true, &hard_p, &hard_v, false, true), 0);
+	ASSERT_EQ(stationary_update(.5, .104, false, true, &soft_p, &soft_v, false, true), 0);
 	ASSERT_DOUBLE_EQ(hard_p, soft_p);
 	ASSERT_DOUBLE_EQ(hard_v, soft_v);
 	return 0;

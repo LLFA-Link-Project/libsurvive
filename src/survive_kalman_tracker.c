@@ -86,6 +86,7 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-gyro-scale", "Corrected gyro rate that weakens stationary information (rad/s; 0 disables)", .02, t->zvu_stationary_gyro_scale)
 	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-velocity-sigma", "Allowed velocity during stationary ramp (m/s)", .1, t->zvu_stationary_velocity_sigma)
 	STRUCT_CONFIG_ITEM("kalman-zvu-motion-guard-time", "Stable optical tracking before relaxing stationary assumptions (s)", .5, t->zvu_motion_guard_time)
+	STRUCT_CONFIG_ITEM("kalman-zvu-motion-all-devices", "Experimental handheld constraints on controllers and HMDs too", false, t->zvu_motion_all_devices)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light", "", 1e-4, t->zvu_no_light_var)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light-time", "", .1, t->zvu_no_light_time)
 
@@ -841,7 +842,8 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 	if (isStationary && tracker->zvu_stationary_var >= 0) {
 		FLT stationary_var = tracker->zvu_stationary_var;
 		FLT remaining_motion = 0;
-		bool settled = time - tracker->last_unreliable_pose_time >= tracker->zvu_motion_guard_time;
+		bool motion_target = so->object_type == SURVIVE_OBJECT_TYPE_OTHER || tracker->zvu_motion_all_devices;
+		bool settled = motion_target && time - tracker->last_unreliable_pose_time >= tracker->zvu_motion_guard_time;
 		if (settled && tracker->zvu_stationary_ramp > 0) {
 			// A short pause in handheld motion is weak evidence of a zero
 			// velocity. Introduce measurement information continuously rather
