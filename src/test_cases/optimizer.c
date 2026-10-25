@@ -203,6 +203,66 @@ TEST(Optimizer, ReducedChiSquareUsesResidualDegreesOfFreedom) {
 	return 0;
 }
 
+TEST(Optimizer, LighthouseResidualsFollowScalarOffsetsAfterGravity) {
+	for (int gen2 = 0; gen2 < 2; gen2++) {
+		SurviveContext ctx = {0};
+		SurviveObject so = {.ctx = &ctx};
+		survive_optimizer_settings config = {.optimize_scale_threshold = -1};
+		survive_optimizer opt = {.settings = &config, .poseLength = 1, .cameraLength = 3,
+			.ptsLength = 6, .disableVelocity = true, .objectUpVectorVariance = -1,
+			.cfg = survive_optimizer_precise_config(),
+			.reprojectModel = gen2 ? &survive_reproject_gen2_model : &survive_reproject_gen1_model};
+		SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+		opt.sos[0] = &so;
+		SurvivePose pose = {.Rot = {1}};
+		survive_optimizer_setup_pose(&opt, &pose, true, 1);
+		opt.mp_parameters_info[0].fixed = false;
+		SurvivePose cameras[3] = {{.Pos = {0, 0, 3}, .Rot = {1}},
+			{.Pos = {-1, -.5, 2}, .Rot = {1}}, {.Pos = {1, .5, 2.5}, .Rot = {1}}};
+		for (int lh = 0; lh < 3; lh++)survive_optimizer_setup_camera(&opt, lh, &cameras[lh], true, 1);
+		survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_obj_points, 6);
+		memcpy(pts->p, points, sizeof(points));
+		survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_camera_parameters, 3);
+		memset(cal->p, 0, cal->size * sizeof(FLT));
+		const FLT up[] = {0, 0, 1};
+		survive_optimizer_set_obj_up_vector(&opt, 0, .01, up);
+		ASSERT_EQ(opt.measurements[0].size, 3);
+		BaseStationCal bcal[2] = {0};
+		for (int lh = 0; lh < 3; lh++)for (int sensor = 0; sensor < 6; sensor++) {
+			SurvivePose inverse = InvertPoseRtn(&cameras[lh]);
+			LinmathPoint3d in_lh;
+			ApplyPoseToPoint(in_lh, &inverse, points + sensor*3);
+			FLT angles[2];
+			opt.reprojectModel->reprojectXY(bcal, in_lh, angles);
+			for (int axis = 0; axis < 2; axis++) {
+				survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_light);
+				meas->light.lh = lh;
+				meas->light.sensor_idx = sensor;
+				meas->light.axis = axis;
+				// The last pair from LH0 must not be attributed to LH1.
+				meas->light.value = angles[axis]+(lh == 0 && sensor == 5 ? .2 : .000001);
+				meas->variance = .0001;
+			}
+		}
+		mp_result result = {0};
+		ASSERT_GT(survive_optimizer_run(&opt, &result, 0), 0);
+		int counts[3][2] = {{0}};
+		for (int i = 0; i < opt.measurementsCnt; i++) {
+			const survive_optimizer_measurement *meas = &opt.measurements[i];
+			if (meas->meas_type == survive_optimizer_measurement_type_light)
+				counts[meas->light.lh][meas->light.axis]++;
+		}
+		ASSERT_EQ(counts[0][0], 0);
+		ASSERT_EQ(counts[0][1], 0);
+		ASSERT_EQ(counts[1][0], 6);
+		ASSERT_EQ(counts[1][1], 6);
+		ASSERT_EQ(counts[2][0], 6);
+		ASSERT_EQ(counts[2][1], 6);
+	}
+	return 0;
+}
+
+
 TEST(Optimizer, GravityResidualDoesNotCancelBetweenAxes) {
 	for (int camera = 0; camera < 2; camera++) {
 		survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .disable_filter = true};

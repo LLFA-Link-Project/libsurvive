@@ -54,6 +54,13 @@ older libpcap headers and libpcap 1.11 ABI wrappers.
 
 ## Solver and clock corrections
 
+Optical filtering now indexes the scalar residual vector using each measurement's
+size. A gravity constraint occupies three residuals; indexing subsequent light
+errors by measurement number could assign a bad beam to another lighthouse and
+discard the wrong lighthouse. A synthetic case with a gravity constraint and
+three lighthouses fails before this correction and passes for both generations
+afterward. Invalid observations are excluded from the lighthouse statistics.
+
 The optimizer now scales covariance using residual degrees of freedom (number
 of residuals minus free parameters), rather than number of free parameters.
 The axis-angle to quaternion covariance Jacobian now reads the full parameter
