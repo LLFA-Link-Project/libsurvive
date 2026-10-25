@@ -6,27 +6,27 @@
 
 ```sh
 cd ~/libsurvive
-python3 tools/lighthouse_viewer.py --dumps ~/LH-Dump --host 0.0.0.0 --port 8765
+./tools/lighthouse-viewer.sh 8765
 ```
 
 同じ LAN の PC から `http://サーバーPCのIPv4アドレス:8765/` を開きます。
 この環境のアドレスは `http://192.168.0.37:8765/` です。
-`--host` を省略すると、この PC の `http://127.0.0.1:8765/` からだけ利用できます。
-前面で実行したサーバーは Ctrl-C で終了します。
+指定したポートで前面起動し、Ctrl-C で終了します。読み取り中のキャッシュ作成も中止します。
+常駐化・自動起動登録はしません。
+ポート番号を省略すると 8765 になります。
 
-バックグラウンドで起動する場合:
+別のポートや保存先、この PC からだけの接続を指定する場合:
 
 ```sh
-mkdir -p .lh-evaluation/viewer-server
-nohup python3 tools/lighthouse_viewer.py --host 0.0.0.0 --port 8765 \
-  --pid-file .lh-evaluation/viewer-server/server.pid \
-  > .lh-evaluation/viewer-server/server.log 2>&1 < /dev/null &
+./tools/lighthouse-viewer.sh 8080
+./tools/lighthouse-viewer.sh 8080 --dumps /path/to/LH-Dump
+./tools/lighthouse-viewer.sh 8080 --host 127.0.0.1
 ```
 
-停止は PID ファイルのプロセスへ SIGTERM を送ります。
+Python を直接起動することもできます。こちらの `--host` の既定値は `127.0.0.1` です。
 
 ```sh
-kill -TERM "$(cat .lh-evaluation/viewer-server/server.pid)"
+python3 tools/lighthouse_viewer.py --dumps ~/LH-Dump --host 0.0.0.0 --port 8765
 ```
 
 これはデータを閲覧するための LAN 用サーバーで、認証はありません。
@@ -92,7 +92,8 @@ USB pcap 全体の展開や libsurvive の再実行は行いません。
 インデックス作成中に元ファイルが変わった場合は公開しません。
 一度に 1 ストリームずつ処理し、メモリへ記録全体を読み込みません。
 ブラウザへの送信は 1 トラック・最大 60 秒・10 万点以内で、
-サンプルを間引かず、元の double 値を JSON で送ります。
+サンプルを間引かず、位置・診断値は元の double 精度を保って JSON で送ります。
+quaternion は表示用に正規化します。
 初回の待ち時間とキャッシュ容量は記録の長さに比例します。
 キャッシュは削除して作り直せます。
 
@@ -147,9 +148,9 @@ python3 -m unittest discover -s tools -p test_lighthouse_viewer.py -v
 node --check tools/lighthouse-viewer/viewer.js
 ```
 
-12 ケースで full tick の保持、IMU / bias の対応、POSE fallback、serial の再割当、
+13 ケースで full tick の保持、IMU / bias の対応、POSE fallback、serial の再割当、
 gzip 切断、NUL / 非有限状態、stage / profile の分離、xyzw と Valve 合成、
-無効姿勢 / partial validity、範囲上限、キャッシュ更新を確認します。
+無効姿勢 / partial validity、範囲上限、キャッシュ更新、中止時の未完成データ非公開を確認します。
 
 実ブラウザの検証は任意の Playwright / Chromium が必要です。
 実データ A と変更前後のキャッシュがある環境で、起動中のサーバーに対して実行します。

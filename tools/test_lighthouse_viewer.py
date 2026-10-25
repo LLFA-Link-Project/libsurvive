@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sqlite3
 import tempfile
+import threading
 import unittest
 
 import lighthouse_viewer as viewer
@@ -88,6 +89,17 @@ class ViewerTests(unittest.TestCase):
         meta, rows = self.index(self.native()+'2 WM0 B \0 damaged\n')
         self.assertEqual(meta['health']['damaged_rows'], 1)
         self.assertEqual(len(rows), 2)
+
+    def test_cancelled_index_does_not_publish_partial_metadata(self):
+        source = self.root/'source.gz'
+        source.write_bytes(gzip.compress(self.native().encode()))
+        cancel = threading.Event()
+        cancel.set()
+        output = self.root/'cancelled.sqlite'
+        with self.assertRaises(viewer.IndexCancelled):
+            viewer.index_source(dict(path=source, kind='native'), output, cancel)
+        with sqlite3.connect(output) as db:
+            self.assertIsNone(db.execute('SELECT value FROM metadata').fetchone())
 
     @staticmethod
     def json_pose(**extra):

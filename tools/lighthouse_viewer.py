@@ -33,6 +33,10 @@ COLUMNS = ['t', 'tick', 'hz', 'x', 'y', 'z', 'qw', 'qx', 'qy', 'qz',
 SQL_COLUMNS = ','.join(COLUMNS)
 
 
+class IndexCancelled(Exception):
+    pass
+
+
 def load_json(path, default=None):
     try:
         return json.loads(path.read_text())
@@ -52,19 +56,23 @@ def stream_file(folder, name):
     return None
 
 
-def sha256(path):
+def sha256(path, cancel=None):
     digest = hashlib.sha256()
     with path.open('rb') as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            if cancel is not None and cancel.is_set():
+                raise IndexCancelled()
             digest.update(chunk)
     return digest.hexdigest()
 
 
-def read_lines(path, health):
+def read_lines(path, health, cancel=None):
     """Keep complete readable lines, explicitly report trailer/CRC/row damage."""
     try:
         with open_text(path) as f:
             for line in f:
+                if cancel is not None and cancel.is_set():
+                    raise IndexCancelled()
                 health['lines'] += 1
                 if not line.endswith('\n') or '\0' in line:
                     health['damaged_rows'] += 1
@@ -136,7 +144,7 @@ class Writer:
         self.batch.clear()
 
 
-def native_index(source, writer, health):
+def native_index(source, writer, health, cancel=None):
     identities, pending, configs, options, epochs = {}, {}, {}, {}, []
     bases = {}
 
@@ -152,7 +160,7 @@ def native_index(source, writer, health):
                 clock='native receive seconds; sensor tick/Hz retained',
                 label=f'{serial} · {device} · {mode}', role=configs.get(device, {}).get('device_class', 'unknown')), row)
 
-    for line in read_lines(source['path'], health):
+    for line in read_lines(source['path'], health, cancel):
         fields = line.split(maxsplit=3)
         if len(fields) != 4:
             continue
@@ -227,7 +235,7 @@ def native_index(source, writer, health):
                 time_basis='native recording receive seconds (not sensor measurement time)')
 
 
-def jsonl_index(source, writer, health):
+def jsonl_index(source, writer, health, cancel=None):
     folder = source['path'].parent
     clock = stream_file(folder, 'clock_sync.jsonl')
     origin = None
@@ -242,7 +250,7 @@ def jsonl_index(source, writer, health):
                 origin_basis = 'clock_sync start'
         except (OSError, EOFError, ValueError, KeyError, TypeError) as error:
             health.setdefault('metadata_warnings', []).append(f'clock_sync: {error}')
-    for line in read_lines(source['path'], health):
+    for line in read_lines(source['path'], health, cancel):
         try:
             r = json.loads(line)
             capture = r['capture_time_ns']
@@ -299,11 +307,13 @@ def jsonl_index(source, writer, health):
                 callback_origin_ns=origin, clock_offset_realtime_minus_monotonic_ns=offset)
 
 
-def index_source(source, output):
+def index_source(source, output, cancel=None):
     before = source['path'].stat()
     health = dict(lines=0, damaged_rows=0, stream_integrity='unknown')
     db = sqlite3.connect(output)
     try:
+        if cancel is not None:
+            db.set_progress_handler(lambda: int(cancel.is_set()), 10000)
         db.execute('PRAGMA journal_mode=OFF')
         db.execute('PRAGMA synchronous=OFF')
         db.execute('PRAGMA cache_size=-16384')
@@ -311,10 +321,10 @@ def index_source(source, output):
             f'{c} {"INTEGER" if c in ("tick", "hz", "valid") else "REAL"}' for c in COLUMNS) + ')')
         db.execute('CREATE TABLE metadata(value TEXT)')
         writer = Writer(db)
-        details = (native_index if source['kind'] == 'native' else jsonl_index)(source, writer, health)
+        details = (native_index if source['kind'] == 'native' else jsonl_index)(source, writer, health, cancel)
         writer.flush()
         db.execute('CREATE INDEX sample_times ON samples(track,t)')
-        digest = sha256(source['path'])
+        digest = sha256(source['path'], cancel)
         after = source['path'].stat()
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
             raise ValueError('Source changed during indexing; retry after recording stops')
@@ -407,6 +417,7 @@ class Store:
         cache.mkdir(parents=True, exist_ok=True)
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix='pose-index')
         self.lock, self.jobs = threading.Lock(), {}
+        self.cancel = threading.Event()
 
     def refresh(self):
         self.sources = catalogue(self.dump_root, self.repo)
@@ -434,7 +445,7 @@ class Store:
                     os.close(fd)
                     temp = Path(name)
                     try:
-                        index_source(source, temp)
+                        index_source(source, temp, self.cancel)
                         os.replace(temp, path)
                     finally:
                         if temp.exists():
@@ -520,7 +531,6 @@ def main():
     p.add_argument('--cache', type=Path, default=REPO/'.lh-evaluation/viewer-cache')
     p.add_argument('--host', default='127.0.0.1', help='Use 0.0.0.0 for LAN access')
     p.add_argument('--port', type=int, default=8765)
-    p.add_argument('--pid-file', type=Path, help='Write the server PID for a detached launch')
     p.add_argument('--index', action='append', default=[], help='Pre-index a source ID; repeatable')
     args = p.parse_args()
     store = Store(args.dumps.expanduser().resolve(), args.cache.expanduser().resolve())
@@ -528,8 +538,6 @@ def main():
         store.ensure(identifier)
     server = http.server.ThreadingHTTPServer((args.host, args.port), Handler)
     server.store = store
-    if args.pid_file:
-        args.pid_file.write_text(str(os.getpid())+'\n')
     def stop(signum, frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, stop)
@@ -540,9 +548,8 @@ def main():
         pass
     finally:
         server.server_close()
-        store.pool.shutdown(wait=True)
-        if args.pid_file and args.pid_file.exists() and args.pid_file.read_text().strip() == str(os.getpid()):
-            args.pid_file.unlink()
+        store.cancel.set()
+        store.pool.shutdown(wait=True, cancel_futures=True)
 
 
 if __name__ == '__main__':
