@@ -1,0 +1,151 @@
+{
+  "source": {
+    "session": "2026-10-25_211424_libsurvive_158643023_1366788",
+    "native_sha256": "b3ec6f2a0b4d2fb76cc72eeccf04041801986223fe74e589e363ba1b48329f01",
+    "integrity": "readable-prefix; missing gzip EOF trailer; original unchanged",
+    "window_receive_s": [
+      212.683011,
+      218.683011
+    ],
+    "device": "LHR-F39A0C97",
+    "native_name": "WM1",
+    "manufacturer": "Valve",
+    "model": "Knuckles Left",
+    "frame": "POSE_STATE: raw IMU before floor",
+    "samples": 1503,
+    "first_tick": 11534850048,
+    "last_tick": 11822554624,
+    "hz": 48000000
+  },
+  "events": [
+    {
+      "context": [
+        215.9,
+        216.5
+      ],
+      "before_receive_s": 216.003778,
+      "receive_s": 216.005782,
+      "before_tick": 11694026240,
+      "tick": 11694217728,
+      "sensor_dt_ms": 3.9893333333333336,
+      "orientation_step_deg": 90.7044066280766,
+      "position_step_mm": 7.345076088428398,
+      "corrected_gyro_norm_rad_s": 0.0007782380900752384,
+      "midpoint_gyro_step_deg": 6.582967644835163e-05,
+      "quaternion_dot": 0.7027467875315925,
+      "peak_orientation_receive_s": 216.025751,
+      "peak_orientation_from_start_deg": 108.75727505067556,
+      "peak_position_receive_s": 216.139742,
+      "peak_position_from_start_mm": 64.02633864182353,
+      "calibrated_acc_direction_max_change_deg": 0.38877160481103074,
+      "factory_gyro_norm_rad_s": 0.00792219672818089,
+      "acc_minus_estimated_gravity_norm_before_g": 0.008027569036470663,
+      "acc_minus_estimated_gravity_norm_after_g": 1.393476763860623
+    },
+    {
+      "context": [
+        216.85,
+        217.6
+      ],
+      "before_receive_s": 216.997876,
+      "receive_s": 217.003863,
+      "before_tick": 11741913088,
+      "tick": 11742104576,
+      "sensor_dt_ms": 3.9893333333333336,
+      "orientation_step_deg": 87.10624670219092,
+      "position_step_mm": 13.047587670584962,
+      "corrected_gyro_norm_rad_s": 0.0050503431035805926,
+      "midpoint_gyro_step_deg": 0.0013566470907707417,
+      "quaternion_dot": 0.7247358325205011,
+      "peak_orientation_receive_s": 217.023816,
+      "peak_orientation_from_start_deg": 100.02756561272983,
+      "peak_position_receive_s": 217.093986,
+      "peak_position_from_start_mm": 67.37699843073527,
+      "calibrated_acc_direction_max_change_deg": 0.4237153429409896,
+      "factory_gyro_norm_rad_s": 0.007988023410080869,
+      "acc_minus_estimated_gravity_norm_before_g": 0.013561256944700053,
+      "acc_minus_estimated_gravity_norm_after_g": 1.3737110939602053
+    }
+  ],
+  "first_optical_trigger": {
+    "receive_s": 216.003837,
+    "full_tick": 11693988498,
+    "channel": 0,
+    "sensor": 4,
+    "plane": 1,
+    "angle_rad": -0.7406361,
+    "previous_raw_receive_s": 215.927764,
+    "previous_raw_angle_rad": 1.182512,
+    "raw_angle_change_rad": -1.9231481000000001,
+    "stationary_duration_before_s": 3.7504463125,
+    "stationary_duration_after_s": 0.004775625,
+    "note": "last_movement full tick exactly matches this B record; B also records rejected measurements, so arbitrary B counts are not accepted-observation counts"
+  },
+  "input_checks": {
+    "max_imu_sensor_gap_ms": 3.9946666666666664,
+    "max_pose_receive_gap_ms": 9.620000000012396,
+    "max_age_of_last_received_light_ms": 17.985479166666664,
+    "optical_B_by_channel": {
+      "0": 2489,
+      "14": 3925
+    },
+    "scene_pose_updates_in_window": []
+  },
+  "diagnostic_replay": {
+    "command": [
+      "/home/reina/libsurvive/.lh-evaluation/handheld-fix-2026-10-25/baseline-bin/survive-cli",
+      "--playback",
+      "/home/reina/libsurvive/.lh-evaluation/review-index-2026-10-26/input-225.rec.gz",
+      "--playback-factor",
+      "0",
+      "--configfile",
+      "/home/reina/libsurvive/.lh-evaluation/review-index-2026-10-26/raw-observation/config.json",
+      "--no-threaded-posers",
+      "--globalscenesolver",
+      "0",
+      "--report-in-imu",
+      "--record-tracking-state",
+      "--record-pose-timing",
+      "--record-cal-imu",
+      "--no-gss-auto-floor-height",
+      "--record",
+      "/home/reina/libsurvive/.lh-evaluation/review-index-2026-10-26/raw-observation/record.rec.gz",
+      "--no-record-rawlight",
+      "--no-record-imu",
+      "--no-record-angle",
+      "--kalman-minimize-state-space",
+      "0",
+      "--show-raw-obs"
+    ],
+    "returncode": 0,
+    "wall_s": 26.604681174998404,
+    "input_sha256": "0fa5660af4f3d3212f68cde3b4c75b4e36548de7a59c4f4f1a0e10a31aeeb9fd",
+    "state_rows_identical_to_existing_baseline": 6265,
+    "calibration": "original libsurvive calibration.initial.json; no Valve calibration import",
+    "source_calibration_sha256": "c0fd8d7485628f0471b3001e13786cf092bfb06ce66bd384d0740188087dd9da",
+    "note": "Single-threaded diagnostic replay; exact original live amplitudes/timestamps are not claimed",
+    "raw_optical_outliers": [
+      {
+        "receive_s": 216.013868,
+        "position_difference_from_previous_fused_m": 3.2608318573674726,
+        "orientation_difference_from_previous_fused_deg": 92.16630574410348
+      },
+      {
+        "receive_s": 217.020188,
+        "position_difference_from_previous_fused_m": 3.0974176175917423,
+        "orientation_difference_from_previous_fused_deg": 40.2859486162343
+      }
+    ]
+  },
+  "method": {
+    "position": "relative to first valid sample in selected window",
+    "orientation": "2 atan2(norm(vec(q0^-1 q)),abs(scalar)), invariant under quaternion sign",
+    "step": "adjacent full tick states, sensor dt; factory-calibrated gyro minus same-tick residual bias",
+    "limitations": [
+      "No independent physical ground truth.",
+      "Original live raw optical solver poses and per-update acceptance decisions were not recorded.",
+      "Replay uses the same recorded raw inputs and calibration, but single-threaded execution differs from live threaded ordering.",
+      "Reflection, occlusion, beam assignment and candidate ambiguity remain possible upstream triggers; not isolated here."
+    ]
+  }
+}

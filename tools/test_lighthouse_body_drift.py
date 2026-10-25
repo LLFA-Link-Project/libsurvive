@@ -27,11 +27,15 @@ with tempfile.TemporaryDirectory(prefix='lh-body-drift-check-') as td:
   row('VELOCITY',[*world_v,0,0,0])
   row('I',[3,int(full[i])&0xffffffff,*raw,*gyro_bias,0,0,0,0])
   row('INPUT_TIME',[full[i],1_700_000_000_000_000+int(t[i]*1e6)])
+  row('B',[14 if i%2 else 1,5,int(full[i])&0xffffffff,i%2,.2])
  with gzip.open(p/'native.rec.gz','wt') as f:f.writelines(lines)
  arrays,meta=m.read_capture(p,'synthetic',False);a,j=m.join_rows(arrays);r=m.summarize(a,.1,1.1)
  np.testing.assert_allclose(a['residual'],np.broadcast_to(res,(n,3)),atol=1e-13)
  np.testing.assert_allclose(a['body_velocity'],np.broadcast_to(body_v,(n,3)),atol=1e-13)
  assert r['onset_count']==1
+ assert set(r['optical_inputs']['by_channel'])=={'1','14'}
+ assert set(arrays['light'][:,2])=={5}
+ checks['gen2_B_channel_sensor_not_plane']='pass'
  # Body-frame location of the injected world-X step is [0,0,2] mm;
  # constant physical displacement remains explicitly present in raw step.
  np.testing.assert_allclose(r['onsets'][0]['step_body_mm'],R.T@(world_v*.004+np.array([.002,0,0]))*1000,atol=1e-10)

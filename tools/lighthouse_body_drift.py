@@ -121,7 +121,9 @@ def read_capture(session, serial, allow_truncated):
                 elif kind == 'B':
                     if len(f) != 8:
                         raise ValueError('unexpected calibrated light row width')
-                    arrays['light'].append([t, int(f[6]), int(f[3])])
+                    # Gen2 B: channel sensor tick plane angle. The plane is
+                    # neither a lighthouse index nor a channel identifier.
+                    arrays['light'].append([t, int(f[3]), int(f[4])])
     except EOFError as error:
         if not allow_truncated:
             raise
@@ -234,8 +236,8 @@ def summarize(a, lo, hi):
     qrate = rotation_vector(relative_rotation(q[:-1], q[1:])) / dt[:, None]
     gyro_pair = (a['gyro'][:-1] + a['gyro'][1:]) / 2
     light = a['light'][(a['light'][:, 0] >= lo) & (a['light'][:, 0] <= hi)]
-    optical = dict(records=len(light), by_lighthouse={
-        str(int(lh)): int(sum(light[:, 1] == lh)) for lh in np.unique(light[:, 1])
+    optical = dict(records=len(light), by_channel={
+        str(int(channel)): int(sum(light[:, 1] == channel)) for channel in np.unique(light[:, 1])
     }, max_receive_gap_ms=float(max(np.diff(light[:, 0])) * 1000) if len(light) > 1 else None)
     return dict(
         window_receive_s=[lo, hi], samples=int(sum(k)), pairs=int(sum(pairs)),

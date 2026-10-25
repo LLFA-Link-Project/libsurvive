@@ -339,11 +339,11 @@
       "stationary_fraction": 1.0,
       "optical_inputs": {
         "records": 13191,
-        "by_lighthouse": {
-          "0": 6608,
-          "1": 6583
-        },
-        "max_receive_gap_ms": 14.081000000004451
+        "max_receive_gap_ms": 14.081000000004451,
+        "by_channel": {
+          "1": 6090,
+          "14": 7101
+        }
       },
       "position_radial_rms_mm": 0.025717164548859032,
       "residual_acc_body_mean_mg": [
@@ -450,11 +450,12 @@
       "stationary_fraction": 0.011011011011011011,
       "optical_inputs": {
         "records": 14959,
-        "by_lighthouse": {
-          "0": 7146,
-          "1": 7813
-        },
-        "max_receive_gap_ms": 8.555999999998676
+        "max_receive_gap_ms": 8.555999999998676,
+        "by_channel": {
+          "0": 5125,
+          "1": 4621,
+          "14": 5213
+        }
       },
       "position_radial_rms_mm": 19.981593949377846,
       "residual_acc_body_mean_mg": [
@@ -658,11 +659,12 @@
       "stationary_fraction": 0.008666666666666666,
       "optical_inputs": {
         "records": 11768,
-        "by_lighthouse": {
-          "0": 5710,
-          "1": 6058
-        },
-        "max_receive_gap_ms": 8.114000000006172
+        "max_receive_gap_ms": 8.114000000006172,
+        "by_channel": {
+          "0": 4191,
+          "1": 3667,
+          "14": 3910
+        }
       },
       "position_radial_rms_mm": 17.72654796851135,
       "residual_acc_body_mean_mg": [
@@ -866,11 +868,11 @@
       "stationary_fraction": 0.4549699799866578,
       "optical_inputs": {
         "records": 6802,
-        "by_lighthouse": {
-          "0": 3236,
-          "1": 3566
-        },
-        "max_receive_gap_ms": 16.100999999991927
+        "max_receive_gap_ms": 16.100999999991927,
+        "by_channel": {
+          "0": 3096,
+          "14": 3706
+        }
       },
       "position_radial_rms_mm": 5.181480073008621,
       "residual_acc_body_mean_mg": [
@@ -1458,11 +1460,11 @@
       "stationary_fraction": 1.0,
       "optical_inputs": {
         "records": 12903,
-        "by_lighthouse": {
-          "0": 6131,
-          "1": 6772
-        },
-        "max_receive_gap_ms": 14.22900000000027
+        "max_receive_gap_ms": 14.22900000000027,
+        "by_channel": {
+          "1": 5749,
+          "14": 7154
+        }
       },
       "position_radial_rms_mm": 0.06708899788747065,
       "residual_acc_body_mean_mg": [
@@ -1569,11 +1571,11 @@
       "stationary_fraction": 1.0,
       "optical_inputs": {
         "records": 2796,
-        "by_lighthouse": {
-          "0": 1375,
-          "1": 1421
-        },
-        "max_receive_gap_ms": 16.47600000001148
+        "max_receive_gap_ms": 16.47600000001148,
+        "by_channel": {
+          "1": 1271,
+          "14": 1525
+        }
       },
       "position_radial_rms_mm": 0.03486417300520573,
       "residual_acc_body_mean_mg": [
@@ -1675,5 +1677,9 @@
       "Native rows used by this analysis are checked; this is not a full native grammar validator.",
       "Prefix observations cannot establish final queue loss or full gzip CRC validity."
     ]
+  },
+  "optical_schema_correction_20261026": {
+    "note": "Gen2 B is channel sensor tick plane angle. Only optical grouping labels/counts were corrected; pose/IMU/step metrics are unchanged.",
+    "tool_sha256": "9f2beb63420c33082ac0ee69d9bc0e288a6f74d07d8fd84c05b89f33edaaf622"
   }
 }
