@@ -182,7 +182,10 @@ def GenerateQuatModelExact(x0, error_state):
 # error_state = x0' * x1
 @cg.generate_code(x1 = 4, x0 = 4)
 def GenerateQuatErrorModelApprox(x1, x0):
-    return quattoeuler(quatrotateabout(quatgetreciprocal(x0), x1))
+    # Invert the normalized [1, error/2] retraction below. Euler angles
+    # agree only to first order and are not the finite error coordinates.
+    relative = quatrotateabout(quatgetreciprocal(x0), x1)
+    return [2 * relative[i] / relative[0] for i in range(1, 4)]
 
 # x1 = x0 * error_state
 @cg.generate_code(x0 = 4, error_state = 3)

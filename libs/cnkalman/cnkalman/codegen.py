@@ -354,7 +354,10 @@ class WrapObject(WrapBase):
         self._name = sanitize_name(name)
         self._type = type
         for k,f in type.__dataclass_fields__.items():
-            setattr(self, k, get_argument(k, None, f.type, parent=self, default=f.default))
+            default = f.default
+            if default is dataclasses.MISSING and f.default_factory is not dataclasses.MISSING:
+                default = f.default_factory()
+            setattr(self, k, get_argument(k, None, f.type, parent=self, default=default))
 
     def id(self): return self._name
 
@@ -430,8 +433,12 @@ def flatten_func(func, name=None, args=None, suffix = None, argument_specs ={}):
 def dataclass2dictionary(func):
     dict = {}
     def process(prefix, obj, root = None):
-        if hasattr(obj, '__dataclass_fields__'):
-            for k,f in obj.__dataclass_fields__.items():
+        # A copied input struct is a symbolic WrapObject, not a dataclass
+        # instance. Expand its members too, so derivatives retain identities
+        # for unchanged nested state (for example IMU bias in prediction).
+        if hasattr(obj, '__dataclass_fields__') or isinstance(obj, WrapObject):
+            fields = obj._type.__dataclass_fields__ if isinstance(obj, WrapObject) else obj.__dataclass_fields__
+            for k,f in fields.items():
                 process(prefix + "." + f.name, getattr(obj, f.name), obj if root is None else root)
         else:
             if isinstance(obj, Iterable):

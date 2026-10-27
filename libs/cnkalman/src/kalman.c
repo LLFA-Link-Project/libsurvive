@@ -348,8 +348,8 @@ static void cnkalman_update_covariance(cnkalman_state_t *k, const cnkalman_gain_
 			FLT v1 = cnMatrixGet(&k->P, i, j);
 			FLT v2 = cnMatrixGet(&k->P, j, i);
 			FLT v = (v1 + v2) / 2.;
-			if (fabs(v) < 1e-10)
-				v = 0;
+			// Preserve correlations regardless of coordinate units or covariance
+			// scale. An absolute cutoff can erase meaningful bias/pose coupling.
 			cnMatrixSet(&k->P, i, j, v);
 			cnMatrixSet(&k->P, j, i, v);
 		}
@@ -587,7 +587,10 @@ CnMat *cnkalman_find_residual(cnkalman_meas_model_t *mk, void *user, const struc
 
 CN_EXPORT_FUNCTION void cnkalman_extrapolate_state(FLT t, const cnkalman_state_t *k, CnMat*x1, CnMat* P) {
 	FLT dt = t - k->t;
-	if(t == 0 || fabs(dt) < 1e-4){
+	// t == 0 requests the current state. Every nonzero elapsed interval must
+	// still propagate motion and covariance: predict_state advances k->t even
+	// when observations divide an IMU period into very short intervals.
+	if(t == 0){
 		dt = 0;
 	}
 
@@ -812,11 +815,30 @@ static FLT cnkalman_predict_update_state_extended_adaptive_internal(
         }
 	}
 
-    for(int ki = 0, state_idx = 0;ki < mk->ks_cnt;ki++) {
+    for(int ki = 0, state_idx = 0, nominal_idx = 0;ki < mk->ks_cnt;ki++) {
         CnMat kv = cnMatView(mk->ks[ki]->error_state_size, Z->rows, &K, state_idx, 0);
         CnMat hv = cnMatView(Z->rows, mk->ks[ki]->error_state_size, H, 0, state_idx);
         cnkalman_update_covariance(mk->ks[ki], &kv, &hv, R);
+        cnkalman_state_t *k = mk->ks[ki];
+        if (mk->term_criteria.max_iterations <= 0 && k->Update_fn && k->ErrorState_fn && k->P.rows) {
+            // Joseph's update above is expressed around the old nominal.
+            // Differentiate its finite retraction into the accepted state's
+            // local error coordinates, retaining every covariance cross term.
+            CnMat prior = cnMatConstView(k->state_cnt, 1, &x_k_k1, nominal_idx, 0);
+            CN_CREATE_STACK_VEC(correction, k->error_state_size);
+            CN_CREATE_STACK_MAT(update, k->state_cnt, k->error_state_size);
+            CN_CREATE_STACK_MAT(error, k->error_state_size, k->state_cnt);
+            CN_CREATE_STACK_MAT(reset, k->error_state_size, k->error_state_size);
+            CN_CREATE_STACK_MAT(product, k->error_state_size, k->error_state_size);
+            k->ErrorState_fn(user, &prior, &k->state, &correction, NULL);
+            k->Update_fn(user, &prior, &correction, NULL, &update);
+            k->ErrorState_fn(user, &k->state, NULL, NULL, &error);
+            cnGEMM(&error, &update, 1, NULL, 0, &reset, 0);
+            cnGEMM(&reset, &k->P, 1, NULL, 0, &product, 0);
+            cnGEMM(&product, &reset, 1, NULL, 0, &k->P, CN_GEMM_FLAG_B_T);
+        }
         state_idx += mk->ks[ki]->error_state_size;
+        nominal_idx += mk->ks[ki]->state_cnt;
 
         mk->ks[ki]->t = t;
         assert(sane_covariance(&mk->ks[ki]->P));

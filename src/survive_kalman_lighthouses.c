@@ -197,6 +197,7 @@ static void state_update_fn(void *user, const struct CnMat *x0, const struct CnM
 	}
 	if (dX_wrt_error_state) {
 		SurviveAxisAnglePose error_model = {0};
+		if (E) memcpy(&error_model, cn_as_const_vector(E), E->rows * sizeof(FLT));
 		SurvivePoseAddErrorModel_jac_error_state(dX_wrt_error_state, &state, &error_model);
 		assert(cn_is_finite(dX_wrt_error_state));
 	}
@@ -204,12 +205,12 @@ static void state_update_fn(void *user, const struct CnMat *x0, const struct CnM
 }
 void error_fn(void *user, const struct CnMat *x0, const struct CnMat *x1, struct CnMat *E, struct CnMat *E_jac_x) {
 	SurviveLighthouseKalmanModel state0 = copy_model(cn_as_const_vector(x0), x0->rows);
+	SurviveLighthouseKalmanModel state1 = x1 ? copy_model(cn_as_const_vector(x1), x1->rows) : state0;
 	if (E_jac_x) {
-		SurviveLighthouseKalmanModelToErrorModel_jac_x1(E_jac_x, &state0, &state0);
+		SurviveLighthouseKalmanModelToErrorModel_jac_x1(E_jac_x, &state1, &state0);
 	}
 
 	if (x1 && E) {
-		SurviveLighthouseKalmanModel state1 = copy_model(cn_as_const_vector(x1), x1->rows);
 		SurviveLighthouseKalmanErrorModel error_state = {0};
 		SurviveLighthouseKalmanModelToErrorModel(&error_state, &state1, &state0);
 		memcpy(cn_as_vector(E), &error_state, sizeof(FLT) * E->rows);

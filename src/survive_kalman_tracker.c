@@ -25,6 +25,9 @@
 
 #define SURVIVE_MODEL_MAX_STATE_CNT (sizeof(SurviveKalmanModel) / sizeof(FLT))
 
+STATIC_CONFIG_ITEM(KALMAN_JOINT_IMU_BIAS, "kalman-joint-imu-bias", 'b',
+	"Experimental: retain motion/IMU-bias cross covariance in one error-state filter", 0)
+
 // clang-format off
 STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("light-error-threshold",  "Error limit to invalidate position",
@@ -48,6 +51,7 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
                        1, t->obs_cov_scale)
 	STRUCT_CONFIG_ITEM("kalman-obs-axisangle",  "Process observation updates as axis angle poses", false, t->obs_axisangle_model)
 	STRUCT_CONFIG_ITEM("kalman-align-observation-quaternion", "Experimental quaternion/covariance hemisphere alignment", false, t->obs_align_quaternion)
+	STRUCT_CONFIG_ITEM("kalman-local-rotation-observation", "Fuse optical orientation errors in the local rotation tangent space", true, t->obs_local_rotation)
     STRUCT_CONFIG_ITEM("obs-pos-variance",  "Variance of position integration from light capture",
 					   1e-6, t->obs_pos_var)
 	STRUCT_CONFIG_ITEM("obs-rot-variance",  "Variance of rotation integration from light capture",
@@ -60,9 +64,9 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("light-error-for-lh-confidence",
 					   "Whether or not to invalidate LH positions based on kalman errors", 0, t->use_error_for_lh_pos)
 
-	STRUCT_CONFIG_ITEM("process-weight-jerk", "Jerk variance per second", 1874161, t->params.process_weight_jerk)
-	STRUCT_CONFIG_ITEM("process-weight-acc", "Acc variance per second", 0, t->params.process_weight_acc)
-	STRUCT_CONFIG_ITEM("process-weight-ang-vel", "Angular velocity variance per second", 60,
+	STRUCT_CONFIG_ITEM("process-weight-jerk", "Legacy higher-order positional process noise", 0, t->params.process_weight_jerk)
+	STRUCT_CONFIG_ITEM("process-weight-acc", "Acceleration process noise density (m^2/s^5)", 1, t->params.process_weight_acc)
+	STRUCT_CONFIG_ITEM("process-weight-ang-vel", "Angular velocity variance per second", 1,
 					   t->params.process_weight_ang_velocity)
 	STRUCT_CONFIG_ITEM("process-weight-vel", "Velocity variance per second", 0, t->params.process_weight_vel)
 	STRUCT_CONFIG_ITEM("process-weight-pos", "Position variance per second", 0, t->params.process_weight_pos)
@@ -71,6 +75,7 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("process-weight-gyro-bias", "Gyro bias variance per second", 1e-8, t->params.process_weight_gyro_bias)
 	STRUCT_CONFIG_ITEM("kalman-minimize-state-space", "Minimize the state space", 1, t->minimize_state_space)
 	STRUCT_CONFIG_ITEM("kalman-use-error-space", "Model using error state", true, t->use_error_state)
+	STRUCT_CONFIG_ITEM("kalman-gyro-control", "Experimental: propagate with held gyro samples and their covariance (enable at initialization)", false, t->use_gyro_control)
 
 	STRUCT_CONFIG_ITEM("kalman-joint-model-lightcap", "Ratio of confidence of LH over tracked object to use joint filter", -1, t->joint_lightcap_ratio)
 	STRUCT_CONFIG_ITEM("kalman-joint-lightcap-minimum-sensors", "Minimum number of sensors for the joint model to run", 5, t->joint_min_sensor_cnt)
@@ -87,7 +92,8 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-gyro-scale", "Corrected gyro rate that weakens stationary information (rad/s; 0 disables)", .02, t->zvu_stationary_gyro_scale)
 	STRUCT_CONFIG_ITEM("kalman-zvu-stationary-velocity-sigma", "Allowed velocity during stationary ramp (m/s)", .1, t->zvu_stationary_velocity_sigma)
 	STRUCT_CONFIG_ITEM("kalman-zvu-motion-guard-time", "Stable optical tracking before relaxing stationary assumptions (s)", .5, t->zvu_motion_guard_time)
-	STRUCT_CONFIG_ITEM("kalman-zvu-motion-all-devices", "Experimental handheld constraints on controllers and HMDs too", false, t->zvu_motion_all_devices)
+	STRUCT_CONFIG_ITEM("kalman-zvu-motion-all-devices", "Apply gradual stationary constraints and gyro motion evidence to controllers and HMDs too", true, t->zvu_motion_all_devices)
+	STRUCT_CONFIG_ITEM("kalman-zvu-optical-motion-window", "Optical motion evidence window for stationary constraints (s; 0 disables)", .6, t->optical_motion_window)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light", "", 1e-4, t->zvu_no_light_var)
 	STRUCT_CONFIG_ITEM("kalman-zvu-no-light-time", "", .1, t->zvu_no_light_time)
 
@@ -165,7 +171,11 @@ static inline FLT survive_kalman_tracker_position_var2(SurviveKalmanTracker *tra
 		var_diag[i] = cnMatrixGet(&tracker->model.P, i, i);
 	}
 
-	return normnd2(var_diag, cnt);
+	// Output confidence describes motion. Including the bias marginal would
+	// change the reporting gate merely by choosing a joint state layout.
+	size_t motion_cnt = tracker->use_error_state ? offsetof(SurviveKalmanErrorModel, IMUBias) / sizeof(FLT) :
+		offsetof(SurviveKalmanModel, IMUBias) / sizeof(FLT);
+	return normnd2(var_diag, cnt < motion_cnt ? cnt : motion_cnt);
 }
 
 void kalman_model_normalize(void *user, struct CnMat* x) {
@@ -545,8 +555,8 @@ SURVIVE_EXPORT void survive_kalman_tracker_correct_imu(SurviveKalmanTracker *tra
  * The actual code for this is generated from tools/generate_math_functions/imu_functions.py. It isn't done in
  * C natively to allow for the jacobian code to be generated using symengine
  */
-bool survive_kalman_tracker_imu_measurement_model(void *user, const struct CnMat *Z, const struct CnMat *x_t, struct CnMat *y,
-						 struct CnMat *H_k) {
+static bool imu_measurement_model(void *user, const struct CnMat *Z, const struct CnMat *x_t, struct CnMat *y,
+								  struct CnMat *H_k, bool accelerometer_only) {
 	struct map_imu_data_ctx *fn_ctx = user;
 
 	CN_CREATE_STACK_VEC(h_x, 6);
@@ -556,7 +566,7 @@ bool survive_kalman_tracker_imu_measurement_model(void *user, const struct CnMat
 	IMUMeasurementModel(&h_x, &s);
 
     if(H_k) {
-        assert(H_k->rows * H_k->cols == H_k->cols * 6);
+        assert(H_k->rows == (accelerometer_only ? 3 : 6));
 
 		bool errorState = fn_ctx->tracker->imu_model.error_state_model;
 		if(errorState) {
@@ -575,7 +585,11 @@ bool survive_kalman_tracker_imu_measurement_model(void *user, const struct CnMat
 		SurviveContext *ctx = so->ctx;
 		survive_recording_write_matrix(tracker->so->ctx->recptr, tracker->so, 100, "imu-y", y);
 		SV_VERBOSE(600, "X     " Point7_format, LINMATH_VEC7_EXPAND(cn_as_const_vector(x_t)))
-		SV_VERBOSE(600, "Z     " Point6_format, LINMATH_VEC6_EXPAND(cn_as_const_vector(Z)))
+		if (accelerometer_only) {
+			SV_VERBOSE(600, "Z     " Point3_format, LINMATH_VEC3_EXPAND(cn_as_const_vector(Z)))
+		} else {
+			SV_VERBOSE(600, "Z     " Point6_format, LINMATH_VEC6_EXPAND(cn_as_const_vector(Z)))
+		}
 
 		if(so->ctx->datalogproc) {
 			SV_DATA_LOG("imu_prediction", h_x.data, 6);
@@ -600,6 +614,14 @@ bool survive_kalman_tracker_imu_measurement_model(void *user, const struct CnMat
 	return true;
 }
 
+bool survive_kalman_tracker_imu_measurement_model(void *user, const CnMat *Z, const CnMat *state, CnMat *y, CnMat *H) {
+	return imu_measurement_model(user, Z, state, y, H, false);
+}
+
+static bool accelerometer_measurement_model(void *user, const CnMat *Z, const CnMat *state, CnMat *y, CnMat *H) {
+	return imu_measurement_model(user, Z, state, y, H, true);
+}
+
 static void tracker_datalog(const cnkalman_state_t* state, const char *desc, const FLT *v, size_t length) {
 	SurviveKalmanTracker *tracker = state->datalog_user;
 	SurviveObject * so = tracker->so;
@@ -620,12 +642,12 @@ static void imu_error_state_fn(void *user, const struct CnMat *x0,
 							   const struct CnMat *x1, struct CnMat *E,
 							   struct CnMat *E_jac_x) {
 	SurviveIMUBiasModel state0 = copy_imu_bias_model(x0);
+	SurviveIMUBiasModel state1 = x1 ? copy_imu_bias_model(x1) : state0;
 	if(E_jac_x) {
-		SurviveIMUBiasModelToErrorModel_jac_x1(E_jac_x, &state0, &state0);
+		SurviveIMUBiasModelToErrorModel_jac_x1(E_jac_x, &state1, &state0);
 	}
 
 	if(x1 && E) {
-		SurviveIMUBiasModel state1 = copy_imu_bias_model(x1);
 		SurviveIMUBiasErrorModel error_state = { 0 };
 		SurviveIMUBiasModelToErrorModel(&error_state, &state1, &state0);
 		memcpy(cn_as_vector(E), &error_state, sizeof(FLT) * E->rows);
@@ -636,12 +658,12 @@ static void error_state_fn(void *user, const struct CnMat *x0,
 						   const struct CnMat *x1, struct CnMat *E,
 						   struct CnMat *E_jac_x) {
 	SurviveKalmanModel state0 = copy_model(cn_as_const_vector(x0), x0->rows);
+	SurviveKalmanModel state1 = x1 ? copy_model(cn_as_const_vector(x1), x1->rows) : state0;
 	if(E_jac_x) {
-		SurviveKalmanModelToErrorModel_jac_x1(E_jac_x, &state0, &state0);
+		SurviveKalmanModelToErrorModel_jac_x1(E_jac_x, &state1, &state0);
 	}
 
 	if(x1 && E) {
-		SurviveKalmanModel state1 = copy_model(cn_as_const_vector(x1), x1->rows);
 		SurviveKalmanErrorModel error_state = { 0 };
 		SurviveKalmanModelToErrorModel(&error_state, &state1, &state0);
 		memcpy(cn_as_vector(E), &error_state, sizeof(FLT) * E->rows);
@@ -660,6 +682,7 @@ static void imu_bias_update_fn(void *user, const struct CnMat *x0, const struct 
 	}
 	if(dX_wrt_error_state){
 		SurviveIMUBiasErrorModel error_model = { 0 };
+		if (E) memcpy(&error_model, cn_as_const_vector(E), E->rows * sizeof(FLT));
 		SurviveIMUBiasModelAddErrorModel_jac_error_state(dX_wrt_error_state, &state, &error_model);
 	}
 }
@@ -674,7 +697,7 @@ static void state_update_fn(void *user, const struct CnMat *x0, const struct CnM
 		memcpy(cn_as_vector(x1), &_x1, sizeof(FLT) * x1->rows);
 	}
 	if(dX_wrt_error_state){
-		SurviveKalmanErrorModel error_model = { 0 };
+		SurviveKalmanErrorModel error_model = E ? copy_error_model(E) : (SurviveKalmanErrorModel){0};
 		SurviveKalmanModel state = copy_model(cn_as_const_vector(x0), x0->rows);
 		SurviveKalmanModelAddErrorModel_jac_error_state(dX_wrt_error_state, &state, &error_model);
 	}
@@ -741,16 +764,222 @@ static bool map_obs_data_axisangle(void *user, const struct CnMat *Z, const stru
     return true;
 }
 
+typedef struct {
+	SurviveKalmanTracker *tracker;
+	const SurvivePose *pose;
+} LocalRotationObservation;
+
+// Log(q), with the shortest rotation and its derivative in quaternion coordinates.
+// This is homogeneous in q: the radial quaternion direction carries no information.
+static void rotation_log_jacobian(const LinmathQuat q, FLT *rotation, CnMat *jac) {
+	FLT sign = q[0] < 0 ? -1 : 1;
+	FLT w = q[0] * sign, v[3];
+	scale3d(v, q + 1, sign);
+	FLT s2 = dot3d(v, v), n2 = s2 + w * w, s = sqrt(s2);
+	FLT angle = 2 * atan2(s, w);
+	FLT factor = s > 1e-6 ? angle / s : 2 / w;
+	FLT radial = s > 1e-6 ? (2 * w * s / n2 - angle) / (s2 * s) : -4 / (3 * w * w * w);
+	if (rotation)
+		scale3d(rotation, v, factor);
+	if (jac) {
+		for (int i = 0; i < 3; i++) {
+			cnMatrixSet(jac, i, 0, sign * -2 * v[i] / n2);
+			for (int j = 0; j < 3; j++)
+				cnMatrixSet(jac, i, j + 1, sign * ((i == j ? factor : 0) + radial * v[i] * v[j]));
+		}
+	}
+}
+
+static void local_rotation_measurement(const SurvivePose *observed, const SurvivePose *predicted,
+									 FLT *rotation, CnMat *state_jac, CnMat *observation_jac) {
+	LinmathQuat inverse, relative;
+	quatgetconjugate(inverse, predicted->Rot);
+	quatrotateabout(relative, observed->Rot, inverse);
+	CN_CREATE_STACK_MAT(log_jac, 3, 4);
+	rotation_log_jacobian(relative, rotation, state_jac || observation_jac ? &log_jac : NULL);
+	if (!state_jac && !observation_jac)
+		return;
+	for (int col = 0; col < 4; col++) {
+		LinmathQuat basis = {0}, derivative;
+		basis[col] = 1;
+		if (state_jac) {
+			quatgetconjugate(basis, basis);
+			quatrotateabout(derivative, observed->Rot, basis);
+			for (int row = 0; row < 3; row++) {
+				FLT value = 0;
+				for (int i = 0; i < 4; i++) value -= cnMatrixGet(&log_jac, row, i) * derivative[i];
+				cnMatrixSet(state_jac, row, col, value);
+			}
+			basis[col] = 1;
+		}
+		if (observation_jac) {
+			quatrotateabout(derivative, basis, inverse);
+			for (int row = 0; row < 3; row++) {
+				FLT value = 0;
+				for (int i = 0; i < 4; i++) value += cnMatrixGet(&log_jac, row, i) * derivative[i];
+				cnMatrixSet(observation_jac, row, col, value);
+			}
+		}
+	}
+}
+
+static bool map_obs_data_local_rotation(void *user, const CnMat *Z, const CnMat *x, CnMat *y, CnMat *H) {
+	const LocalRotationObservation *observation = user;
+	const SurvivePose *predicted = (const SurvivePose *)cn_as_const_vector(x);
+	FLT rotation[3];
+	CN_CREATE_STACK_MAT(rotation_jac, 3, 4);
+	local_rotation_measurement(observation->pose, predicted, rotation, H ? &rotation_jac : NULL, NULL);
+	if (y) {
+		sub3d(cn_as_vector(y), observation->pose->Pos, predicted->Pos);
+		copy3d(cn_as_vector(y) + 3, rotation);
+	}
+	if (H) {
+		SurviveKalmanTracker *tracker = observation->tracker;
+		bool error_state = tracker->use_error_state && tracker->obs_model.error_state_model;
+		CN_CREATE_STACK_MAT(H_full, 6, tracker->model.state_cnt);
+		CnMat *H_pose = error_state ? &H_full : H;
+		cn_set_zero(H_pose);
+		for (int i = 0; i < 3; i++) {
+			cnMatrixSet(H_pose, i, i, 1);
+			for (int j = 0; j < 4; j++)
+				cnMatrixSet(H_pose, i + 3, j + 3, cnMatrixGet(&rotation_jac, i, j));
+		}
+		if (error_state) {
+			CN_CREATE_STACK_MAT(dx, tracker->model.state_cnt, tracker->model.error_state_size);
+			state_update_fn(tracker, x, NULL, NULL, &dx);
+			cnGEMM(&H_full, &dx, 1, NULL, 0, H, 0);
+		}
+	}
+	return true;
+}
+
+static void observe_optical_motion(SurviveKalmanTracker *tracker, FLT time, const SurvivePose *pose, const CnMat *R) {
+	FLT window = tracker->optical_motion_window;
+	const unsigned capacity = sizeof(tracker->optical_motion_samples) / sizeof(tracker->optical_motion_samples[0]);
+	if (window <= 0 || !isfinite(window)) return;
+	if (tracker->optical_motion_start_time == 0) tracker->optical_motion_start_time = time;
+	if (tracker->stats.obs_count < 16 ||
+		time - tracker->last_unreliable_pose_time < tracker->zvu_motion_guard_time)
+		return;
+	if (tracker->optical_motion_count) {
+		unsigned prior = (tracker->optical_motion_next + capacity - 1) % capacity;
+		// Do not count overlapping optical solves as independent high-rate
+		// velocity observations. This only controls stationary evidence.
+		if (time - tracker->optical_motion_samples[prior].time < .0198) return;
+	}
+	unsigned next = tracker->optical_motion_next;
+	tracker->optical_motion_samples[next].time = time;
+	tracker->optical_motion_samples[next].pose = *pose;
+	CnMat stored_covariance = cnMat(7, 7, tracker->optical_motion_samples[next].covariance);
+	cnCopy(R, &stored_covariance, NULL);
+	tracker->optical_motion_next = (next + 1) % capacity;
+	if (tracker->optical_motion_count < capacity) tracker->optical_motion_count++;
+	// Fit position and local rotation against time, using each observation's
+	// full 3D marginal covariance. A velocity significantly different from
+	// zero disproves the stationary hypothesis for that component. This fit
+	// supplies detector evidence; it never replaces or averages output poses.
+	for (int angular = 0; angular < 2; angular++) {
+		CN_CREATE_STACK_MAT(normal, 6, 6);
+		CN_CREATE_STACK_VEC(information, 6);
+		unsigned count = 0;
+		FLT span = 0;
+		for (unsigned n = 0; n < tracker->optical_motion_count; n++) {
+			FLT dt = tracker->optical_motion_samples[n].time - time;
+			if (dt > 0 || -dt > window) continue;
+			CnMat full_covariance = cnMat(7, 7, tracker->optical_motion_samples[n].covariance);
+			CnMat covariance = cnMatView(3, 3, &full_covariance, 0, 0);
+			CN_CREATE_STACK_MAT(rotation_covariance, 3, 3);
+			FLT delta[3];
+			if (angular) {
+				CN_CREATE_STACK_MAT(rotation_jacobian, 3, 4);
+				local_rotation_measurement(&tracker->optical_motion_samples[n].pose, pose,
+					delta, NULL, &rotation_jacobian);
+				CnMat quaternion_covariance = cnMatView(4, 4, &full_covariance, 3, 3);
+				gemm_ABAt_add_scaled(&rotation_covariance, &rotation_jacobian, &quaternion_covariance, 0, 1, 1, 0);
+				covariance = rotation_covariance;
+			} else {
+				sub3d(delta, tracker->optical_motion_samples[n].pose.Pos, pose->Pos);
+			}
+			CN_CREATE_STACK_MAT(weight, 3, 3);
+			cnInvert(&covariance, &weight, CN_INVERT_METHOD_SVD);
+			if (!cn_is_finite(&weight)) return;
+			FLT factors[] = {1, dt};
+			for (int block = 0; block < 2; block++) {
+				for (int i = 0; i < 3; i++) {
+					FLT value = 0;
+					for (int j = 0; j < 3; j++) {
+						FLT w = cnMatrixGet(&weight, i, j);
+						value += w * delta[j];
+						for (int other = 0; other < 2; other++) {
+							int row = 3 * block + i, col = 3 * other + j;
+							cnMatrixSet(&normal, row, col, cnMatrixGet(&normal, row, col) +
+								factors[block] * factors[other] * w);
+						}
+					}
+					int row = 3 * block + i;
+					cnMatrixSet(&information, row, 0, cnMatrixGet(&information, row, 0) + factors[block] * value);
+				}
+			}
+			span = linmath_max(span, -dt);
+			count++;
+		}
+		if (count < 8 || span < window * .5) return;
+		CN_CREATE_STACK_MAT(inverse, 6, 6);
+		CN_CREATE_STACK_VEC(estimate, 6);
+		cnInvert(&normal, &inverse, CN_INVERT_METHOD_SVD);
+		cnGEMM(&inverse, &information, 1, NULL, 0, &estimate, 0);
+		CnMat velocity_covariance = cnMatView(3, 3, &inverse, 3, 3);
+		CN_CREATE_STACK_MAT(velocity_information, 3, 3);
+		cnInvert(&velocity_covariance, &velocity_information, CN_INVERT_METHOD_SVD);
+		FLT score = 0;
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++)
+				score += cnMatrixGet(&estimate, i + 3, 0) * cnMatrixGet(&velocity_information, i, j) *
+					cnMatrixGet(&estimate, j + 3, 0);
+		if (isfinite(score) && score > 16) {
+			tracker->optical_motion_until[angular] = time + window;
+		}
+	}
+	tracker->optical_motion_fit_time = time;
+}
+
 static FLT integrate_pose(SurviveKalmanTracker *tracker, FLT time, const SurvivePose *pose, const struct CnMat *R_q) {
 	FLT rtn = 0;
 
 	size_t state_cnt = tracker->model.state_cnt;
-	size_t obs_cnt = tracker->obs_axisangle_model ? 6 : 7;
+	size_t obs_cnt = tracker->obs_local_rotation || tracker->obs_axisangle_model ? 6 : 7;
 
 	struct CnMat* Rp = (CnMat*)R_q;
 	CN_CREATE_STACK_MAT(R, obs_cnt, obs_cnt);
+	CnMat adaptive_R = cnMat(obs_cnt, obs_cnt, tracker->Obs_R);
 	CN_CREATE_STACK_VEC(Z, obs_cnt);
-	if(tracker->obs_axisangle_model) {
+	LocalRotationObservation observation = {.tracker = tracker, .pose = pose};
+	SurvivePose predicted = tracker->state.Pose;
+	if (tracker->obs_local_rotation || !tracker->obs_axisangle_model) {
+		survive_kalman_tracker_predict(tracker, time, &predicted);
+		// Retain the stationary-constraint reliability check with either model.
+		FLT qnorm = quatmagnitude(predicted.Rot) * quatmagnitude(pose->Rot);
+		if (tracker->stats.obs_count < 16 || dist3d(predicted.Pos, pose->Pos) > .02 ||
+			fabs(quatinnerproduct(predicted.Rot, pose->Rot)) < qnorm * cos(.05))
+			tracker->last_unreliable_pose_time = time;
+	}
+	if (tracker->obs_local_rotation) {
+		CN_CREATE_STACK_MAT(G, 6, 7);
+		CN_CREATE_STACK_MAT(rotation_jac, 3, 4);
+		local_rotation_measurement(pose, &predicted, NULL, NULL, &rotation_jac);
+		for (int i = 0; i < 3; i++) {
+			cnMatrixSet(&G, i, i, 1);
+			for (int j = 0; j < 4; j++)
+				cnMatrixSet(&G, i + 3, j + 3, cnMatrixGet(&rotation_jac, i, j));
+		}
+		if (R_q) {
+			gemm_ABAt_add_scaled(&R, &G, R_q, 0, 1, 1, 0);
+			Rp = &R;
+		} else {
+			Rp = &adaptive_R;
+		}
+		copy3d(cn_as_vector(&Z), pose->Pos);
+	} else if(tracker->obs_axisangle_model) {
 		LinmathAxisAnglePose poseAA = Pose2AAPose(pose);
 		if(Rp) {
 			survive_covariance_pose2poseAA(&R, pose, R_q);
@@ -759,15 +988,6 @@ static FLT integrate_pose(SurviveKalmanTracker *tracker, FLT time, const Survive
 		Rp = &R;
 	} else {
 		memcpy(cn_as_vector(&Z), pose->Pos, obs_cnt * sizeof(FLT));
-		SurvivePose predicted = tracker->state.Pose;
-		survive_kalman_tracker_predict(tracker, time, &predicted);
-		// Relax stationary assumptions only after optical tracking has settled.
-		// During acquisition or ambiguous optical solutions, preserve the old
-		// constraint strength instead of changing the recovery behavior.
-		FLT qnorm = quatmagnitude(predicted.Rot) * quatmagnitude(pose->Rot);
-		if (tracker->stats.obs_count < 16 || dist3d(predicted.Pos, pose->Pos) > .02 ||
-		    fabs(quatinnerproduct(predicted.Rot, pose->Rot)) < qnorm * cos(.05))
-			tracker->last_unreliable_pose_time = time;
 		if (tracker->obs_align_quaternion && quatinnerproduct(predicted.Rot, pose->Rot) < 0) {
 			// q and -q encode the same orientation. Choose the measurement
 			// hemisphere nearest the prior before forming a Euclidean residual.
@@ -788,7 +1008,8 @@ static FLT integrate_pose(SurviveKalmanTracker *tracker, FLT time, const Survive
 	}
 
 	tracker->datalog_tag = "pose_obs";
-    rtn = cnkalman_meas_model_predict_update(time, &tracker->obs_model, tracker, &Z, Rp);
+    rtn = cnkalman_meas_model_predict_update(time, &tracker->obs_model,
+		tracker->obs_local_rotation ? (void *)&observation : (void *)tracker, &Z, Rp);
 
 	tracker->datalog_tag = 0;
 	SurviveContext *ctx = tracker->so->ctx;
@@ -796,6 +1017,97 @@ static FLT integrate_pose(SurviveKalmanTracker *tracker, FLT time, const Survive
 			   LINMATH_VEC16_EXPAND(cn_as_const_vector(&tracker->model.state)));
 
 	return rtn;
+}
+
+enum {
+	gyro_control_error_count = sizeof(SurviveKalmanErrorModel) / sizeof(FLT),
+	gyro_control_omega = offsetof(SurviveKalmanErrorModel, Velocity.AxisAngleRot) / sizeof(FLT),
+	gyro_control_rotation = offsetof(SurviveKalmanErrorModel, Pose.AxisAngleRot) / sizeof(FLT),
+	gyro_control_bias = offsetof(SurviveKalmanErrorModel, IMUBias.GyroBias) / sizeof(FLT),
+	gyro_control_correction = offsetof(SurviveKalmanErrorModel, IMUBias.IMUCorrection) / sizeof(FLT)
+};
+
+static void gyro_control_transform_covariance(cnkalman_state_t *model,
+											const double *G) {
+	double prior[gyro_control_error_count * gyro_control_error_count];
+	double product[gyro_control_error_count * gyro_control_error_count] = {0};
+	double posterior[gyro_control_error_count * gyro_control_error_count] = {0};
+	const int n = gyro_control_error_count;
+	for (int i = 0; i < n; i++)
+		for (int j = 0; j < n; j++) prior[n * i + j] = cnMatrixGet(&model->P, i, j);
+	for (int i = 0; i < n; i++)
+		for (int k = 0; k < n; k++)
+			if (G[n * i + k] != 0)
+				for (int j = 0; j < n; j++) product[n * i + j] += G[n * i + k] * prior[n * k + j];
+	for (int j = 0; j < n; j++)
+		for (int k = 0; k < n; k++)
+			if (G[n * j + k] != 0)
+				for (int i = 0; i < n; i++) posterior[n * i + j] += product[n * i + k] * G[n * j + k];
+	for (int i = 0; i < n; i++)
+		for (int j = 0; j < n; j++)
+			cnMatrixSet(&model->P, i, j, .5 * (posterior[n * i + j] + posterior[n * j + i]));
+}
+
+static bool integrate_gyro_control(SurviveKalmanTracker *tracker, FLT time, const FLT gyro[3]) {
+	if (!tracker->gyro_control_mode || !tracker->use_gyro_control || tracker->gyro_var < 0 ||
+		tracker->imu_model.adaptive || !tracker->imu_model.error_state_model || tracker->use_raw_obs ||
+		tracker->noise_model != 0 ||
+		fabs(fabs(tracker->state.IMUBias.IMUCorrection[0]) - 1) > 1e-12 ||
+		cnMatrixGet(&tracker->model.P, gyro_control_correction, gyro_control_correction) != 0 ||
+		cnMatrixGet(&tracker->model.P, gyro_control_correction + 1, gyro_control_correction + 1) != 0 ||
+		cnMatrixGet(&tracker->model.P, gyro_control_correction + 2, gyro_control_correction + 2) != 0) {
+		tracker->gyro_control_started = false;
+		return false;
+	}
+	if (time < tracker->model.t || time <= tracker->gyro_control_time) return false;
+
+	// The previous gyro sample, with its posterior uncertainty, controls the
+	// complete interval up to this acquisition. Intermediate optical updates
+	// must not invent independent angular process noise or change that interval.
+	tracker->gyro_control_started = true;
+	cnkalman_predict_state(time, &tracker->model);
+
+	double w = tracker->state.Pose.Rot[0], x = tracker->state.Pose.Rot[1];
+	double y = tracker->state.Pose.Rot[2], z = tracker->state.Pose.Rot[3];
+	double norm = w * w + x * x + y * y + z * z;
+	double R[9] = {
+		1 - 2 * (y * y + z * z) / norm, 2 * (x * y - z * w) / norm, 2 * (x * z + y * w) / norm,
+		2 * (x * y + z * w) / norm, 1 - 2 * (x * x + z * z) / norm, 2 * (y * z - x * w) / norm,
+		2 * (x * z - y * w) / norm, 2 * (y * z + x * w) / norm, 1 - 2 * (x * x + y * y) / norm
+	};
+	double corrected[3];
+	for (int i = 0; i < 3; i++) corrected[i] = gyro[i] - tracker->state.IMUBias.GyroBias[i];
+	double skew[9] = {0, -corrected[2], corrected[1], corrected[2], 0, -corrected[0],
+					 -corrected[1], corrected[0], 0};
+	double G[gyro_control_error_count * gyro_control_error_count] = {0};
+	const int n = gyro_control_error_count, omega = gyro_control_omega;
+	for (int i = 0; i < n; i++) G[n * i + i] = 1;
+	for (int i = 0; i < 3; i++) {
+		memset(G + n * (omega + i), 0, n * sizeof(*G));
+		for (int j = 0; j < 3; j++) {
+			double value = 0;
+			for (int k = 0; k < 3; k++) value -= R[3 * i + k] * skew[3 * k + j];
+			G[n * (omega + i) + gyro_control_rotation + j] = value;
+			G[n * (omega + i) + gyro_control_bias + j] = -R[3 * i + j];
+		}
+	}
+	// omega_world = R(q) * (gyro_measured - bias). Keep its rotation/bias
+	// correlations, replace the previous sample's noise with this independent
+	// sample, and let subsequent predictions transport the whole covariance.
+	gyro_control_transform_covariance(&tracker->model, G);
+	for (int i = 0; i < 3; i++) {
+		double value = 0;
+		for (int j = 0; j < 3; j++) value += R[3 * i + j] * corrected[j];
+		tracker->state.Velocity.AxisAngleRot[i] = value;
+		for (int j = 0; j < 3; j++) {
+			double variance = 0;
+			for (int k = 0; k < 3; k++) variance += tracker->gyro_var * R[3 * i + k] * R[3 * j + k];
+			cnMatrixSet(&tracker->model.P, omega + i, omega + j,
+				cnMatrixGet(&tracker->model.P, omega + i, omega + j) + variance);
+		}
+	}
+	tracker->gyro_control_time = time;
+	return true;
 }
 
 void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDataIMU *data) {
@@ -834,6 +1146,8 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 				time_diff, data->hdr.timecode);
 	}
 
+	bool gyro_control = integrate_gyro_control(tracker, time, data->gyro);
+
 	FLT rotation_variance[] = {1e5, 1e5, 1e5, 1e5, 1e5, 1e5};
 
 	bool no_light = (time - tracker->last_light_time) > tracker->zvu_no_light_time;
@@ -845,10 +1159,12 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 		FLT remaining_motion = 0;
 		bool motion_target = so->object_type == SURVIVE_OBJECT_TYPE_OTHER || tracker->zvu_motion_all_devices;
 		bool settled = motion_target && time - tracker->last_unreliable_pose_time >= tracker->zvu_motion_guard_time;
-		if (settled && tracker->zvu_stationary_ramp > 0) {
+		if ((settled || (motion_target && !no_light)) && tracker->zvu_stationary_ramp > 0) {
 			// A short pause in handheld motion is weak evidence of a zero
 			// velocity. Introduce measurement information continuously rather
 			// than applying the full constraint at the first 100 ms crossing.
+			// Uncertain optical poses do not strengthen that rest evidence.
+			// Retain the previous behavior when light is also unavailable.
 			// Keep the ordinary Kalman gain/covariance update together.
 			FLT stationary_s = SurviveSensorActivations_stationary_time(&so->activations) / (FLT)so->timebase_hz;
 			FLT u = linmath_enforce_range((stationary_s - .1) / tracker->zvu_stationary_ramp, 0, 1);
@@ -885,40 +1201,50 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 		zvu_velocity_var = linmath_min(tracker->zvu_no_light_var, zvu_velocity_var < 0 ? INFINITY : zvu_velocity_var);
 		zvu_acceleration_var = linmath_min(tracker->zvu_no_light_var, zvu_acceleration_var < 0 ? INFINITY : zvu_acceleration_var);
 	}
+	FLT zvu_angular_var = zvu_var;
+	if (!no_light && tracker->optical_motion_window > 0) {
+		// Give the detector time to initialize before assuming a zero angular
+		// velocity. Bound that grace period: persistently unreliable optics
+		// cannot leave the gyro's stationary bias constraint disabled forever.
+		if (tracker->optical_motion_fit_time <= 0 && tracker->optical_motion_start_time > 0 &&
+			time - tracker->optical_motion_start_time < 2 * tracker->optical_motion_window + tracker->zvu_motion_guard_time)
+			zvu_angular_var = -1;
+		for (int angular = 0; angular < 2; angular++) {
+			if (tracker->optical_motion_until[angular] <= 0) continue;
+			FLT quiet = time - tracker->optical_motion_until[angular];
+			FLT u = tracker->zvu_stationary_ramp > 0 ?
+				linmath_enforce_range((quiet - .1) / tracker->zvu_stationary_ramp, 0, 1) : (quiet > .1);
+			FLT information = u * u * (3 - 2 * u);
+			if (angular) {
+				zvu_angular_var = information > 0 ? zvu_angular_var / information : -1;
+			} else {
+				zvu_velocity_var = information > 0 ? zvu_velocity_var / information : -1;
+				zvu_acceleration_var = information > 0 ? zvu_acceleration_var / information : -1;
+			}
+		}
+	}
 
 	bool disable_ang_vel = no_light && !isStationary;
 	tracker->stats.no_light_imu_count += no_light;
 
-	if (zvu_var >= 0) {//time - tracker->last_light_time > .1) {//|| isStationary || fabs(1 - norm) < .001 ) {
-		// If we stop seeing light data; tank all velocity / acceleration measurements
-		size_t row_cnt = linmath_imin(9 - disable_ang_vel * 3, tracker->model.state_cnt - 7);
+	int indices[9] = {0}, row_cnt = 0;
+	FLT variances[9] = {0};
+	int starts[] = {offsetof(SurviveKalmanModel, Velocity.Pos) / sizeof(FLT),
+		offsetof(SurviveKalmanModel, Velocity.AxisAngleRot) / sizeof(FLT),
+		offsetof(SurviveKalmanModel, Acc) / sizeof(FLT)};
+	FLT group_variance[] = {zvu_velocity_var, disable_ang_vel ? -1 : zvu_angular_var, zvu_acceleration_var};
+	for (int group = 0; group < 3; group++)
+		if (group_variance[group] >= 0 && isfinite(group_variance[group]))
+			for (int axis = 0; axis < 3; axis++)
+				if (starts[group] + axis < tracker->model.state_cnt) {
+					indices[row_cnt] = starts[group] + axis;
+					variances[row_cnt++] = group_variance[group];
+				}
+	if (row_cnt) {
 		CN_CREATE_STACK_MAT(H, row_cnt, tracker->model.state_cnt + tracker->imu_bias_model.state_cnt);
-		cn_set_zero(&H);
-
-		int vel_idx = offsetof(SurviveKalmanModel, Velocity.Pos[0]) / sizeof(FLT);
-		int acc_idx = offsetof(SurviveKalmanModel, Acc) / sizeof(FLT);
-		int idx = 0;
-		for (idx = 0; idx < 3; idx++) {
-			cnMatrixSet(&H, idx, vel_idx + idx, 1);
-		}
-
-		if(!disable_ang_vel) {
-			for (int i = 0; i < 3; i++) {
-				cnMatrixSet(&H, idx + i, vel_idx + 3 + i, 1);
-			}
-			idx += 3;
-		}
-
-		for (int i = 0; i < 3; i++) {
-			cnMatrixSet(&H, idx + i, acc_idx + i, 1);
-		}
-
+		for (int row = 0; row < row_cnt; row++) cnMatrixSet(&H, row, indices[row], 1);
 		CN_CREATE_STACK_MAT(R, row_cnt, 1)
-		cn_set_constant(&R, zvu_var);
-		for (int i = 0; i < 3; i++)
-			cnMatrixSet(&R, i, 0, zvu_velocity_var);
-		for (int i = 0; i < 3; i++)
-			cnMatrixSet(&R, idx + i, 0, zvu_acceleration_var);
+		for (int row = 0; row < row_cnt; row++) cnMatrixSet(&R, row, 0, variances[row]);
 		CN_CREATE_STACK_MAT(Z, row_cnt, 1);
 		cn_set_zero(&Z);
 
@@ -953,7 +1279,7 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 	}
 
 	if (fn_ctx.use_gyro || fn_ctx.use_accel) {
-		int rows = 6;
+		int rows = gyro_control ? 3 : 6;
 		int offset = 0;
 		FLT accelgyro[6] = { 0 };
 		copy3d(accelgyro, data->accel);
@@ -968,8 +1294,15 @@ void survive_kalman_tracker_integrate_imu(SurviveKalmanTracker *tracker, PoserDa
 
 		tracker->datalog_tag = "imu_meas";
 
-        CnMat R = cnMat(6, tracker->imu_model.adaptive ? 6 : 1, tracker->imu_model.adaptive ? tracker->IMU_R : rotation_variance);
-        FLT err = cnkalman_meas_model_predict_update(time, &tracker->imu_model, &fn_ctx, &Z, &R);
+		CnMat R = cnMat(rows, tracker->imu_model.adaptive ? rows : 1,
+			tracker->imu_model.adaptive ? tracker->IMU_R : rotation_variance);
+		FLT err = 0;
+		if (!gyro_control || fn_ctx.use_accel) {
+			kalman_measurement_model_fn_t original = tracker->imu_model.Hfn;
+			if (gyro_control) tracker->imu_model.Hfn = accelerometer_measurement_model;
+			err = cnkalman_meas_model_predict_update(time, &tracker->imu_model, &fn_ctx, &Z, &R);
+			tracker->imu_model.Hfn = original;
+		}
 		tracker->datalog_tag = 0;
 
         SV_DATA_LOG("res_err_imu", &err, 1);
@@ -1011,14 +1344,15 @@ void survive_kalman_tracker_predict(const SurviveKalmanTracker *tracker, FLT t, 
 	SV_VERBOSE(300, "Predict pose %f %f " SurvivePose_format, t, t - tracker->model.t, SURVIVE_POSE_EXPAND(*out))
 }
 
-// The IMU bias filter has its own error-state covariance. Its random walk
-// must be added there, rather than to the separate kinematic pose filter.
+// Add random walk in the covariance that actually owns the IMU bias.
 static void imu_bias_process_noise(void *user, FLT dt, const CnMat *state, CnMat *out) {
 	const struct SurviveKalmanTracker_Params *params = user;
 	cn_set_zero(out);
+	int start = out->rows == sizeof(SurviveKalmanErrorModel) / sizeof(FLT) ?
+		offsetof(SurviveKalmanErrorModel, IMUBias) / sizeof(FLT) : 0;
 	for (int axis = 0; axis < 3; axis++) {
-		int accel = offsetof(SurviveIMUBiasErrorModel, AccBias) / sizeof(FLT) + axis;
-		int gyro = offsetof(SurviveIMUBiasErrorModel, GyroBias) / sizeof(FLT) + axis;
+		int accel = start + offsetof(SurviveIMUBiasErrorModel, AccBias) / sizeof(FLT) + axis;
+		int gyro = start + offsetof(SurviveIMUBiasErrorModel, GyroBias) / sizeof(FLT) + axis;
 		if (accel < out->rows)
 			cnMatrixSet(out, accel, accel, params->process_weight_acc_bias * dt);
 		if (gyro < out->rows)
@@ -1034,6 +1368,15 @@ static void survive_kalman_tracker_process_noise_bounce(void *user, FLT t, const
 static void survive_kalman_tracker_error_process_noise_bounce(void *user, FLT t, const CnMat *x, struct CnMat *q_out) {
 	struct SurviveKalmanTracker_Params *params = (struct SurviveKalmanTracker_Params *)user;
 	survive_kalman_tracker_process_noise(params, true, t, x, q_out);
+}
+
+static void gyro_control_process_noise(void *user, FLT t, const CnMat *x, CnMat *out) {
+	SurviveKalmanTracker *tracker = user;
+	struct SurviveKalmanTracker_Params params = tracker->params;
+	if (tracker->gyro_control_started && tracker->use_gyro_control && tracker->gyro_var >= 0 &&
+		!tracker->imu_model.adaptive && tracker->imu_model.error_state_model)
+		params.process_weight_ang_velocity = 0;
+	survive_kalman_tracker_process_noise(&params, true, t, x, out);
 }
 
 void survive_kalman_tracker_process_noise(const struct SurviveKalmanTracker_Params *params, bool errorState, FLT t, const CnMat *x, struct CnMat *q_out) {
@@ -1055,7 +1398,10 @@ void survive_kalman_tracker_process_noise(const struct SurviveKalmanTracker_Para
 	// Estimation with Applications to Tracking and Navigation: Theory Algorithms and Software Ch 6
 	// http://wiki.dmdevelopment.ru/wiki/Download/Books/Digitalimageprocessing/%D0%9D%D0%BE%D0%B2%D0%B0%D1%8F%20%D0%BF%D0%BE%D0%B4%D0%B1%D0%BE%D1%80%D0%BA%D0%B0%20%D0%BA%D0%BD%D0%B8%D0%B3%20%D0%BF%D0%BE%20%D1%86%D0%B8%D1%84%D1%80%D0%BE%D0%B2%D0%BE%D0%B9%20%D0%BE%D0%B1%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B5%20%D1%81%D0%B8%D0%B3%D0%BD%D0%B0%D0%BB%D0%BE%D0%B2/Estimation%20with%20Applications%20to%20Tracking%20and%20Navigation/booktext@id89013302placeboie.pdf
 
-	// We mix three order models here based on tuning variables.
+	// Q_acc integrates continuous white noise on acceleration for the [p,v,a]
+	// state. It composes across prediction intervals, including when an optical
+	// update splits an IMU interval. Q_jerk is retained for old configurations;
+	// its higher-order process would require a jerk state to have that property.
 	FLT Q_jerk[] = {
 		t7 / 252.,
 		t6 / 72., t5 /20.,
@@ -1156,6 +1502,22 @@ void survive_kalman_tracker_process_noise(const struct SurviveKalmanTracker_Para
 
 		};
 		cn_copy_in_row_major_roi(q_out, Q_POSE_BLOCK, 15, 0, 0, 15, 15);
+		// Quaternion errors are local right perturbations, while angular
+		// velocity uses world axes. Their integrated-noise correlation needs
+		// R(q)^T; an identity cross block makes it depend on the world frame.
+		SurviveKalmanModel state = copy_model(cn_as_const_vector(x), x->rows);
+		LinmathQuat world_to_local;
+		quatgetconjugate(world_to_local, state.Pose.Rot);
+		for (int axis = 0; axis < 3; axis++) {
+			LinmathVec3d basis = {0}, local;
+			basis[axis] = 1;
+			quatrotatevector(local, world_to_local, basis);
+			for (int row = 0; row < 3; row++)
+				if (row + 3 < q_out->rows && axis + 9 < q_out->cols) {
+					cnMatrixSet(q_out, row + 3, axis + 9, r_av * local[row]);
+					cnMatrixSet(q_out, axis + 9, row + 3, r_av * local[row]);
+				}
+		}
 	}
 
 	assert(cn_is_symmetrical(q_out));
@@ -1180,13 +1542,10 @@ void survive_kalman_tracker_predict_jac(FLT dt, const struct cnkalman_state_s *k
 	if(x1) {
 		SurviveKalmanModel s_out = {0};
 
-		struct SurviveKalmanTracker_Params *params = (struct SurviveKalmanTracker_Params *)k->user;
-		if(params->process_weight_acc == 0) {
-			scale3d(s_in.Acc, s_in.Acc, 0);
-		}
-		if(params->process_weight_vel == 0) {
-			scalend(s_in.Velocity.Pos, s_in.Velocity.Pos, 0, 6);
-		}
+		// Noise densities describe uncertainty, not the estimated motion.
+		// A zero density still predicts using the retained velocity/acceleration,
+		// just as the error-state model does. Omitted state coordinates are
+		// already zero-filled by copy_model.
 		quatnormalize(s_in.Pose.Rot, s_in.Pose.Rot);
 		SurviveKalmanModelPredict(&s_out, dt, &s_in);
 		quatnormalize(s_out.Pose.Rot, s_out.Pose.Rot);
@@ -1200,32 +1559,6 @@ void survive_kalman_tracker_predict_jac(FLT dt, const struct cnkalman_state_s *k
 			cn_eye(f, 0);
 		} else {
 			SurviveKalmanModelPredict_jac_kalman_model(f, dt, &s_in);
-		}
-	}
-}
-
-void survive_kalman_error_tracker_predict_jac(FLT dt, const struct cnkalman_state_s *k, const struct CnMat *x0, struct CnMat *x1, struct CnMat *f) {
-	SurviveKalmanModel s_in = copy_model(cn_as_const_vector(x0), x0->rows);
-	SurviveKalmanErrorModel errorModel = { 0 };
-
-	if(x1) {
-		SurviveKalmanModel s_out = {0};
-
-		struct SurviveKalmanTracker_Params *params = (struct SurviveKalmanTracker_Params *)k->user;
-
-		quatnormalize(s_in.Pose.Rot, s_in.Pose.Rot);
-		SurviveKalmanModelPredict(&s_out, dt, &s_in);
-		quatnormalize(s_out.Pose.Rot, s_out.Pose.Rot);
-
-		memcpy(cn_as_vector(x1), s_out.Pose.Pos, x1->rows * sizeof(FLT));
-	}
-
-	if(f) {
-		size_t state_cnt = x0->rows;
-		if (dt == 0) {
-			cn_eye(f, 0);
-		} else {
-			SurviveKalmanModelErrorPredict_jac_error_model(f, dt, &s_in, &errorModel);
 		}
 	}
 }
@@ -1257,6 +1590,15 @@ void survive_kalman_tracker_integrate_observation(PoserData *pd, SurviveKalmanTr
 												  const struct CnMat *Ri) {
 	SurviveObject *so = tracker->so;
     SurviveContext *ctx = so->ctx;
+	if (tracker->obs_local_rotation) {
+		// The rotation logarithm has no value for a zero quaternion. Reject
+		// malformed solver output before updating clocks, covariance or state.
+		for (int i = 0; i < 3; i++)
+			if (!isfinite(pose->Pos[i])) return;
+		for (int i = 0; i < 4; i++)
+			if (!isfinite(pose->Rot[i])) return;
+		if (quatmagnitude(pose->Rot) < 1e-12) return;
+	}
 
 	integrate_variance_tracker(tracker, &tracker->pose_variance, (FLT*)pose->Pos, 7);
 
@@ -1339,6 +1681,7 @@ void survive_kalman_tracker_integrate_observation(PoserData *pd, SurviveKalmanTr
         }
 
         FLT obs_error = integrate_pose(tracker, time, pose, tracker->obs_model.adaptive ? 0 : &R);
+		if (obs_error >= 0) observe_optical_motion(tracker, time, pose, &R);
 		tracker->stats.obs_total_error += obs_error;
 		tracker->stats.obs_count++;
 
@@ -1357,7 +1700,13 @@ void survive_kalman_tracker_reinit(SurviveKalmanTracker *tracker) {
 	tracker->report_ignore_start_cnt = 0;
 	tracker->last_light_time = 0;
 	tracker->last_unreliable_pose_time = 0;
+	tracker->optical_motion_count = tracker->optical_motion_next = 0;
+	tracker->optical_motion_until[0] = tracker->optical_motion_until[1] = 0;
+	tracker->optical_motion_fit_time = 0;
+	tracker->optical_motion_start_time = 0;
 	tracker->light_residuals_all = 0;
+	tracker->gyro_control_started = false;
+	tracker->gyro_control_time = 0;
 
 	memset(&tracker->state, 0, sizeof(tracker->state));
 	tracker->state.Pose.Rot[0] = 1;
@@ -1370,7 +1719,8 @@ void survive_kalman_tracker_reinit(SurviveKalmanTracker *tracker) {
 		cnMatrixSet(&tracker->model.P, i, i, cnMatrixGet(&tracker->model.P, i, i) + 1e5);
 	}
 
-	cnkalman_state_reset(&tracker->imu_bias_model);
+	if (tracker->imu_bias_model.state_cnt)
+		cnkalman_state_reset(&tracker->imu_bias_model);
 
 	SurviveIMUBiasErrorModel initial_variance = {
 		.AccScale = {tracker->params.initial_acc_scale_variance, tracker->params.initial_acc_scale_variance, tracker->params.initial_acc_scale_variance},
@@ -1384,7 +1734,8 @@ void survive_kalman_tracker_reinit(SurviveKalmanTracker *tracker) {
 			tracker->params.initial_variance_imu_correction, tracker->params.initial_variance_imu_correction, tracker->params.initial_variance_imu_correction
 		}
 	};
-	cn_set_diag(&tracker->imu_bias_model.P, (const FLT *)&initial_variance);
+	CnMat bias_covariance = survive_kalman_tracker_bias_covariance(tracker);
+	cn_set_diag(&bias_covariance, (const FLT *)&initial_variance);
 
 	size_t state_cnt = tracker->model.state_cnt;
 
@@ -1393,6 +1744,11 @@ void survive_kalman_tracker_reinit(SurviveKalmanTracker *tracker) {
 	FLT Rr[] = {Rrs, Rrs, Rrs, Rrs, Rps, Rps, Rps};
 	struct CnMat ObsR = cnMat(7, 7, tracker->Obs_R);
 	cn_set_diag(&ObsR, Rr);
+	if (tracker->obs_local_rotation) {
+		FLT tangent_variance[] = {Rps, Rps, Rps, 4 * Rrs, 4 * Rrs, 4 * Rrs};
+		ObsR = cnMat(6, 6, tracker->Obs_R);
+		cn_set_diag(&ObsR, tangent_variance);
+	}
 
 	FLT Rimu[] = {tracker->acc_var,	 tracker->acc_var,	tracker->acc_var,
 				  tracker->gyro_var, tracker->gyro_var, tracker->gyro_var};
@@ -1417,6 +1773,8 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 	// more than any actual normalized quat could be off by.
 
 	SurviveKalmanTracker_attach_config(tracker->so->ctx, tracker);
+	if (tracker->obs_axisangle_model)
+		tracker->obs_local_rotation = false;
 
 	bool use_imu = (bool)survive_configi(ctx, "use-imu", SC_GET, 1);
 	if (!use_imu) {
@@ -1425,11 +1783,21 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 
 	bool use_kalman = (bool)survive_configi(ctx, "use-kalman", SC_GET, 1);
 	tracker->use_raw_obs = tracker->use_raw_obs || !use_kalman;
+	// The current gyro-control model uses the continuous kinematic noise
+	// model and a fixed, already calibrated IMU frame. Retain the existing
+	// measurement filter for explicitly selected legacy/adaptive models.
+	tracker->gyro_control_mode = tracker->use_gyro_control && use_imu && tracker->use_error_state &&
+		!tracker->use_raw_obs && tracker->noise_model == 0 && tracker->gyro_var >= 0 &&
+		tracker->params.initial_variance_imu_correction == 0 &&
+		!survive_configi(ctx, "kalman-obj-imu-adaptive", SC_GET, 0) &&
+		survive_configi(ctx, "kalman-obj-imu-error-state-model", SC_GET, 1);
 
 	size_t imu_state_cnt = (sizeof(SurviveKalmanModel) - offsetof(SurviveKalmanModel, IMUBias.AccScale)) / sizeof(FLT);
 	size_t state_cnt = (sizeof(SurviveKalmanModel) ) / sizeof(FLT) - imu_state_cnt;
 
-	switch(tracker->minimize_state_space) {
+	bool joint_bias = use_imu && tracker->use_error_state &&
+		(tracker->gyro_control_mode || survive_configi(ctx, KALMAN_JOINT_IMU_BIAS_TAG, SC_GET, 0));
+	switch(joint_bias ? 0 : tracker->minimize_state_space) {
 	    case 1:
 			if(tracker->params.process_weight_gyro_bias) break;
 		imu_state_cnt -= 3;
@@ -1450,6 +1818,10 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 	        break;
 	}
 
+	if (joint_bias) {
+		state_cnt += imu_state_cnt;
+		imu_state_cnt = 0;
+	}
 	if(imu_state_cnt) {
 		cnkalman_error_state_init(&tracker->imu_bias_model, imu_state_cnt, imu_state_cnt - 1, 0, imu_bias_process_noise,
 								  imu_error_state_fn, &tracker->params, (FLT*)&tracker->state.IMUBias);
@@ -1457,11 +1829,19 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 	}
 
 	if(tracker->use_error_state) {
-		cnkalman_error_state_init(&tracker->model, state_cnt, state_cnt - 1, survive_kalman_error_tracker_predict_jac,
+		cnkalman_error_state_init(&tracker->model, state_cnt, state_cnt - (joint_bias ? 2 : 1), survive_kalman_tracker_predict_jac,
 								  tracker->noise_model == 0 ? survive_kalman_tracker_error_process_noise_bounce : 0,
 								  error_state_fn, &tracker->params, (FLT *)&tracker->state);
 		tracker->model.Update_fn = state_update_fn;
-		tracker->model.error_state_transition = true;
+		// Project the full-state transition into error coordinates about the
+		// predicted nominal pose. The generated error prediction instead
+		// differentiates relative to the old nominal pose, so finite rotation
+		// changes even a constant local orientation error's covariance.
+		tracker->model.error_state_transition = false;
+		if (tracker->gyro_control_mode) {
+			tracker->model.user = tracker;
+			tracker->model.Q_fn = gyro_control_process_noise;
+		}
 	} else {
 		cnkalman_state_init(&tracker->model, state_cnt, survive_kalman_tracker_predict_jac,
 								  tracker->noise_model == 0 ? survive_kalman_tracker_process_noise_bounce : 0,
@@ -1477,6 +1857,7 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 					pv->Velocity.AxisAngleRot[i] = tracker->params.process_weight_ang_velocity;
 					pv->Acc[i] = tracker->params.process_weight_acc;
 					pv->IMUBias.AccBias[i] = tracker->params.process_weight_acc_bias;
+					pv->IMUBias.GyroBias[i] = tracker->params.process_weight_gyro_bias;
 				}
 		} else {
 			SurviveKalmanModel* pv = &tracker->process_variance;
@@ -1487,10 +1868,16 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 				pv->Velocity.AxisAngleRot[i] = tracker->params.process_weight_ang_velocity;
 				pv->Acc[i] = tracker->params.process_weight_acc;
 				pv->IMUBias.AccBias[i] = tracker->params.process_weight_acc_bias;
+				pv->IMUBias.GyroBias[i] = tracker->params.process_weight_gyro_bias;
 			}
 			pv->Pose.Rot[3] = tracker->params.process_weight_rotation;
 		}
 		tracker->model.state_variance_per_second = cnVec(tracker->model.error_state_size, tracker->process_variance.Pose.Pos);
+		if (joint_bias) {
+			SurviveKalmanErrorModel *pv = (SurviveKalmanErrorModel *)&tracker->process_variance;
+			memset(&pv->IMUBias, 0, sizeof(pv->IMUBias));
+			tracker->model.Q_fn = imu_bias_process_noise;
+		}
 	}
 	//tracker->model.transition_jacobian_mode = cnkalman_jacobian_mode_debug;
 	if (ctx) {
@@ -1509,17 +1896,18 @@ void survive_kalman_tracker_init(SurviveKalmanTracker *tracker, SurviveObject *s
 		tracker->joint_model.term_criteria.max_iterations = 10;
 
 	cnkalman_state_t* models[] = { &tracker->model, &tracker->imu_bias_model };
-    cnkalman_meas_model_multi_init(models, 2, "imu", &tracker->imu_model, survive_kalman_tracker_imu_measurement_model);
+    cnkalman_meas_model_multi_init(models, joint_bias ? 1 : 2, "imu", &tracker->imu_model, survive_kalman_tracker_imu_measurement_model);
 	cnkalman_meas_model_t_obj_imu_attach_config(ctx, &tracker->imu_model);
 
-	cnkalman_meas_model_multi_init(models, 2, "zvu", &tracker->zvu_model, 0);
+	cnkalman_meas_model_multi_init(models, joint_bias ? 1 : 2, "zvu", &tracker->zvu_model, 0);
 
     cnkalman_meas_model_init(&tracker->model, "lightcap", &tracker->lightcap_model, map_light_data);
 	cnkalman_meas_model_t_obj_lightcap_attach_config(ctx, &tracker->lightcap_model);
 	//tracker->lightcap_model.error_state_model = false;
 	tracker->lightcap_model.term_criteria.max_iterations = 10;
 
-    cnkalman_meas_model_init(&tracker->model, "obs", &tracker->obs_model, tracker->obs_axisangle_model ? map_obs_data_axisangle : map_obs_data);
+    cnkalman_meas_model_init(&tracker->model, "obs", &tracker->obs_model, tracker->obs_local_rotation ?
+		map_obs_data_local_rotation : tracker->obs_axisangle_model ? map_obs_data_axisangle : map_obs_data);
 	cnkalman_meas_model_t_obj_obs_attach_config(ctx, &tracker->obs_model);
 	tracker->obs_model.term_criteria.max_iterations = 10;
 
@@ -1628,9 +2016,14 @@ void survive_kalman_tracker_stats(SurviveKalmanTracker *tracker) {
 	for (int i = 0; i < 6; i++) {
 		SV_VERBOSE(5, "\t%-32s " Point6_format, i == 0 ? "Gyro R" : "", LINMATH_VEC6_EXPAND(tracker->IMU_R + 6 * i));
 	}
-	for (int i = 0; i < 7; i++) {
-		SV_VERBOSE(5, "\t%-32s " Point7_format, i == 0 ? "Observation R" : "",
-				   LINMATH_VEC7_EXPAND(tracker->Obs_R + 7 * i));
+	if (tracker->obs_local_rotation) {
+		for (int i = 0; i < 6; i++)
+			SV_VERBOSE(5, "\t%-32s " Point6_format, i == 0 ? "Observation R" : "",
+					   LINMATH_VEC6_EXPAND(tracker->Obs_R + 6 * i));
+	} else {
+		for (int i = 0; i < 7; i++)
+			SV_VERBOSE(5, "\t%-32s " Point7_format, i == 0 ? "Observation R" : "",
+					   LINMATH_VEC7_EXPAND(tracker->Obs_R + 7 * i));
 	}
 
 	FLT* state_variance = (FLT*)&tracker->reported_state_variance;
@@ -1831,15 +2224,18 @@ void survive_kalman_tracker_report_state(PoserData *pd, SurviveKalmanTracker *tr
         char prefix[64];
         snprintf(prefix, sizeof(prefix), "%s FULL_COVARIANCE ", so->codename);
         survive_recording_write_matrix_record(ctx->recptr, prefix, &tracker->model.P);
-		survive_recording_write_matrix(ctx->recptr, so, 5, "imu", &tracker->imu_bias_model.P);
+		CnMat bias_covariance = survive_kalman_tracker_bias_covariance(tracker);
+		survive_recording_write_matrix(ctx->recptr, so, 5, "imu", &bias_covariance);
 
 		if(tracker->report_sampled_cloud > 0) {
 			survive_show_covariance(so, &pose, &tracker->model.P, .1, tracker->report_sampled_cloud);
 		}
 		{
 			FLT v[16] = { 0 };
-			memcpy(v, &tracker->state.IMUBias.AccScale, sizeof(FLT) * tracker->imu_bias_model.state_cnt);
-			CnMat meta = cnVec(tracker->imu_bias_model.state_cnt, v);
+			int bias_state_cnt = survive_kalman_tracker_has_joint_bias(tracker) ?
+				sizeof(SurviveIMUBiasModel) / sizeof(FLT) : tracker->imu_bias_model.state_cnt;
+			memcpy(v, &tracker->state.IMUBias.AccScale, sizeof(FLT) * bias_state_cnt);
+			CnMat meta = cnVec(bias_state_cnt, v);
 			for(int i = 0;i < 4;i++)
 				v[i] = v[i] - 1;
 

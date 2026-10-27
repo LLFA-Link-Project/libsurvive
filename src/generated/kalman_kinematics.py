@@ -73,7 +73,9 @@ def SurviveKalmanModelPredict(t, kalman_model : SurviveKalmanModel):
     new_rot = apply_ang_velocity(obj_v.AxisAngleRot, t, obj_p.Rot)
 
     return SurviveKalmanModel(
-        Pose=SurvivePose(Pos=pos + vpos * t + obj_acc * (Abs(t) * t / 2), Rot=new_rot),
+        # The acceleration term is even in time, including retrodiction to an
+        # older light measurement. Only velocity changes sign with t.
+        Pose=SurvivePose(Pos=pos + vpos * t + obj_acc * (t * t / 2), Rot=new_rot),
         Velocity=SurviveAxisAnglePose(vpos + obj_acc * t, obj_v.AxisAngleRot),
         Acc=kalman_model.Acc,
         IMUBias=kalman_model.IMUBias

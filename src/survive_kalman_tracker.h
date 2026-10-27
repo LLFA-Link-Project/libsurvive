@@ -8,6 +8,7 @@
 
 #include "survive_types.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include "variance.h"
 
@@ -62,6 +63,7 @@ typedef struct SurviveKalmanTracker {
 	FLT obs_rot_var;
 	bool obs_axisangle_model;
 	bool obs_align_quaternion;
+	bool obs_local_rotation;
 	FLT light_var;
 
 	int light_batchsize;
@@ -88,6 +90,12 @@ typedef struct SurviveKalmanTracker {
 	FLT zvu_motion_guard_time;
 	bool zvu_motion_all_devices;
 	FLT last_unreliable_pose_time;
+	FLT optical_motion_window, optical_motion_until[2], optical_motion_fit_time, optical_motion_start_time;
+	unsigned optical_motion_count, optical_motion_next;
+	struct {
+		FLT time, covariance[49];
+		SurvivePose pose;
+	} optical_motion_samples[32];
 	FLT zvu_no_light_time;
 	FLT zvu_no_light_var;
 	int noise_model;
@@ -160,7 +168,26 @@ typedef struct SurviveKalmanTracker {
 
 	// Sensor ticks keep report throttling independent of floating-point epoch size.
 	survive_long_timecode last_report_timecode;
+
+	// Gyro controls retain their uncertainty in the angular-rate coordinates
+	// until the next sample. Keep these fields after the existing layout.
+	bool use_gyro_control, gyro_control_mode, gyro_control_started;
+	FLT gyro_control_time;
 } SurviveKalmanTracker;
+
+// The experimental joint filter owns one covariance for motion and IMU bias.
+// Return a view of its bias marginal without giving the unused bias filter
+// ownership of that allocation.
+static inline bool survive_kalman_tracker_has_joint_bias(const SurviveKalmanTracker *tracker) {
+	return tracker->model.state_cnt == sizeof(SurviveKalmanModel) / sizeof(FLT);
+}
+
+static inline CnMat survive_kalman_tracker_bias_covariance(const SurviveKalmanTracker *tracker) {
+	if (!survive_kalman_tracker_has_joint_bias(tracker)) return tracker->imu_bias_model.P;
+	int start = offsetof(SurviveKalmanErrorModel, IMUBias) / sizeof(FLT);
+	int size = sizeof(SurviveIMUBiasErrorModel) / sizeof(FLT);
+	return cnMatConstView(size, size, &tracker->model.P, start, start);
+}
 
 SURVIVE_EXPORT SurviveVelocity survive_kalman_tracker_velocity(const SurviveKalmanTracker *tracker);
 SURVIVE_EXPORT bool survive_kalman_tracker_predict_variance(const SurviveKalmanTracker *tracker, FLT time, CnMat* P);

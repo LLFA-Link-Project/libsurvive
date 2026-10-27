@@ -75,16 +75,47 @@ cnkalman_termination_criteria(const struct term_criteria_t *term_criteria,
     return cnkalman_update_extended_termination_reason_none;
 }
 
-static void cnkalman_find_error_state(void* user, cnkalman_state_t *k, const CnMat* x1, const CnMat* x0, CnMat* error_state) {
-	CN_CREATE_STACK_VEC(verify_x, k->state_cnt);
+static void cnkalman_find_error_state(void* user, cnkalman_state_t *k, const CnMat* prior, const CnMat* point, CnMat* error_state) {
 	if (k->ErrorState_fn) {
-		k->ErrorState_fn(user, x0, x1, error_state, 0);
-		k->Update_fn(user, x0, error_state, &verify_x, 0);
-		//FLT err = cnDistance(&verify_x, x1);
-		//assert(err < 1e-4);
+		k->ErrorState_fn(user, prior, point, error_state, 0);
 	} else {
-		cnSub(error_state, x1, x0);
+		cnSub(error_state, point, prior);
 	}
+}
+
+// Linearize the original prior in the current iteration's error coordinates.
+// e = boxminus(point, prior), J = d e / d delta at point boxplus delta.
+// Its local covariance is J^-1 P J^-T and its local mean step is -J^-1 e.
+// Keep the original precision for evaluating the actual nonlinear objective.
+static FLT cnkalman_prior_at_iteration(void *user, cnkalman_state_t *k, const CnMat *prior,
+                                     const CnMat *point, const CnMat *prior_P, const CnMat *precision,
+                                     CnMat *mean_step, CnMat *negative_gradient) {
+    int n = k->error_state_size;
+    CN_CREATE_STACK_VEC(e, n);
+    CN_CREATE_STACK_VEC(weighted_error, n);
+    CN_CREATE_STACK_MAT(J, n, n);
+    CN_CREATE_STACK_MAT(inverse_J, n, n);
+    if (k->ErrorState_fn) {
+        CN_CREATE_STACK_MAT(de_dx, n, k->state_cnt);
+        CN_CREATE_STACK_MAT(dx_ddelta, k->state_cnt, n);
+        k->ErrorState_fn(user, prior, point, &e, &de_dx);
+        if (k->Update_fn) k->Update_fn(user, point, NULL, NULL, &dx_ddelta);
+        else cn_eye(&dx_ddelta, 0);
+        cnGEMM(&de_dx, &dx_ddelta, 1, NULL, 0, &J, 0);
+        cnInvert(&J, &inverse_J, CN_INVERT_METHOD_LU);
+    } else {
+        cnSub(&e, point, prior);
+        cn_eye(&J, 0);
+        cn_eye(&inverse_J, 0);
+    }
+    if (!cn_is_finite(&e) || !cn_is_finite(&inverse_J)) return INFINITY;
+    CN_CREATE_STACK_MAT(product, n, n);
+    cnGEMM(&inverse_J, prior_P, 1, NULL, 0, &product, 0);
+    cnGEMM(&product, &inverse_J, 1, NULL, 0, &k->P, CN_GEMM_FLAG_B_T);
+    cnGEMM(&inverse_J, &e, -1, NULL, 0, mean_step, 0);
+    cnGEMM(precision, &e, 1, NULL, 0, &weighted_error, 0);
+    cnGEMM(&J, &weighted_error, -1, NULL, 0, negative_gradient, CN_GEMM_FLAG_A_T);
+    return calculate_v_delta(&e, precision);
 }
 
 void cnkalman_update_state(void* user, cnkalman_state_t *k, const CnMat* x0, FLT scale, const CnMat* error_state, CnMat* x1) {
@@ -155,8 +186,12 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
     // kalman_print_mat_v(k, 100, "iR", &iR, true);
 
     CnMat iPS[CNKALMAN_STATES_PER_MODEL] = { 0 };
+    CnMat priorPS[CNKALMAN_STATES_PER_MODEL] = { 0 };
     for(int i = 0;i < mk->ks_cnt;i++) {
         CN_CREATE_STACK_MAT(iP, mk->ks[i]->error_state_size, mk->ks[i]->error_state_size);
+        CN_CREATE_STACK_MAT(prior_P, mk->ks[i]->error_state_size, mk->ks[i]->error_state_size);
+        cnCopy(&mk->ks[i]->P, &prior_P, 0);
+        priorPS[i] = prior_P;
         cnInvert(&mk->ks[i]->P, &iP, CN_INVERT_METHOD_SVD);
         iPS[i] = iP;
 
@@ -185,6 +220,8 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
     CN_CREATE_STACK_MAT(dVt, filter_cnt, 1);
 
 	CN_CREATE_STACK_VEC(verify_x, state_cnt);
+	cn_set_zero(&error_state);
+	cn_set_zero(&iPdx);
 
 	// `x_k_k1` is prior state
 	// `xi` is current iteration state; initializes as `x_k_k1`
@@ -206,19 +243,24 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
             current_norm = INFINITY;
             break;
         }
+        if (HR != H) cnCopy(HR, H, 0);
         last_norm = current_norm;
 
-		// error_state = x_k_k1 - x_i
+        // Re-express the prior around this iterate before computing its gain.
         delta_part = 0;
 		if(iter != 0) {
 		    FOR_EACH_STATE(mk)
-                cnkalman_find_error_state(user, k, &x_k_k1_view, &x_i_view, &error_state_view);
-                delta_part += calculate_v_delta(&error_state_view, &iPS[i]);
+                delta_part += cnkalman_prior_at_iteration(user, k, &x_k_k1_view, &x_i_view,
+                    &priorPS[i], &iPS[i], &error_state_view, &iPdx_view);
 		    END_FOR_EACH_STATE()
 		}
         meas_part = calculate_v_meas(&y, &iR);
 
         current_norm = meas_part + delta_part;
+        if (!isfinite(current_norm)) {
+            stop_reason = cnkalman_update_extended_termination_reason_invalid_jacobian;
+            break;
+        }
         assert(current_norm >= 0);
 
 		if (iter == 0) {
@@ -242,11 +284,6 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
         }
 
 		// dVt = H * (R^-1 * y)' - iP * error_state
-		if(iter != 0) {
-            FOR_EACH_STATE(mk)
-                cnGEMM(&iPS[i], &error_state_view, 1, 0, 0, &iPdx_view, 0);
-            END_FOR_EACH_STATE()
-		}
 		cnGEMM(H, &iRy, -1, &iPdx, -1, &dVt, CN_GEMM_FLAG_A_T);
 
         // Run update; filling in K
@@ -348,7 +385,30 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
     }
     if (stop_reason == cnkalman_update_extended_termination_reason_none)
         stop_reason = cnkalman_update_extended_termination_reason_maxiter;
-    bool isFailure = current_norm > initial_norm || isinf(current_norm);
+
+    // The final accepted step may end the loop without another linearization.
+    // Both gain and covariance must describe that accepted nominal state.
+    CnMat *final_H = NULL;
+    if (stop_reason != cnkalman_update_extended_termination_reason_invalid_jacobian &&
+        stop_reason != cnkalman_update_extended_termination_reason_too_high_error)
+        final_H = cnkalman_find_residual(mk, user, Z, &x_i, &y, H);
+    if (final_H) {
+        if (final_H != H) cnCopy(final_H, H, 0);
+        delta_part = 0;
+        FOR_EACH_STATE(mk)
+            delta_part += cnkalman_prior_at_iteration(user, k, &x_k_k1_view, &x_i_view,
+                &priorPS[i], &iPS[i], &error_state_view, &iPdx_view);
+        END_FOR_EACH_STATE()
+        meas_part = calculate_v_meas(&y, &iR);
+        current_norm = meas_part + delta_part;
+        if (isfinite(current_norm)) cnkalman_find_k(mk, K, H, R);
+        if (stats) { stats->fevals++; stats->hevals++; }
+    } else {
+        current_norm = INFINITY;
+        if (stop_reason != cnkalman_update_extended_termination_reason_too_high_error)
+            stop_reason = cnkalman_update_extended_termination_reason_invalid_jacobian;
+    }
+    bool isFailure = current_norm > initial_norm || !isfinite(current_norm);
     if (stats) {
         stats->besterror = cnNorm(&y);
         stats->iterations = iter;
@@ -374,6 +434,7 @@ FLT cnkalman_run_iterations(cnkalman_meas_model_t *mk, const struct CnMat *Z, co
 
     if (isFailure) {
         initial_norm = -1;
+        for (int i = 0; i < mk->ks_cnt; i++) cnCopy(&priorPS[i], &mk->ks[i]->P, 0);
     } else {
         assert(cn_is_finite(H));
         assert(cn_is_finite(K));
