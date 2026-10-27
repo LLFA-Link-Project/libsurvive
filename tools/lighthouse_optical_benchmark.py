@@ -4,6 +4,8 @@
 Short captures are replayed in full, long captures use a declared prefix.
 Original captures are read only. Output directories must be new; --resume
 requires exactly the same binaries, sources and settings. Requires NumPy.
+Linux snapshots are loaded with their own libraries/plugins, and every run
+records the actual loaded modules and checks their hashes before evaluation.
 """
 import argparse
 import concurrent.futures
@@ -15,6 +17,7 @@ import time
 from lighthouse_replay import summarize, file_sha256
 import lighthouse_optical_metrics as optical
 import lighthouse_compare_disk as comparison
+import lighthouse_runtime as runtime
 
 
 def build_proof(binary):
@@ -37,6 +40,8 @@ def main():
     p.add_argument('--reference-cache', type=Path)
     p.add_argument('--prefix-seconds', type=float, default=180)
     p.add_argument('--full-below-seconds', type=float, default=600)
+    p.add_argument('--full-recordings', action='store_true',
+                   help='Replay every USB recording to EOF, including recordings with unknown duration')
     p.add_argument('--jobs', type=int, default=3)
     p.add_argument('--timeout', type=float, default=1200)
     p.add_argument('--resume', action='store_true')
@@ -50,8 +55,10 @@ def main():
     builds = {'baseline': args.baseline.resolve(strict=True), 'candidate': args.candidate.resolve(strict=True)}
     settings = dict(builds={k: dict(path=str(v), sha256=build_proof(v)) for k, v in builds.items()},
         prefix_seconds=args.prefix_seconds, full_below_seconds=args.full_below_seconds,
+        full_recordings=args.full_recordings,
         candidate_options=['--mpfit-light-outlier-ratio', str(args.outlier_ratio), '--mpfit-light-huber', str(args.huber)],
-        evaluator_sha256={x.name: file_sha256(x) for x in [Path(__file__), Path(optical.__file__), Path(comparison.__file__)]},
+        evaluator_sha256={x.name: file_sha256(x) for x in [Path(__file__), Path(optical.__file__), Path(comparison.__file__),
+            Path(runtime.__file__), Path(runtime.__file__).with_name('lighthouse_runtime_probe.c')]},
         reference_is_ground_truth=False, evaluation_hz=10,
         reference_window='Full capture for full replays; declared prefix from first clock sample otherwise')
     sources = []
@@ -69,7 +76,7 @@ def main():
         if duration is None:
             start, end = m.get('start_monotonic_ns'), m.get('end_monotonic_ns')
             duration = (end-start)/1e9 if start is not None and end is not None else None
-        complete = duration is not None and 0 < duration <= args.full_below_seconds
+        complete = args.full_recordings or duration is not None and 0 < duration <= args.full_below_seconds
         limit = 0 if complete else args.prefix_seconds
         names = ['manifest.json', 'usb.pcap.gz', 'usb.pcap.gz.usbdevs', 'poses.jsonl.gz', 'poses.jsonl',
                  'clock_sync.jsonl.gz', 'clock_sync.jsonl']
@@ -82,6 +89,7 @@ def main():
         p.error('Resume sources, build or evaluation settings differ')
     write_json(old, settings)
     write_json(args.output/'skipped.json', skipped)
+    probe = runtime.build_probe(args.output/'runtime-probe.so')
 
     def run(source):
         session = source['session']
@@ -92,7 +100,11 @@ def main():
             out.mkdir(parents=True, exist_ok=True)
             target = out/'result.json'
             if args.resume and target.exists():
-                result['runs'][variant] = json.loads(target.read_text())
+                saved = json.loads(target.read_text())
+                loaded = runtime.verify_runtime(binary, out/'runtime.tsv', settings['builds'][variant]['sha256'])
+                if saved.get('runtime') != loaded:
+                    raise ValueError(f'Resume runtime proof differs for {target}')
+                result['runs'][variant] = saved
                 continue
             config = out/'config.json'
             if config.exists():
@@ -105,11 +117,14 @@ def main():
                 cmd += ['--run-time', str(source['run_time_limit_s'])]
             if variant == 'candidate':
                 cmd += settings['candidate_options']
-            report = dict(command=cmd)
+            environment = runtime.isolated_environment(binary, out/'runtime.tsv', probe)
+            report = dict(command=cmd, environment={k: environment[k] for k in
+                ['LD_LIBRARY_PATH', 'LD_PRELOAD', 'SURVIVE_PLUGINS', 'LH_RUNTIME_MANIFEST']})
             started = time.monotonic()
             try:
                 with (out/'replay.log').open('w') as log:
-                    proc = subprocess.run(cmd, stdout=log, stderr=log, timeout=args.timeout)
+                    proc = subprocess.run(cmd, stdout=log, stderr=log, timeout=args.timeout, env=environment)
+                report['runtime'] = runtime.verify_runtime(binary, out/'runtime.tsv', settings['builds'][variant]['sha256'])
                 report.update(returncode=proc.returncode, wall_s=time.monotonic()-started,
                               pose_summary=summarize(out/'record.rec.gz'))
                 if proc.returncode == 0:
