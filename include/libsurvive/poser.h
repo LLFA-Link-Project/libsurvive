@@ -172,6 +172,16 @@ void survive_pose2poseAA_jacobian(struct CnMat *G, const LinmathPose *pose);
 void survive_covariance_pose2poseAA(struct CnMat *R_aa, const LinmathPose *pose, const struct CnMat *R_q);
 void survive_covariance_poseAA2pose(struct CnMat *R_aa, const LinmathAxisAnglePose *poseAA, const struct CnMat *R_q);
 
+// Covariance must follow the same pose operations as the means. These routines
+// retain cross-covariance between poses; input and output may alias. A zero
+// quaternion is an inactive-pose sentinel and its covariance block is retained.
+SURVIVE_EXPORT bool survive_pose_inverse_jacobian(struct CnMat *G, const SurvivePose *pose);
+SURVIVE_EXPORT void survive_covariance_invert_poses(struct CnMat *out, const SurvivePose *poses,
+												 const struct CnMat *in, size_t pose_count);
+// The left transform is a fixed coordinate change, not an uncertain pose.
+SURVIVE_EXPORT void survive_covariance_apply_pose_to_poses(struct CnMat *out, const SurvivePose *left,
+														  const struct CnMat *in, size_t pose_count);
+
 #ifdef __cplusplus
 };
 #endif

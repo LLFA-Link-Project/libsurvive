@@ -590,6 +590,9 @@ static FLT handle_optimizer_results(survive_optimizer *mpfitctx, int res, const 
 				int camera_idx = survive_optimizer_get_camera_index(mpfitctx);
 				lighthouse_R = cnMatView(mpfitctx->cameraLength * 7, mpfitctx->cameraLength * 7,
 										&full_R, camera_idx, camera_idx);
+				// Camera parameters are world->lighthouse; cameras[] contains
+				// their inverses. Transport the entire joint covariance too.
+				survive_covariance_invert_poses(&lighthouse_R, opt_cameras, &lighthouse_R, mpfitctx->cameraLength);
 			}
 			if (!worldEstablished) {
 				PoserData_normalize_scene(ctx, cameras, mpfitctx->cameraLength, soLocation, R ? &lighthouse_R : 0);
@@ -1073,6 +1076,10 @@ bool solve_global_scene(struct SurviveContext *ctx, MPFITData *d, PoserDataGloba
 
 		SurvivePose *opt_cameras = survive_optimizer_get_camera(&mpfitctx);
 		SurvivePose cameras[NUM_GEN2_LIGHTHOUSES] = {0};
+		int camera_idx = survive_optimizer_get_camera_index(&mpfitctx);
+		CnMat camera_R = cnMatView(mpfitctx.cameraLength * 7, mpfitctx.cameraLength * 7, &R, camera_idx, camera_idx);
+		CN_CREATE_STACK_MAT(LH_Rs, mpfitctx.cameraLength * 7, mpfitctx.cameraLength * 7);
+		survive_covariance_invert_poses(&LH_Rs, opt_cameras, &camera_R, mpfitctx.cameraLength);
 
 		for (int i = 0; i < mpfitctx.cameraLength; i++) {
 			if (!quatiszero(opt_cameras[i].Rot) && lh_meas[i][0] > 0 && lh_meas[i][1] > 0) {
@@ -1112,14 +1119,13 @@ bool solve_global_scene(struct SurviveContext *ctx, MPFITData *d, PoserDataGloba
 			for (int i = 0; i < mpfitctx.cameraLength; i++) {
 				ApplyPoseToPose(&cameras[i], &objUp2World, &cameras[i]);
 			}
+			survive_covariance_apply_pose_to_poses(&LH_Rs, &objUp2World, &LH_Rs, mpfitctx.cameraLength);
 			for (int i = 0; i < mpfitctx.poseLength; i++) {
 				SurvivePose *p = &survive_optimizer_get_pose(&mpfitctx)[i];
 				ApplyPoseToPose(p, &objUp2World, p);
 			}
 		}
 
-		int camera_idx = survive_optimizer_get_camera_index(&mpfitctx);
-		CnMat LH_Rs = cnMatView(ctx->activeLighthouses * 7, ctx->activeLighthouses * 7, &R, camera_idx, camera_idx);
 		PoserData_lighthouse_poses_func(0, mpfitctx.sos[0], cameras, &LH_Rs, ctx->activeLighthouses,
 										&survive_optimizer_get_pose(&mpfitctx)[bestObjForCal]);
 

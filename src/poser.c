@@ -63,6 +63,86 @@ void survive_covariance_poseAA2pose(struct CnMat *R_q, const LinmathAxisAnglePos
 	gemm_ABAt_add_scaled(R_q, &G, R_aa, 0, 1, 1, 0);
 }
 
+bool survive_pose_inverse_jacobian(CnMat *G, const SurvivePose *pose) {
+	assert(G->rows == 7 && G->cols == 7);
+	cn_set_zero(G);
+	FLT norm_squared = dotnd(pose->Rot, pose->Rot, 4);
+	if (!(norm_squared > 1e-24) || !isfinite(norm_squared)) return false;
+	FLT norm = sqrt(norm_squared);
+	LinmathQuat inverse;
+	quatgetreciprocal(inverse, pose->Rot);
+	FLT reciprocal_jac[4][4];
+	for (int i = 0; i < 4; i++) {
+		FLT sign = i == 0 ? 1 : -1;
+		for (int j = 0; j < 4; j++) {
+			// linmath's quatgetreciprocal returns the conjugate divided by
+			// the magnitude, so differentiate its normalization as well.
+			reciprocal_jac[i][j] = sign * ((i == j ? 1 / norm : 0) -
+				pose->Rot[i] * pose->Rot[j] / (norm_squared * norm));
+			cnMatrixSet(G, i + 3, j + 3, reciprocal_jac[i][j]);
+		}
+	}
+	// InvertPose uses -rotate(q^-1, p). Differentiate that exact operation,
+	// including the lever arm from rotation uncertainty into position.
+	LinmathVec3d uv, wv;
+	cross3d(uv, inverse + 1, pose->Pos);
+	for (int i = 0; i < 3; i++) wv[i] = inverse[0] * pose->Pos[i] + uv[i];
+	FLT position_jac[3][4] = {{0}};
+	for (int i = 0; i < 3; i++) position_jac[i][0] = -2 * uv[i];
+	for (int j = 0; j < 3; j++) {
+		LinmathVec3d basis = {0}, a, b, c, rotated;
+		basis[j] = 1;
+		cross3d(a, basis, wv);
+		cross3d(b, basis, pose->Pos);
+		cross3d(c, inverse + 1, b);
+		quatrotatevector(rotated, inverse, basis);
+		for (int i = 0; i < 3; i++) {
+			position_jac[i][j + 1] = -2 * (a[i] + c[i]);
+			cnMatrixSet(G, i, j, -rotated[i]);
+		}
+	}
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 4; j++) {
+			FLT value = 0;
+			for (int k = 0; k < 4; k++) value += position_jac[i][k] * reciprocal_jac[k][j];
+			cnMatrixSet(G, i, j + 3, value);
+		}
+	}
+	return true;
+}
+
+static void pose_covariance_transform(CnMat *out, const CnMat *in, const CnMat *G) {
+	// Use separate storage even for overlapping views, as well as out == in.
+	CN_CREATE_STACK_MAT(transformed, G->rows, G->rows);
+	gemm_ABAt_add_scaled(&transformed, G, in, 0, 1, 1, 0);
+	cnCopy(&transformed, out, NULL);
+}
+
+void survive_covariance_invert_poses(CnMat *out, const SurvivePose *poses, const CnMat *in, size_t count) {
+	int n = 7 * count;
+	assert(in->rows == n && in->cols == n && out->rows == n && out->cols == n);
+	if (!count) return;
+	CN_CREATE_STACK_MAT(G, n, n);
+	for (size_t i = 0; i < count; i++) {
+		CnMat block = cnMatView(7, 7, &G, 7 * i, 7 * i);
+		if (!survive_pose_inverse_jacobian(&block, &poses[i])) cn_eye(&block, 0);
+	}
+	pose_covariance_transform(out, in, &G);
+}
+
+void survive_covariance_apply_pose_to_poses(CnMat *out, const SurvivePose *left, const CnMat *in, size_t count) {
+	int n = 7 * count;
+	assert(in->rows == n && in->cols == n && out->rows == n && out->cols == n);
+	if (!count) return;
+	CN_CREATE_STACK_MAT(G, n, n);
+	SurvivePose identity = {.Rot = {1}};
+	for (size_t i = 0; i < count; i++) {
+		CnMat block = cnMatView(7, 7, &G, 7 * i, 7 * i);
+		apply_pose_to_pose_jac_rhs(&block, left, &identity);
+	}
+	pose_covariance_transform(out, in, &G);
+}
+
 SURVIVE_EXPORT int32_t PoserData_size(const PoserData *poser_data) {
 	switch (poser_data->pt) {
 	case POSERDATA_DISASSOCIATE:
@@ -291,17 +371,11 @@ void PoserData_normalize_scene(SurviveContext *ctx, SurvivePose *lighthouse_pose
 	}
 
 	ApplyPoseToPose(object_pose, &arb2world, &object2arb);
+	if (R) survive_covariance_apply_pose_to_poses(R, &arb2world, R, lighthouse_count);
 	for (int lh = 0; lh < lighthouse_count; lh++) {
 		SurvivePose *lh2object = &lighthouse_pose[lh];
 		if (quatmagnitude(lh2object->Rot) != 0.0) {
 			ApplyPoseToPose(lh2object, &arb2world, lh2object);
-
-			if(R) {
-				CnMat LH_R = cnMatConstView(7, 7, R, lh * 7, lh * 7);
-				CN_CREATE_STACK_MAT(jac, 7, 7);
-				apply_pose_to_pose_jac_rhs(&jac, &arb2world, lh2object);
-				cn_ABAt_add(&LH_R, &jac, &LH_R, 0);
-			}
 		}
 	}
 }
