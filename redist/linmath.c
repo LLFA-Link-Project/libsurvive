@@ -250,36 +250,22 @@ inline void angleaxisfrom2vect(FLT *angle, FLT *axis, FLT *src, FLT *dest) {
 }
 
 inline void axisanglefromquat(FLT *angle, FLT *axis, const LinmathQuat q) {
-	// this way might be fine, too.
-	// FLT dist = FLT_SQRT((q[1] * q[1]) + (q[2] * q[2]) + (q[3] * q[3]));
-	//
-	//*angle = 2 * FLT_ATAN2(dist, q[0]);
-
-	// axis[0] = q[1] / dist;
-	// axis[1] = q[2] / dist;
-	// axis[2] = q[3] / dist;
-
-	// Good mathematical foundation for this algorithm found here:
-	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-
 	FLT tmp[4] = {q[0], q[1], q[2], q[3]};
-
 	quatnormalize(tmp, q);
-
-	if (FLT_FABS(q[0] - 1) < FLT_EPSILON) {
-		// we have a degenerate case where we're rotating approx. 0 degrees
-		*angle = 0;
+	// sqrt(1-w*w) loses the vector length near either unit quaternion.
+	// At -identity this produced a zero divisor even with a nonzero vector,
+	// and small positive rotations were also rounded away. Use the measured
+	// vector length and atan2 while retaining the existing [0, 2*pi] branch.
+	FLT vector_length = norm3d(tmp + 1);
+	if (vector_length == 0) {
+		*angle = tmp[0] < 0 ? 2 * LINMATHPI : 0;
 		axis[0] = 1;
 		axis[1] = 0;
 		axis[2] = 0;
 		return;
 	}
-
-	axis[0] = tmp[1] / sqrt(1 - (tmp[0] * tmp[0]));
-	axis[1] = tmp[2] / sqrt(1 - (tmp[0] * tmp[0]));
-	axis[2] = tmp[3] / sqrt(1 - (tmp[0] * tmp[0]));
-
-	*angle = 2 * FLT_ACOS(tmp[0]);
+	scale3d(axis, tmp + 1, 1 / vector_length);
+	*angle = 2 * FLT_ATAN2(vector_length, tmp[0]);
 }
 
 /////////////////////////////////////QUATERNIONS//////////////////////////////////////////

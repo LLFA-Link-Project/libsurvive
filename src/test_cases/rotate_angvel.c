@@ -135,6 +135,52 @@ TEST(AxisAngle, Compose) {
 	return 0;
 }
 
+TEST(AxisAngle, QuaternionConversionIsFiniteAndPreservesTinyRotationsInBothHemispheres) {
+	FLT angles[] = {0, 1e-12, 1e-9, 1e-6, .03, LINMATHPI};
+	LinmathVec3d direction = {1, -2, 3};
+	normalize3d(direction, direction);
+	for (int n = 0; n < 6; n++) for (int sign = 0; sign < 2; sign++) for (int scaled = 0; scaled < 2; scaled++) {
+		LinmathQuat q, restored;
+		quatfromaxisangle(q, direction, angles[n]);
+		FLT scale = (sign ? -1 : 1) * (scaled ? 3 : 1);
+		scalend(q, q, scale, 4);
+		FLT angle;
+		LinmathVec3d axis;
+		axisanglefromquat(&angle, axis, q);
+		ASSERT_EQ(isfinite(angle), true);
+		for (int k = 0; k < 3; k++) ASSERT_EQ(isfinite(axis[k]), true);
+		ASSERT_EQ((fabs(norm3d(axis)-1) < 1e-12), true);
+		quatfromaxisangle(restored, axis, angle);
+		LinmathQuat normalized;
+		quatnormalize(normalized, q);
+		// Compare vector action directly; acos(dot(q1,q2)) loses tiny angles.
+		for (int k = 0; k < 3; k++) {
+			LinmathVec3d basis = {0}, expected, actual;
+			basis[k] = 1;
+			quatrotatevector(expected, normalized, basis);
+			quatrotatevector(actual, restored, basis);
+			ASSERT_EQ((dist3d(expected, actual) < 1e-12), true);
+		}
+	}
+	return 0;
+}
+
+TEST(AxisAngle, CompositionNearNegativeIdentityRetainsItsPhysicalRotation) {
+	LinmathVec3d axis = {1, -2, 3}, first, second = {0}, composed;
+	normalize3d(axis, axis);
+	scale3d(first, axis, 2 * LINMATHPI - 1e-9);
+	axisanglerotateabout(composed, first, second);
+	for (int i = 0; i < 3; i++) ASSERT_EQ(isfinite(composed[i]), true);
+	LinmathQuat expected, actual;
+	quatfromaxisanglemag(expected, first);
+	quatfromaxisanglemag(actual, composed);
+	LinmathVec3d basis = {1, 0, 0}, a, b;
+	quatrotatevector(a, expected, basis);
+	quatrotatevector(b, actual, basis);
+	ASSERT_EQ((dist3d(a, b) < 1e-12), true);
+	return 0;
+}
+
 void avg_naive(LinmathQuat out, const LinmathQuat q1, const LinmathQuat q2, FLT t) {
 	LinmathQuat qd;
 	subnd(qd, q1, q2, 4);
