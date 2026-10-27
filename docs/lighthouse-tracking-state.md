@@ -11,6 +11,7 @@ assumed to be a wall clock. Quaternions below use **wxyz**.
 
 ```
 receive_s object POSE_STATE tick hz last_movement_tick stationary_ticks floor_offset_m raw_imu_x raw_imu_y raw_imu_z raw_qw raw_qx raw_qy raw_qz
+receive_s object POSE_MOTION tick hz vx vy vz wx wy wz ax ay az
 receive_s object POSE_BIAS tick bias_error_state_size gyro_bias_x gyro_bias_y gyro_bias_z accel_bias_x accel_bias_y accel_bias_z accel_scale_x accel_scale_y accel_scale_z correction_qw correction_qx correction_qy correction_qz
 receive_s object POSE_BIAS_VAR tick gyro_var_x gyro_var_y gyro_var_z accel_var_x accel_var_y accel_var_z
 ```
@@ -22,6 +23,27 @@ reference point. Compare them using the recorded configuration/transforms.
 `stationary_ticks` is the current activation detector's duration since movement,
 not an independently measured assertion that the device is physically still.
 Its thresholds are in the recorded OPTION settings.
+
+POSE_MOTION joins POSE_STATE by the full integer tick and object identity. It
+stores the tracker's world-frame linear velocity (m/s), world-frame angular
+velocity (rad/s), and the exported gravity-free world-frame linear acceleration
+(m/s²) at that pose update. The acceleration is the value provided to consumers
+for prediction. A device without a tracker has no POSE_MOTION record. Use this
+tag when evaluating prediction; the separate VELOCITY callback can follow POSE
+and does not identify its own measurement epoch.
+
+`tools/lighthouse_motion_metrics.py` measures pose, velocity, acceleration and
+10/20/30 ms predicted-pose variation in explicitly declared receive-time windows.
+It joins integer sensor ticks before interpolation and rejects missing motion
+states, incomplete windows and gaps over 20 ms. Its centered trend subtraction
+is for analysis only. These statistics contain real motion as well as noise;
+lower variation alone does not establish better tracking or lower latency.
+
+The analysis also reports vector RMS in 0.5–2, 2–5, 5–15 and 15–50 Hz bands
+for each state and prediction horizon. It removes a fitted straight line, applies
+a Hann window and normalizes spectral power by window energy. This separates
+frequency ranges without treating high frequencies as noise: hand tremor and
+other real motion can occupy the same bands. The input grid must be uniform.
 
 POSE_BIAS stores the filter's residual IMU bias/scale/correction state. Gyro bias
 uses rad/s; accelerometer bias uses the same g units as the calibrated IMU
@@ -68,3 +90,28 @@ They measure internal agreement, not ground-truth accuracy. See
 Since `4def8c2`, the legacy `up err` statistic sums squared vector residuals,
 rather than squaring their signed sum. It includes object and lighthouse gravity
 constraints. Its numeric values are not directly comparable with older logs.
+
+The optimizer represents a camera as world-to-lighthouse, while lighthouse
+observations use lighthouse-to-world. The MPFIT delivery paths now transport
+the joint camera covariance through pose inversion, including rotation-to-position
+lever arms. Scene coordinate changes also transport the inter-lighthouse blocks,
+rather than just the individual marginal covariances. The helpers in `poser.h`
+allow overlapping input/output storage and preserve inactive pose sentinels.
+
+`survive_covariance_apply_pose_to_poses` treats its left transform as a fixed
+coordinate change. It does not model the statistical uncertainty of choosing an
+initial world frame from calibration data. Persistent map/object correlations
+also remain outside the default compressed optical-pose update. Correcting this
+representation does not by itself establish lower pose or prediction jitter.
+The physical perturbation, quaternion derivative and aliasing checks are in
+`pose_covariance.c`; current replay evidence and limitations are recorded in
+[the stability investigation](lighthouse-stability-20261026.md).
+
+When fusing a lighthouse observation into its cached prior, the quaternion is
+aligned to the hemisphere of the prior actually restored for that update.
+Changing its sign also changes the position/quaternion covariance cross terms;
+the caller's pose and covariance stay untouched. Without this coordinate change,
+equivalent quaternion signs could produce different physical lighthouse updates.
+`lighthouse_observation.c` covers both prior signs and a stale opposite state.
+The replay controls checked so far do not use this cached-prior branch, so its
+physical regression test does not establish a reduction in recorded jitter.

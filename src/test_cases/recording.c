@@ -3,6 +3,7 @@
 #include "../survive_private.h"
 #include "../survive_config.h"
 #include "../survive_recording.h"
+#include "../survive_kalman_tracker.h"
 #include "../survive_gz.h"
 #include <ctype.h>
 #include <unistd.h>
@@ -117,3 +118,52 @@ static int concurrent_records(bool compressed) {
 
 TEST(Recording, ConcurrentPlainRecords) { return concurrent_records(false); }
 TEST(Recording, ConcurrentGzipRecords) { return concurrent_records(true); }
+
+TEST(Recording, MotionStateKeepsMeasurementEpochAndExportedAcceleration) {
+	char path[] = "/tmp/survive-motion-recording-XXXXXX";
+	int fd = mkstemp(path);
+	RECORD_EQ(fd >= 0, true);
+	close(fd);
+	struct SurviveContext_private private = {.runTimeFn = recording_clock};
+	config_group temporary = {.write_lock = OGCreateMutex()};
+	SurviveContext ctx = {.private_members = &private, .temporary_config_values = &temporary};
+	survive_configs(&ctx, "record", SC_SET | SC_OVERRIDE, path);
+	survive_configi(&ctx, "record-tracking-state", SC_SET | SC_OVERRIDE, 1);
+	survive_install_recording(&ctx);
+	SurviveKalmanTracker tracker = {.state = {.Velocity = {.Pos = {.01, -.02, .03},
+		.AxisAngleRot = {.1, -.2, .3}}}};
+	SurviveObject so = {.ctx = &ctx, .timebase_hz = 48000000, .tracker = &tracker,
+		.acceleration = {.4, -.5, .6}, .OutPoseIMU = {.Rot = {1}}};
+	strcpy(so.codename, "WM0");
+	uint64_t tick = (UINT64_C(1) << 58) + 192000;
+	survive_recording_raw_pose_process(&so, tick, &so.OutPoseIMU);
+	survive_destroy_recording(&ctx);
+	FILE *input = fopen(path, "r");
+	RECORD_EQ(input != NULL, true);
+	char line[1024];
+	bool found = false;
+	while (fgets(line, sizeof(line), input)) {
+		if (!strstr(line, " POSE_MOTION ")) continue;
+		unsigned long long recorded_tick;
+		int hz;
+		double receive, values[9];
+		RECORD_EQ(sscanf(line, "%lf WM0 POSE_MOTION %llu %d %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			&receive, &recorded_tick, &hz, &values[0], &values[1], &values[2], &values[3], &values[4],
+			&values[5], &values[6], &values[7], &values[8]), 12);
+		RECORD_EQ(recorded_tick, tick);
+		RECORD_EQ(hz, 48000000);
+		for (int i = 0; i < 6; i++) ASSERT_DOUBLE_EQ(values[i], ((FLT *)&tracker.state.Velocity)[i]);
+		for (int i = 0; i < 3; i++) ASSERT_DOUBLE_EQ(values[i + 6], so.acceleration[i]);
+		found = true;
+	}
+	fclose(input);
+	unlink(path);
+	RECORD_EQ(found, true);
+	for (int i = 0; i < temporary.used_entries; i++) {
+		free(temporary.config_entries[i].tag);
+		free(temporary.config_entries[i].data);
+	}
+	free(temporary.config_entries);
+	OGDeleteMutex(temporary.write_lock);
+	return 0;
+}

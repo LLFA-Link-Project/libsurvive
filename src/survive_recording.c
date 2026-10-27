@@ -217,17 +217,26 @@ void survive_recording_raw_pose_process(SurviveObject *so, survive_long_timecode
 			(double)so->OutPoseIMU.Rot[0], (double)so->OutPoseIMU.Rot[1],
 			(double)so->OutPoseIMU.Rot[2], (double)so->OutPoseIMU.Rot[3]);
 		if (so->tracker) {
+			const SurviveKalmanModel *state = &so->tracker->state;
+			survive_recording_write_to_output(recordingData,
+				"%s POSE_MOTION %" PRIu64 " %d %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g %.17g\n",
+				so->codename, timecode, so->timebase_hz,
+				(double)state->Velocity.Pos[0], (double)state->Velocity.Pos[1], (double)state->Velocity.Pos[2],
+				(double)state->Velocity.AxisAngleRot[0], (double)state->Velocity.AxisAngleRot[1],
+				(double)state->Velocity.AxisAngleRot[2],
+				(double)so->acceleration[0], (double)so->acceleration[1], (double)so->acceleration[2]);
 			const SurviveIMUBiasModel *bias = &so->tracker->state.IMUBias;
+			CnMat bias_covariance = survive_kalman_tracker_bias_covariance(so->tracker);
 			survive_recording_write_to_output(recordingData,
 				"%s POSE_BIAS %" PRIu64 " %d %.17g %.17g %.17g %.17g %.17g %.17g "
 				"%.17g %.17g %.17g %.17g %.17g %.17g %.17g\n",
-				so->codename, timecode, so->tracker->imu_bias_model.error_state_size,
+				so->codename, timecode, bias_covariance.rows,
 				(double)bias->GyroBias[0], (double)bias->GyroBias[1], (double)bias->GyroBias[2],
 				(double)bias->AccBias[0], (double)bias->AccBias[1], (double)bias->AccBias[2],
 				(double)bias->AccScale[0], (double)bias->AccScale[1], (double)bias->AccScale[2],
 				(double)bias->IMUCorrection[0], (double)bias->IMUCorrection[1],
 				(double)bias->IMUCorrection[2], (double)bias->IMUCorrection[3]);
-			const CnMat *P = &so->tracker->imu_bias_model.P;
+			const CnMat *P = &bias_covariance;
 			int gyro = offsetof(SurviveIMUBiasErrorModel, GyroBias) / sizeof(FLT);
 			int accel = offsetof(SurviveIMUBiasErrorModel, AccBias) / sizeof(FLT);
 			if (P->rows >= gyro + 3)

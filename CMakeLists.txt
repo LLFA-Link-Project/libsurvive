@@ -223,6 +223,12 @@ if(ENABLE_TESTS AND NOT WIN32 AND TARGET driver_usbmon AND TARGET survive-cli)
       ${CMAKE_CURRENT_SOURCE_DIR}/src/test_cases/lighthouse_compare.py)
     add_test(NAME lighthouse_replay COMMAND ${USBMON_TEST_PYTHON}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/test_cases/lighthouse_replay.py)
+    execute_process(COMMAND ${USBMON_TEST_PYTHON} -c "import numpy"
+      RESULT_VARIABLE SURVIVE_MOTION_NUMPY_RESULT OUTPUT_QUIET ERROR_QUIET)
+    if(SURVIVE_MOTION_NUMPY_RESULT EQUAL 0)
+      add_test(NAME lighthouse_motion_metrics COMMAND ${USBMON_TEST_PYTHON}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_lighthouse_motion_metrics.py)
+    endif()
   endif()
 endif()
 
