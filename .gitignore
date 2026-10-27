@@ -24,11 +24,14 @@ build*
 
 # Tool output
 *.json
+!docs/lighthouse-stability-results-20261026.json.gz
 *.config
 *.csv
 calinfo/
 *.log
 *.png
+!docs/lighthouse-stability-gyro-control-20261027.png
+!docs/lighthouse-stability-imu-calibration-20261027.png
 *.sage.py
 *.rec
 *.zip
