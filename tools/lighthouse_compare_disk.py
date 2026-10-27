@@ -229,7 +229,7 @@ def capture_bounds(clock_rows, duration_s=None):
 
 
 def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncated=False,
-        reference_database=None, reference_info=None, duration_s=None):
+        reference_database=None, reference_info=None, duration_s=None, replay_indexer=None):
     db=create_db(database)
     started=time.monotonic()
     try:
@@ -240,7 +240,8 @@ def run(session, recording, database, warmup=10, evaluation_hz=5, allow_truncate
             if not allow_truncated:raise
             clock_integrity='partial: '+str(error)
         clock=comparison.ClockMap(clock_rows)
-        timing=replay_index(db,recording,clock,allow_unbracketed_span=allow_truncated)
+        indexer = replay_index if replay_indexer is None else replay_indexer
+        timing=indexer(db,recording,clock,allow_unbracketed_span=allow_truncated)
         reference_table='reference'
         if reference_database is None:
             reference=reference_index(db,session,allow_truncated=allow_truncated)
