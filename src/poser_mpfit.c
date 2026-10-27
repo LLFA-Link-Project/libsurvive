@@ -537,6 +537,24 @@ static FLT handle_optimizer_results(survive_optimizer *mpfitctx, int res, const 
 		general_optimizer_data_record_failure(&d->opt);
 		return -1;
 	}
+	if (survive_optimizer_has_pose_at_search_limit(mpfitctx)) {
+		// The position limit is a search constraint, not a sensor measurement.
+		// At an active bound MPFIT can zero that coordinate's covariance;
+		// fusing it would turn an uncertain distant solution into a precise
+		// position jump. Keep the last successful seed and await another solve.
+		SV_VERBOSE(100, "MPFIT pose position at search limit %s", survive_colorize(so->codename));
+		general_optimizer_data_record_failure(&d->opt);
+		return -1;
+	}
+	if (survive_optimizer_has_unreliable_pose_covariance(mpfitctx, R)) {
+		// MPFIT zeros dependent coordinates in a rank-deficient solve. That
+		// does not make the resulting pose precise along those directions.
+		// Retain the previous seed and inertial estimate instead of turning
+		// missing optical information into a near-floor pose observation.
+		SV_VERBOSE(100, "MPFIT unreliable pose covariance %s", survive_colorize(so->codename));
+		general_optimizer_data_record_failure(&d->opt);
+		return -1;
+	}
 	bool solvedLHPoses = false;
 	FLT sensor_error = sqrtf(mpfitctx->stats.sensor_error / mpfitctx->stats.sensor_error_cnt);
 	FLT norm_error = sensor_error; // result->bestnorm * d->sensor_variance * d->sensor_variance;

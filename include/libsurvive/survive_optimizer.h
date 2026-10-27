@@ -212,6 +212,15 @@ SURVIVE_EXPORT void survive_optimizer_setup_buffers(survive_optimizer *ctx, FLT 
 													void *measurements_buffer, void *so_buffer);
 
 SURVIVE_EXPORT SurvivePose *survive_optimizer_get_pose(survive_optimizer *ctx);
+// A free object/camera translation at its numerical search bound does not
+// supply a reliable pose observation; MPFIT can report zero covariance there.
+SURVIVE_EXPORT bool survive_optimizer_has_pose_at_search_limit(const survive_optimizer *ctx);
+
+// Detect singular/invalid covariance in free physical pose coordinates after a
+// solve. R is the packed free covariance; fixed coordinates and the quaternion
+// radial gauge are not physical observation directions.
+SURVIVE_EXPORT bool survive_optimizer_has_unreliable_pose_covariance(const survive_optimizer *ctx,
+																  const struct CnMat *R);
 SURVIVE_EXPORT int survive_optimizer_get_velocity_index(const survive_optimizer *ctx);
 SURVIVE_EXPORT SurviveVelocity *survive_optimizer_get_velocity(survive_optimizer *ctx);
 

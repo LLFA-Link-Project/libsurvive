@@ -203,6 +203,174 @@ TEST(Optimizer, ReducedChiSquareUsesResidualDegreesOfFreedom) {
 	return 0;
 }
 
+TEST(Optimizer, AntipodalNearIdentitySeedsHaveTheSamePoseAndCovariance) {
+	for (int gen2 = 0; gen2 < 2; gen2++) {
+		SurvivePose reference = {0};
+		FLT reference_covariance[49] = {0};
+		for (int sign = 0; sign < 2; sign++) {
+			survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .disable_filter = true};
+			survive_optimizer opt = {.settings = &local_settings,
+				.reprojectModel = gen2 ? &survive_reproject_gen2_model : &survive_reproject_gen1_model,
+				.poseLength = 1, .cameraLength = 3, .ptsLength = 6, .disableVelocity = true,
+				.objectUpVectorVariance = -1, .cfg = survive_optimizer_precise_config()};
+			SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+			SurvivePose truth = {.Pos = {.1, -.2, .3}}, seed = truth;
+			LinmathVec3d rotation = {.02, -.01, .03}, near_identity = {1e-9, -2e-9, 3e-9};
+			quatfromaxisanglemag(truth.Rot, rotation);
+			quatfromaxisanglemag(seed.Rot, near_identity);
+			seed.Pos[0] += .01;
+			if (sign) scalend(seed.Rot, seed.Rot, -1, 4);
+			survive_optimizer_setup_pose(&opt, &seed, false, 1);
+			SurvivePose cameras[3] = {{.Pos = {0, 0, 3}, .Rot = {1}},
+				{.Pos = {-1, -.5, 2}, .Rot = {1}}, {.Pos = {1, .5, 2.5}, .Rot = {1}}};
+			for (int lh = 0; lh < 3; lh++) survive_optimizer_setup_camera(&opt, lh, &cameras[lh], true, 1);
+			survive_optimizer_parameter *pts = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_obj_points, 6);
+			memcpy(pts->p, points, sizeof(points));
+			survive_optimizer_parameter *cal = survive_optimizer_emplace_params(&opt, survive_optimizer_parameter_camera_parameters, 3);
+			memset(cal->p, 0, cal->size * sizeof(FLT));
+			BaseStationCal bcal[2] = {0};
+			for (int lh = 0; lh < 3; lh++) for (int sensor = 0; sensor < 6; sensor++) {
+				SurvivePose inverse = InvertPoseRtn(&cameras[lh]);
+				LinmathPoint3d world, in_lh;
+				ApplyPoseToPoint(world, &truth, points + sensor*3);
+				ApplyPoseToPoint(in_lh, &inverse, world);
+				FLT angles[2];
+				opt.reprojectModel->reprojectXY(bcal, in_lh, angles);
+				for (int axis = 0; axis < 2; axis++) {
+					survive_optimizer_measurement *meas = survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_light);
+					meas->light.lh = lh;
+					meas->light.sensor_idx = sensor;
+					meas->light.axis = axis;
+					meas->light.value = angles[axis];
+					meas->variance = .0001;
+				}
+			}
+			CN_CREATE_STACK_MAT(R, 7, 7);
+			mp_result result = {0};
+			ASSERT_GT(survive_optimizer_run(&opt, &result, &R), 0);
+			SurvivePose *solved = survive_optimizer_get_pose(&opt);
+			ASSERT_EQ(survive_optimizer_has_unreliable_pose_covariance(&opt, &R), false);
+			fprintf(stderr, "Near-identity seed gen%d sign%d: position error %.17g, norm %.17g, iterations %d\n",
+				gen2, sign, dist3d(solved->Pos, truth.Pos), result.bestnorm, result.niter);
+			ASSERT_EQ((dist3d(solved->Pos, truth.Pos) < 1e-8), true);
+			// Compare physical rotations and transport the p/q covariance
+			// cross terms when the output quaternion uses the other hemisphere.
+			SurvivePose aligned = *solved;
+			FLT hemisphere = quatinnerproduct(solved->Rot, truth.Rot) < 0 ? -1 : 1;
+			scalend(aligned.Rot, aligned.Rot, hemisphere, 4);
+			ASSERT_QUAT_EQ(aligned.Rot, truth.Rot);
+			FLT aligned_covariance[49];
+			for (int row = 0; row < 7; row++) for (int col = 0; col < 7; col++)
+				aligned_covariance[row*7+col] = cnMatrixGet(&R, row, col) *
+					((row < 3) != (col < 3) ? hemisphere : 1);
+			if (sign == 0) {
+				reference = aligned;
+				memcpy(reference_covariance, aligned_covariance, sizeof(reference_covariance));
+			} else {
+				ASSERT_DOUBLE_ARRAY_EQ(3, reference.Pos, aligned.Pos);
+				ASSERT_QUAT_EQ(reference.Rot, aligned.Rot);
+				ASSERT_DOUBLE_ARRAY_EQ(49, reference_covariance, aligned_covariance);
+			}
+		}
+	}
+	return 0;
+}
+
+TEST(Optimizer, SearchLimitsApplyOnlyToFreePoseCoordinates) {
+	FLT targets[] = {5, -6, 1.999, .25, 5, .25};
+	for (int trial = 0; trial < 6; trial++) {
+		survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .use_quat_model = true,
+			.disable_filter = true};
+		survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
+			.poseLength = 2, .cameraLength = 1, .disableVelocity = true, .objectUpVectorVariance = -1,
+			.cfg = survive_optimizer_precise_config()};
+		SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+		SurvivePose fixed = {.Pos = {20, 0, 0}, .Rot = {1}}, moving = {.Rot = {1}};
+		survive_optimizer_setup_pose_n(&opt, &fixed, 0, true, 1);
+		survive_optimizer_setup_pose_n(&opt, &moving, 1, true, 1);
+		survive_optimizer_setup_camera(&opt, 0, &fixed, true, 1);
+		// Constrain only the second object's x coordinate, using limits that
+		// differ from the ordinary +/-20m. Fixed poses/cameras at their own
+		// bounds must not invalidate this object's interior solution.
+		opt.mp_parameters_info[7].fixed = false;
+		opt.mp_parameters_info[7].limits[0] = -3;
+		opt.mp_parameters_info[7].limits[1] = 2;
+		if (trial == 4)
+			opt.mp_parameters_info[7].limited[1] = false;
+		for (int i = 0; i < 4; i++) {
+			survive_optimizer_measurement *meas =
+				survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+			meas->parameter_bias.parameter_index = 7;
+			meas->parameter_bias.expected_value = targets[trial];
+			meas->variance = .1;
+		}
+		if (trial == 5) {
+			opt.mp_parameters_info[14].fixed = false;
+			for (int i = 0; i < 4; i++) {
+				survive_optimizer_measurement *meas =
+					survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+				meas->parameter_bias.parameter_index = 14;
+				meas->parameter_bias.expected_value = 25;
+				meas->variance = .1;
+			}
+		}
+		CN_CREATE_STACK_MAT(R, 21, 21);
+		mp_result result = {0};
+		ASSERT_EQ((survive_optimizer_run(&opt, &result, &R) > 0), true);
+		ASSERT_EQ(survive_optimizer_has_pose_at_search_limit(&opt), trial < 2 || trial == 5);
+		ASSERT_EQ(result.nfree, trial == 5 ? 2 : 1);
+		if (trial < 2) {
+			ASSERT_DOUBLE_EQ(opt.parameters[7], trial == 0 ? 2. : -3.);
+			ASSERT_GT(result.bestnorm, 0.);
+			// A successful constrained solve returns zero covariance even
+			// though its observations disagree with the constrained position.
+			ASSERT_DOUBLE_EQ(cnMatrixGet(&R, 0, 0), 0.);
+		} else {
+			ASSERT_DOUBLE_EQ(opt.parameters[7], targets[trial]);
+			ASSERT_GT(cnMatrixGet(&R, 0, 0), 0.);
+		}
+	}
+	return 0;
+}
+
+TEST(Optimizer, SingularPoseCovarianceDoesNotDescribeACompleteObservation) {
+	for (int camera = 0; camera < 2; camera++) for (int complete = 0; complete < 2; complete++) {
+		survive_optimizer_settings local_settings = {.optimize_scale_threshold = -1, .disable_filter = true};
+		survive_optimizer opt = {.settings = &local_settings, .reprojectModel = &survive_reproject_gen1_model,
+			.poseLength = 2, .cameraLength = 1, .disableVelocity = true, .objectUpVectorVariance = -1,
+			.cfg = survive_optimizer_precise_config()};
+		SURVIVE_OPTIMIZER_SETUP_STACK_BUFFERS(opt, 0);
+		SurvivePose anchor = {.Pos = {20, 0, 0}, .Rot = {1}}, seed = {.Pos = {.1, -.2, .3}};
+		LinmathVec3d rotation = {.4, -.2, .3};
+		quatfromaxisanglemag(seed.Rot, rotation);
+		survive_optimizer_setup_pose_n(&opt, &anchor, 0, true, 1);
+		survive_optimizer_setup_pose_n(&opt, &seed, 1, camera, 1);
+		survive_optimizer_setup_camera(&opt, 0, &seed, !camera, 1);
+		int start = camera ? survive_optimizer_get_camera_index(&opt) : 7;
+		SurvivePose *selected = camera ? survive_optimizer_get_camera(&opt) : survive_optimizer_get_pose(&opt)+1;
+		LinmathVec3d expected_rotation;
+		quattoaxisanglemag(expected_rotation, selected->Rot);
+		for (int coordinate = 0; coordinate < (complete ? 6 : 5); coordinate++) for (int repeat = 0; repeat < 4; repeat++) {
+			survive_optimizer_measurement *meas =
+				survive_optimizer_emplace_meas(&opt, survive_optimizer_measurement_type_parameters_bias);
+			meas->parameter_bias.parameter_index = start+coordinate;
+			meas->parameter_bias.expected_value = coordinate < 3 ? selected->Pos[coordinate] : expected_rotation[coordinate-3];
+			meas->variance = .1;
+		}
+		CN_CREATE_STACK_MAT(R, 21, 21);
+		mp_result result = {0};
+		ASSERT_EQ((survive_optimizer_run(&opt, &result, &R) > 0), true);
+		ASSERT_EQ(result.nfree, 6);
+		ASSERT_EQ(R.rows, 7);
+		// The unobserved axis-angle direction is mixed across quaternion
+		// components: every returned diagonal remains strictly positive.
+		for (int i = 0; i < R.rows; i++) ASSERT_GT(cnMatrixGet(&R, i, i), 0.);
+		ASSERT_EQ(survive_optimizer_has_unreliable_pose_covariance(&opt, &R), !complete);
+		ASSERT_EQ(survive_optimizer_has_unreliable_pose_covariance(&opt, NULL), false);
+	}
+	return 0;
+}
+
 TEST(Optimizer, OpticalHuberLossLeavesSmallResidualsAndPriorsUnchanged) {
 	for (int gen2 = 0; gen2 < 2; gen2++) {
 		for (int separate = 0; separate < 2; separate++) {

@@ -16,6 +16,7 @@
 #include "survive_default_devices.h"
 #include "survive_kalman_tracker.h"
 #include "survive_recording.h"
+#include <float.h>
 
 #if !defined(__FreeBSD__) && !defined(__APPLE__)
 #include <cnmatrix/cn_matrix.h>
@@ -1346,6 +1347,88 @@ SURVIVE_EXPORT void survive_optimizer_covariance_expand(survive_optimizer *optim
 		}
 	}
 }
+
+
+bool survive_optimizer_has_pose_at_search_limit(const survive_optimizer *optimizer) {
+	for (size_t block = 0; block < optimizer->parameterBlockCnt; block++) {
+		const survive_optimizer_parameter *poses = &optimizer->parameters_info[block];
+		if (poses->param_type != survive_optimizer_parameter_object_pose &&
+			poses->param_type != survive_optimizer_parameter_camera)
+			continue;
+		for (size_t pose = 0; pose + 3 <= poses->size; pose += 7) {
+			for (int axis = 0; axis < 3; axis++) {
+				size_t index = poses->p_idx + pose + axis;
+				const mp_par *info = &optimizer->mp_parameters_info[index];
+				FLT value = optimizer->parameters[index];
+				if (!info->fixed && ((info->limited[0] && value <= info->limits[0]) ||
+									(info->limited[1] && value >= info->limits[1])))
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool survive_optimizer_has_unreliable_pose_covariance(const survive_optimizer *optimizer, const CnMat *R) {
+	if (!R) return false;
+	int *free_index = alloca(optimizer->parametersCnt * sizeof(int));
+	int free_count = 0;
+	for (size_t i = 0; i < optimizer->parametersCnt; i++)
+		free_index[i] = optimizer->mp_parameters_info[i].fixed ? -1 : free_count++;
+	if (R->rows != free_count || R->cols != free_count) return true;
+	for (size_t block = 0; block < optimizer->parameterBlockCnt; block++) {
+		const survive_optimizer_parameter *poses = &optimizer->parameters_info[block];
+		if (poses->param_type != survive_optimizer_parameter_object_pose &&
+			poses->param_type != survive_optimizer_parameter_camera) continue;
+		for (size_t pose = 0; pose + 7 <= poses->size; pose += 7) {
+			size_t start = poses->p_idx + pose;
+			FLT G[6][7] = {{0}}, covariance[6][6] = {{0}}, scale[6], L[6][6] = {{0}};
+			int dimensions = 0;
+			for (int i = 0; i < 3; i++)
+				if (free_index[start+i] >= 0) G[dimensions++][i] = 1;
+			bool free_rotation = true;
+			for (int i = 3; i < 7; i++) free_rotation &= free_index[start+i] >= 0;
+			if (free_rotation) {
+				const FLT *q = optimizer->parameters + start + 3;
+				FLT norm2 = dotnd(q, q, 4);
+				if (!(norm2 > 0) || !isfinite(norm2)) return true;
+				FLT skew[3][3] = {{0, -q[3], q[2]}, {q[3], 0, -q[1]}, {-q[2], q[1], 0}};
+				for (int row = 0; row < 3; row++) {
+					G[dimensions+row][3] = -2*q[row+1]/norm2;
+					for (int col = 0; col < 3; col++)
+						G[dimensions+row][col+4] = 2*((row == col ? q[0] : 0)+skew[row][col])/norm2;
+				}
+				dimensions += 3;
+			}
+			// Fully free rotations use their three physical tangent directions.
+			// Partially fixed quaternion components retain only the translation
+			// check, rather than treating their deliberate constraints as losses
+			// of observability. Fully fixed pose components supply no rows.
+			for (int row = 0; row < dimensions; row++) for (int col = 0; col < dimensions; col++)
+				for (int i = 0; i < 7; i++) if (free_index[start+i] >= 0)
+					for (int j = 0; j < 7; j++) if (free_index[start+j] >= 0)
+						covariance[row][col] += G[row][i]*cnMatrixGet(R, free_index[start+i], free_index[start+j])*G[col][j];
+			for (int i = 0; i < dimensions; i++) {
+				if (!(covariance[i][i] > 0) || !isfinite(covariance[i][i])) return true;
+				scale[i] = sqrt(covariance[i][i]);
+			}
+			// Work with a dimensionless correlation matrix, so metres/radians
+			// and absolute variance do not determine this numerical rank test.
+			FLT precision = sizeof(FLT) == sizeof(float) ? FLT_EPSILON : DBL_EPSILON;
+			for (int row = 0; row < dimensions; row++) for (int col = 0; col <= row; col++) {
+				FLT value = .5*(covariance[row][col]+covariance[col][row])/(scale[row]*scale[col]);
+				for (int k = 0; k < col; k++) value -= L[row][k]*L[col][k];
+				if (!isfinite(value)) return true;
+				if (row == col) {
+					if (value <= 64*precision) return true;
+					L[row][col] = sqrt(value);
+				} else L[row][col] = value/L[col][col];
+			}
+		}
+	}
+	return false;
+}
+
 int survive_optimizer_run(survive_optimizer *optimizer, struct mp_result_struct *result, struct CnMat *R) {
 	SurviveContext *ctx = optimizer->sos[0] ? optimizer->sos[0]->ctx : 0;
 
