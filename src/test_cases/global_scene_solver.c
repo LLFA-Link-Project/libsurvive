@@ -1,4 +1,6 @@
 #include "test_case.h"
+#include "../survive_config.h"
+#include "../survive_private.h"
 #include "../driver_global_scene_solver.c"
 
 static int deferred_solve_calls;
@@ -40,6 +42,47 @@ TEST(GlobalScenes, DeferredSolveDiscardsDisconnectedObjects) {
 	OGDeleteMutex(gss.scenes_lock);
 	for (int i = 0; i < 3; i++)
 		free(gss.scenes[i].meas);
+	return 0;
+}
+
+static int solve_scene_below_previous_floor(SurviveObject *so, PoserData *pd) {
+	PoserDataGlobalScenes *scenes = (PoserDataGlobalScenes *)pd;
+	scenes->scenes[0].pose.Pos[2] -= .25;
+	return 0;
+}
+
+TEST(GlobalScenes, CalibrationKeepsOutputFloorFixedUnlessRequested) {
+	for (int enabled = 0; enabled < 2; enabled++) {
+		struct SurviveContext_private private = {0};
+		SurviveContext ctx = {.PoserFn = solve_scene_below_previous_floor, .objs_ct = 1, .floor_offset = .1,
+			.private_members = &private};
+		struct config_group temporary = {.write_lock = OGCreateMutex(), .ctx = &ctx};
+		ctx.temporary_config_values = &temporary;
+		ctx.global_config_values = &temporary;
+		survive_configs(&ctx, "configfile", SC_SET | SC_OVERRIDE, "/dev/null");
+		if (enabled)
+			survive_configi(&ctx, "gss-auto-floor-height", SC_SET | SC_OVERRIDE, 1);
+		SurviveObject live = {.ctx = &ctx};
+		SurviveObject *objects[] = {&live};
+		ctx.objs = objects;
+		global_scene_solver gss = {.ctx = &ctx, .scenes_cnt = 1, .scenes_lock = OGCreateMutex()};
+		gss.scenes[0].so = &live;
+		gss.scenes[0].pose.Rot[0] = 1;
+		global_scene_solver_attach_config(&ctx, &gss);
+		for (int i = 0; i < 3; i++) {
+			ASSERT_EQ(run_optimization(&gss), true);
+			ASSERT_DOUBLE_EQ(survive_get_floor_offset(&ctx), enabled ? -.25 * (i + 1) : .1);
+		}
+		global_scene_solver_detach_config(&ctx, &gss);
+		OGDeleteMutex(gss.scenes_lock);
+		for (int i = 0; i < temporary.used_entries; i++) {
+			ASSERT_EQ(temporary.config_entries[i].update_list, NULL);
+			free(temporary.config_entries[i].tag);
+			free(temporary.config_entries[i].data);
+		}
+		free(temporary.config_entries);
+		OGDeleteMutex(temporary.write_lock);
+	}
 	return 0;
 }
 
@@ -106,9 +149,6 @@ TEST(GlobalScenes, SparseCandidatePreservesAcceptedScene) {
 
 // The main close path owns poll_sema while a solver may need to retake it.
 // No hardware or optimization is required to reproduce that lock cycle.
-#include "../survive_config.h"
-#include "../survive_private.h"
-
 struct close_waiter {
 	global_scene_solver *gss;
 	og_sema_t ready;

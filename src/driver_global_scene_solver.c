@@ -51,7 +51,7 @@ typedef struct global_scene_solver {
 STRUCT_CONFIG_SECTION(global_scene_solver)
 	STRUCT_CONFIG_ITEM("gss-threaded", "Thread GSS iterations", 1, t->threaded)
 	STRUCT_CONFIG_ITEM("gss-desired-coverage", "Number of measurements to saturate a bin", 30, t->desired_coverage)
-	STRUCT_CONFIG_ITEM("gss-auto-floor-height", "Automatically use the lowest position to set the floor offset", 1, t->auto_floor)
+	STRUCT_CONFIG_ITEM("gss-auto-floor-height", "Continuously move the output floor to the lowest stored scene (opt in)", 0, t->auto_floor)
 END_STRUCT_CONFIG_SECTION(global_scene_solver)
 
 static bool scene_object_alive(SurviveContext *ctx, const SurviveObject *so, const SurviveObject *candidate) {
