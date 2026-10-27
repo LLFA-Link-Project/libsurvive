@@ -341,6 +341,17 @@ SURVIVE_EXPORT void survive_kalman_lighthouse_integrate_observation(SurviveKalma
 			tracker->state = tracker->push_state;
 		}
 
+		// q and -q describe the same lighthouse orientation. The Euclidean
+		// observation model must use the hemisphere of the prior actually
+		// restored above. Its covariance changes coordinates along with q,
+		// including the position/quaternion cross terms.
+		if (quatinnerproduct(Z.Rot, tracker->state.Lighthouse.Rot) < 0) {
+			for (int i = 0; i < 4; i++) Z.Rot[i] *= -1;
+			for (int i = 0; i < 7; i++)
+				for (int j = 0; j < 7; j++)
+					if ((i < 3) != (j < 3)) cnMatrixSet(&R, i, j, -cnMatrixGet(&R, i, j));
+		}
+
 		FLT v[7] = {0};
 		cn_get_diag(&R, v, 7);
 
