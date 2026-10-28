@@ -29,7 +29,7 @@ STRUCT_CONFIG_SECTION(SurviveKalmanTracker)
 	STRUCT_CONFIG_ITEM("light-error-threshold",  "Error limit to invalidate position",
 					   -1., t->light_error_threshold)
 	STRUCT_CONFIG_ITEM("min-report-time",
-					   "Minimum kalman report time in s (-1 defaults to 1. / imu_hz)", -1., t->min_report_time)
+					   "Minimum report interval in s (-1 uses nominal IMU cadence with 1% clock tolerance)", -1., t->min_report_time)
 	STRUCT_CONFIG_ITEM("report-covariance", "Report covariance matrix every n poses", -1, t->report_covariance_cnt);
 	STRUCT_CONFIG_ITEM("report-sampled-cloud", "Show sample cloud from covariance", false, t->report_sampled_cloud);
 
@@ -1653,14 +1653,22 @@ void survive_kalman_tracker_report_state(PoserData *pd, SurviveKalmanTracker *tr
 	}
 
 	SurviveContext *ctx = tracker->so->ctx;
-	if (tracker->min_report_time < 0) {
-		tracker->min_report_time = 1. / tracker->so->imu_freq;
-		SV_VERBOSE(10, "Setting min report time for %s to %f ms", survive_colorize(tracker->so->codename),
-				   tracker->min_report_time * 1000.);
-	}
-
-	if (t - tracker->last_report_time < tracker->min_report_time) {
-		return;
+	if (tracker->stats.reported_poses) {
+		if (pd->timecode <= tracker->last_report_timecode)
+			return;
+		double minimum = tracker->min_report_time;
+		if (minimum < 0) {
+			// Nominal 250 Hz IMUs can run slightly faster (e.g. 3.989 ms).
+			// A strict 4 ms minimum drops every other sample. Allow 1% clock
+			// variation only for the default, retaining a rate limit for light
+			// updates between IMU samples. Explicit limits receive no slack.
+			minimum = so->imu_freq > 0 ? .99 / so->imu_freq : 0;
+		}
+		// Quantize the requested interval to the nearest sensor tick. Avoid
+		// subtracting large floating-point times at exact-period boundaries.
+		double minimum_ticks = floor(minimum * so->timebase_hz + .5);
+		if ((double)(pd->timecode - tracker->last_report_timecode) < minimum_ticks)
+			return;
 	}
 
 	if (!survive_kalman_tracker_check_valid(tracker)) {
@@ -1705,7 +1713,7 @@ void survive_kalman_tracker_report_state(PoserData *pd, SurviveKalmanTracker *tr
 	tracker->so->poseConfidence = 1. / p_threshold;
 
     if(tracker->last_report_time > 0) {
-        FLT dt = t - tracker->last_report_time;
+        FLT dt = (pd->timecode - tracker->last_report_timecode) / (FLT)so->timebase_hz;
         struct survive_kalman_model_t diff = { 0 };
         subnd((FLT *) &diff, (FLT *) &tracker->state, (FLT *) &tracker->previous_state, state_cnt);
         scalend((FLT *) &diff, (FLT *) &diff, 1. / dt, state_cnt);
@@ -1715,6 +1723,7 @@ void survive_kalman_tracker_report_state(PoserData *pd, SurviveKalmanTracker *tr
     }
 
     tracker->last_report_time = t;
+	tracker->last_report_timecode = pd->timecode;
 
     if(tracker->report_covariance_cnt > 0 && tracker->stats.reported_poses % tracker->report_covariance_cnt == 0) {
 		survive_recording_write_to_output(ctx->recptr, "%s FULL_STATE " Point27_format "\n",

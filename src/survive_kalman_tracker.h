@@ -150,6 +150,9 @@ typedef struct SurviveKalmanTracker {
 
 	struct variance_tracker imu_variance, pose_variance;
 	struct variance_tracker light_variance[NUM_GEN2_LIGHTHOUSES][SENSORS_PER_OBJECT][2];
+
+	// Sensor ticks keep report throttling independent of floating-point epoch size.
+	survive_long_timecode last_report_timecode;
 } SurviveKalmanTracker;
 
 SURVIVE_EXPORT SurviveVelocity survive_kalman_tracker_velocity(const SurviveKalmanTracker *tracker);
