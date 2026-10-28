@@ -337,7 +337,11 @@ static int DriverRegGlobalSceneSolverClose(struct SurviveContext *ctx, void *dri
 		gss->active = 0;
 		OGSignalCond(gss->data_available);
 		OGUnlockMutex(gss->data_available_lock);
+		// The worker takes the context lock before/after optimization.
+		// Do not retain it while joining: survive_close is called with it held.
+		survive_release_ctx_lock(ctx);
 		OGJoinThread(gss->thread);
+		survive_get_ctx_lock(ctx);
 		OGDeleteConditionVariable(gss->data_available);
 
 		OGDeleteMutex(gss->data_available_lock);
@@ -411,9 +415,9 @@ void *survive_threaded_gss_thread_fn(void *_poser) {
 	while (self->active) {
 		OGWaitCond(self->data_available, self->data_available_lock);
 
-		while (self->needsSolve) {
-			OGUnlockMutex(self->data_available_lock);
+		while (self->active && self->needsSolve) {
 			self->needsSolve = false;
+			OGUnlockMutex(self->data_available_lock);
 			survive_get_ctx_lock(self->ctx);
 			run_optimization(self);
 			survive_release_ctx_lock(self->ctx);
