@@ -3,6 +3,10 @@ SET(SURVIVE_TESTS
         check_generated barycentric_svd optimizer
         rotate_angvel export_config kalman_reporting sensor_activations)
 
+if(TARGET driver_global_scene_solver)
+    list(APPEND SURVIVE_TESTS global_scene_solver)
+endif()
+
 set(barycentric_svd_ADDITIONAL_SRCS ../barycentric_svd/barycentric_svd.c)
 
 IF(NOT WIN32)

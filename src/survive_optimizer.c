@@ -653,32 +653,38 @@ static void filter_measurements(survive_optimizer *optimizer, FLT *deviates) {
 	optimizer->stats.total_meas_cnt += optimizer->measurementsCnt;
 
 	size_t valid_meas = 0;
-	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+	for (int i = 0, residual = 0; i < optimizer->measurementsCnt;
+		 residual += optimizer->measurements[i].size, i++) {
 		survive_optimizer_measurement *meas = &optimizer->measurements[i];
-		if (meas->meas_type == survive_optimizer_measurement_type_light) {
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid) {
 			SV_DATA_LOG("mpfit_meas_val[%d][%d][%d]", &meas->light.value, 1, meas->light.sensor_idx, meas->light.lh,
 						meas->light.axis);
 			SV_DATA_LOG("mpfit_meas_var[%d][%d][%d]", &meas->variance, 1, meas->light.sensor_idx, meas->light.lh,
 						meas->light.axis);
-			SV_DATA_LOG("mpfit_meas_err[%d][%d][%d]", deviates, 1, meas->light.sensor_idx, meas->light.lh,
+			SV_DATA_LOG("mpfit_meas_err[%d][%d][%d]", deviates + residual, 1, meas->light.sensor_idx, meas->light.lh,
 						meas->light.axis);
 
-			avg_dev += fabs(deviates[i] * meas->variance);
+			avg_dev += fabs(deviates[residual] * meas->variance);
 			valid_meas++;
 		}
 	}
 
+	if (valid_meas == 0) {
+		optimizer->needsFiltering = false;
+		return;
+	}
 	avg_dev = avg_dev / (FLT)valid_meas;
 	SV_DATA_LOG("opt_avg_deviates", &avg_dev, 1);
 	if (avg_dev < .01) {
 		avg_dev = .01;
 	}
-	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+	for (int i = 0, residual = 0; i < optimizer->measurementsCnt;
+		 residual += optimizer->measurements[i].size, i++) {
 		survive_optimizer_measurement *meas = &optimizer->measurements[i];
-		if (meas->meas_type == survive_optimizer_measurement_type_light) {
+		if (meas->meas_type == survive_optimizer_measurement_type_light && !meas->invalid) {
 
 			FLT chauvenet_criterion =
-				linmath_chauvenet_criterion(deviates[i] * meas->variance, 0, avg_dev, optimizer->measurementsCnt);
+				linmath_chauvenet_criterion(deviates[residual] * meas->variance, 0, avg_dev, optimizer->measurementsCnt);
 			if (chauvenet_criterion < .5 && false) {
 				meas->invalid = true;
 				optimizer->stats.dropped_meas_cnt++;
@@ -687,21 +693,22 @@ static void filter_measurements(survive_optimizer *optimizer, FLT *deviates) {
 						   "Ignoring noisy data at lh %d sensor %d axis %2d val %f (err: %7.7f/dev: %7.7f/cnt: %d) "
 						   "chauv: %7.7f",
 						   meas->light.lh, meas->light.sensor_idx, meas->light.axis, meas->light.value,
-						   fabs(deviates[i] * meas->variance), avg_dev, (int)optimizer->measurementsCnt,
+						   fabs(deviates[residual] * meas->variance), avg_dev, (int)optimizer->measurementsCnt,
 						   chauvenet_criterion);
 
-				deviates[i] = 0.;
+				deviates[residual] = 0.;
 			} else {
 				SV_VERBOSE(1000, "Data at lh %d sensor %d axis %d val %f (%7.7f/%7.7f)", meas->light.lh,
-						   meas->light.sensor_idx, meas->light.axis, meas->light.value, fabs(deviates[i]), avg_dev);
+						   meas->light.sensor_idx, meas->light.axis, meas->light.value, fabs(deviates[residual]), avg_dev);
 			}
 		}
 	}
 
-	for (int i = 0; i < optimizer->measurementsCnt; i++) {
+	for (int i = 0, residual = 0; i < optimizer->measurementsCnt;
+		 residual += optimizer->measurements[i].size, i++) {
 		survive_optimizer_measurement *meas = &optimizer->measurements[i];
 		if (meas->meas_type == survive_optimizer_measurement_type_light && meas->invalid == false) {
-			lh_deviates[meas->light.lh] += fabs(deviates[i] * meas->variance);
+			lh_deviates[meas->light.lh] += fabs(deviates[residual] * meas->variance);
 			lh_meas_cnt[meas->light.lh]++;
 		}
 	}
@@ -719,7 +726,7 @@ static void filter_measurements(survive_optimizer *optimizer, FLT *deviates) {
 		}
 	}
 
-	FLT unbias_dev = lh_avg_dev / (obs_lhs - 1.);
+	FLT unbias_dev = obs_lhs > 1 ? lh_avg_dev / (obs_lhs - 1.) : 0;
 	lh_avg_dev = lh_avg_dev / (FLT)obs_lhs;
 
 	if (lh_avg_dev < .01) {
@@ -879,6 +886,7 @@ static int mpfunc(int m, int n, FLT *p, FLT *deviates, FLT **derivs, void *priva
 				mea_block_idx + 1 < mpfunc_ctx->measurementsCnt && mpfunc_ctx->disableVelocity == true &&
 				meas[1].meas_type == survive_optimizer_measurement_type_light && meas[0].light.axis == 0 &&
 				meas[1].light.axis == 1 && meas[0].light.sensor_idx == meas[1].light.sensor_idx && !meas[1].invalid &&
+				meas[0].light.object == meas[1].light.object && meas[0].light.lh == meas[1].light.lh &&
 				!mpfunc_ctx->settings->disallow_pair_calc;
 
 			const int lh = meas->light.lh;
